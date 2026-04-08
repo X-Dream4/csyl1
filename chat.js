@@ -141,13 +141,21 @@ window.useChatLogic = function(state) {
             return { id, avatar: user.avatar, name: acc.profile?.nickname || user.chatName || user.name || '未命名', chatAcc: user.chatAcc || '' };
         }).filter(Boolean);
     });
+const getRemarkNameByFriendId = (friendId) => {
+    if (!currentAccountData.value) return '';
+    const conv = (currentAccountData.value.conversations || []).find(item =>
+        item.type === 'private' && item.targetId === friendId
+    );
+    return String(conv?.settings?.remarkName || '').trim();
+};
 
-    const getDisplayNameById = (id) => {
-        const user = getPersonaById(id);
-        if (!user) return '未知用户';
-        ensureAccountData(id);
-        return chatDb.value.accounts[id]?.profile?.nickname || user.chatName || user.name || '未知用户';
-    };
+const getDisplayNameById = (id) => {
+    const user = getPersonaById(id);
+    if (!user) return '未知用户';
+    ensureAccountData(id);
+    const remarkName = getRemarkNameByFriendId(id);
+    return remarkName || user.chatName || user.name || '未知用户';
+};
 
     const restoreSession = () => {
         const sessionId = chatDb.value.sessionUserId;
@@ -443,16 +451,16 @@ return {
         const publicCard = acc?.profile?.publicCard || {};
         const moments = Array.isArray(acc?.profile?.moments) ? acc.profile.moments : [];
         return {
-            ...persona,
-            id,
-            displayName: acc?.profile?.nickname || persona.chatName || persona.name || '未命名',
-            profileBg: acc?.profile?.bg || '',
-            signature: acc?.profile?.signature || '',
-            status: acc?.status || '在线',
-            statusColor: acc?.statusColor || '#52c41a',
-            publicCard,
-            moments
-        };
+    ...persona,
+    id,
+    displayName: persona.chatName || persona.name || acc?.profile?.nickname || '未命名',
+    profileBg: acc?.profile?.bg || '',
+    signature: acc?.profile?.signature || '',
+    status: acc?.status || '在线',
+    statusColor: acc?.statusColor || '#52c41a',
+    publicCard,
+    moments
+};
     });
 
     const activeFriendMoments = computed(() => {

@@ -4,7 +4,7 @@ window.useContactsLogic = function(state) {
     const contactsTab = ref('chars');
     const modals = reactive({ char: false, world: false, wb: false, wbCat: false, relSelect: false, relEdit: false });
 
-    const charForm = reactive({ isMe: false, worldId: '', name: '', avatar: '', persona: '' });
+    const charForm = reactive({ isMe: false, worldId: '', name: '', avatar: '', persona: '', phoneLockType: 'num' });
     const wbForm = reactive({ categoryId: '', keywords: '', content: '' });
 
     const activeChar = ref(null);
@@ -53,15 +53,16 @@ window.useContactsLogic = function(state) {
         }
     };
 
-    const openAddChar = (isMe = false) => {
-        if (!worlds.value.length) return alert('请先新建一个世界分类！');
-        charForm.isMe = isMe;
-        charForm.worldId = worlds.value[0]?.id || '';
-        charForm.name = '';
-        charForm.avatar = '';
-        charForm.persona = '';
-        modals.char = true;
-    };
+const openAddChar = (isMe = false) => {
+    if (!worlds.value.length) return alert('请先新建一个世界分类！');
+    charForm.isMe = isMe;
+    charForm.worldId = worlds.value[0]?.id || '';
+    charForm.name = '';
+    charForm.avatar = '';
+    charForm.persona = '';
+    charForm.phoneLockType = 'num';
+    modals.char = true;
+};
 
     const triggerAvatarUpload = (targetObj) => {
         const input = document.createElement('input');
@@ -81,12 +82,13 @@ window.useContactsLogic = function(state) {
         if (!charForm.worldId) return alert('请选择所属的世界分类');
         if (!charForm.name.trim()) return alert('请输入姓名');
 
-        const newChar = {
-            id: 'char_' + Date.now(), isMe: charForm.isMe, worldId: charForm.worldId,
-            name: charForm.name.trim(), chatName: charForm.name.trim(), avatar: charForm.avatar,
-            persona: charForm.persona.trim(), phone: '', email: '', chatAcc: '', chatPwd: '',
-            lockPwdNum: '', lockPwdPat: '', lockPwdQA_Q: '', lockPwdQA_A: ''
-        };
+const newChar = {
+    id: 'char_' + Date.now(), isMe: charForm.isMe, worldId: charForm.worldId,
+    name: charForm.name.trim(), chatName: charForm.name.trim(), avatar: charForm.avatar,
+    persona: charForm.persona.trim(), phone: '', email: '', chatAcc: '', chatPwd: '',
+    phoneLockType: charForm.phoneLockType || 'num',
+    lockPwdNum: '', lockPwdPat: '', lockPwdQA_Q: '', lockPwdQA_A: ''
+};
 
         if (charForm.isMe) {
             if (!contactsDb.value.myPersonas) contactsDb.value.myPersonas = [];
@@ -116,17 +118,23 @@ window.useContactsLogic = function(state) {
         modals.wb = false;
     };
 
-    const ensureCharFields = (char) => {
-        if (char.chatName === undefined) char.chatName = char.name || '';
-        if (char.phone === undefined) char.phone = '';
-        if (char.email === undefined) char.email = '';
-        if (char.chatAcc === undefined) char.chatAcc = '';
-        if (char.chatPwd === undefined) char.chatPwd = '';
-        if (char.lockPwdNum === undefined) char.lockPwdNum = '';
-        if (char.lockPwdPat === undefined) char.lockPwdPat = '';
-        if (char.lockPwdQA_Q === undefined) char.lockPwdQA_Q = '';
-        if (char.lockPwdQA_A === undefined) char.lockPwdQA_A = '';
-    };
+const ensureCharFields = (char) => {
+    if (char.chatName === undefined) char.chatName = char.name || '';
+    if (char.phone === undefined) char.phone = '';
+    if (char.email === undefined) char.email = '';
+    if (char.chatAcc === undefined) char.chatAcc = '';
+    if (char.chatPwd === undefined) char.chatPwd = '';
+    if (char.lockPwdNum === undefined) char.lockPwdNum = '';
+    if (char.lockPwdPat === undefined) char.lockPwdPat = '';
+    if (char.lockPwdQA_Q === undefined) char.lockPwdQA_Q = '';
+    if (char.lockPwdQA_A === undefined) char.lockPwdQA_A = '';
+    if (char.phoneLockType === undefined || !['num', 'pattern', 'qa'].includes(char.phoneLockType)) {
+        if (char.lockPwdNum) char.phoneLockType = 'num';
+        else if (char.lockPwdPat) char.phoneLockType = 'pattern';
+        else if (char.lockPwdQA_Q || char.lockPwdQA_A) char.phoneLockType = 'qa';
+        else char.phoneLockType = 'num';
+    }
+};
 
     const openCharDetail = (char) => {
         ensureCharFields(char);
@@ -214,36 +222,50 @@ window.useContactsLogic = function(state) {
         return value;
     };
 
-    const normalizeGeneratedFields = (char, rawData) => {
-        const roleKey = getAsciiRoleKey(char); const theme = getRoleThemeWord(char); const salt = `${char.id}_${char.name}_${char.persona}_${theme}`;
-        
-        let chatName = String(rawData.chatName || char.name || '').slice(0, 15);
-        let phone = buildDigits(salt + '_phone_fix', 7);
-        phone = ensureUniqueByField(phone, 'phone', char, (i) => buildDigits(salt + '_phone_' + i, 7));
+const normalizeGeneratedFields = (char, rawData) => {
+    const roleKey = getAsciiRoleKey(char);
+    const theme = getRoleThemeWord(char);
+    const salt = `${char.id}_${char.name}_${char.persona}_${theme}`;
+    
+    let chatName = String(rawData.chatName || char.name || '').slice(0, 15);
 
-        let email = `${(theme + roleKey + buildAlphaNum(salt + '_mail_fix', 3)).slice(0, 16)}@youl.com`;
-        email = ensureUniqueByField(email, 'email', char, (i) => `${(theme + roleKey + buildAlphaNum(salt + '_mail_' + i, 3)).slice(0, 16)}@youl.com`);
+    let phone = buildDigits(salt + '_phone_fix', 7);
+    phone = ensureUniqueByField(phone, 'phone', char, (i) => buildDigits(salt + '_phone_' + i, 7));
 
-        let chatAcc = String(rawData.chatAcc || '').replace(/[^a-zA-Z0-9]/g, '').slice(0, 18);
-        if(chatAcc.length < 5) chatAcc = (theme + roleKey + buildAlphaNum(salt + '_acc_fix', 4)).slice(0, 18);
-        chatAcc = ensureUniqueByField(chatAcc, 'chatAcc', char, (i) => (theme + roleKey + buildAlphaNum(salt + '_acc_' + i, 4)).slice(0, 18));
+    let email = `${(theme + roleKey + buildAlphaNum(salt + '_mail_fix', 3)).slice(0, 16)}@youl.com`;
+    email = ensureUniqueByField(email, 'email', char, (i) => `${(theme + roleKey + buildAlphaNum(salt + '_mail_' + i, 3)).slice(0, 16)}@youl.com`);
 
-        let chatPwd = String(rawData.chatPwd || '').replace(/[^a-zA-Z0-9]/g, '').slice(0, 12);
-        if(chatPwd.length < 4) chatPwd = (theme + buildAlphaNum(salt + '_pwd_fix', 6)).slice(0, 8);
-        chatPwd = ensureUniqueByField(chatPwd, 'chatPwd', char, (i) => (theme + buildAlphaNum(salt + '_pwd_' + i, 6)).slice(0, 8));
+    let chatAcc = String(rawData.chatAcc || '').replace(/[^a-zA-Z0-9]/g, '').slice(0, 18);
+    if (chatAcc.length < 5) chatAcc = (theme + roleKey + buildAlphaNum(salt + '_acc_fix', 4)).slice(0, 18);
+    chatAcc = ensureUniqueByField(chatAcc, 'chatAcc', char, (i) => (theme + roleKey + buildAlphaNum(salt + '_acc_' + i, 4)).slice(0, 18));
 
-        let lockPwdNum = String(rawData.lockPwdNum || '').replace(/\D/g, '').slice(0,6);
-        if(lockPwdNum.length !== 4 && lockPwdNum.length !== 6) lockPwdNum = buildDigits(salt + '_lock_num_fix', 6);
+    let chatPwd = String(rawData.chatPwd || '').replace(/[^a-zA-Z0-9]/g, '').slice(0, 12);
+    if (chatPwd.length < 4) chatPwd = (theme + buildAlphaNum(salt + '_pwd_fix', 6)).slice(0, 8);
+    chatPwd = ensureUniqueByField(chatPwd, 'chatPwd', char, (i) => (theme + buildAlphaNum(salt + '_pwd_' + i, 6)).slice(0, 8));
+
+    let phoneLockType = ['num', 'pattern', 'qa'].includes(String(rawData.phoneLockType || '').trim())
+        ? String(rawData.phoneLockType).trim()
+        : ['num', 'pattern', 'qa'][hashString(salt + '_lock_type') % 3];
+
+    let lockPwdNum = '';
+    let lockPwdPat = '';
+    let lockPwdQA_Q = '';
+    let lockPwdQA_A = '';
+
+    if (phoneLockType === 'num') {
+        lockPwdNum = String(rawData.lockPwdNum || '').replace(/\D/g, '').slice(0, 6);
+        if (lockPwdNum.length !== 4 && lockPwdNum.length !== 6) lockPwdNum = buildDigits(salt + '_lock_num_fix', 6);
         lockPwdNum = ensureUniqueByField(lockPwdNum, 'lockPwdNum', char, (i) => buildDigits(salt + '_lock_num_' + i, 6));
-
-        let lockPwdPat = buildDrawablePattern(salt + '_lock_pat_fix', 5);
+    } else if (phoneLockType === 'pattern') {
+        lockPwdPat = buildDrawablePattern(salt + '_lock_pat_fix', 5);
         lockPwdPat = ensureUniqueByField(lockPwdPat, 'lockPwdPat', char, (i) => buildDrawablePattern(salt + '_lock_pat_' + i, 5));
+    } else {
+        lockPwdQA_Q = String(rawData.lockPwdQA_Q || '只有我知道的问题是？').trim();
+        lockPwdQA_A = String(rawData.lockPwdQA_A || (theme + roleKey.slice(0, 4))).trim();
+    }
 
-        let lockPwdQA_Q = String(rawData.lockPwdQA_Q || '你的代号是？').trim();
-        let lockPwdQA_A = String(rawData.lockPwdQA_A || (theme + roleKey.slice(0,4))).trim();
-
-        return { chatName, phone, email, chatAcc, chatPwd, lockPwdNum, lockPwdPat, lockPwdQA_Q, lockPwdQA_A };
-    };
+    return { chatName, phone, email, chatAcc, chatPwd, phoneLockType, lockPwdNum, lockPwdPat, lockPwdQA_Q, lockPwdQA_A };
+};
 
     const fallbackLocalGenerate = (c) => {
         const rawData = { chatName: c.name };
@@ -261,20 +283,24 @@ window.useContactsLogic = function(state) {
             fallbackLocalGenerate(c); return;
         }
 
-        const systemPrompt = [
-            `你是角色 ${c.name || '未知角色'}。你需要根据你自己的设定，生成符合你身份的账号密码信息。`,
-            '除 email、lockPwdQA_Q、lockPwdQA_A、chatName 外，其余字段只能使用英文字母和数字。',
-            'chatName 是你在聊天软件中的网名/昵称，必须和你的人设性格相符，可以使用中英文和特殊符号。',
-            '返回格式必须严格为 JSON：',
-            '{',
-            '  "chatName": "10字以内的聊天网名昵称",',
-            '  "chatAcc": "8到18位英文数字的聊天账号",',
-            '  "chatPwd": "8位英文数字的聊天密码",',
-            '  "lockPwdNum": "4或6位纯数字",',
-            '  "lockPwdQA_Q": "只有你知道的问题",',
-            '  "lockPwdQA_A": "问题对应的答案"',
-            '}'
-        ].join('\n');
+const systemPrompt = [
+    `你是角色 ${c.name || '未知角色'}。你需要根据你自己的设定，生成符合你身份的账号密码信息。`,
+    '除 email、lockPwdQA_Q、lockPwdQA_A、chatName 外，其余字段只能使用英文字母和数字。',
+    'chatName 是你在聊天软件中的网名/昵称，必须和你的人设性格相符，可以使用中英文和特殊符号。',
+    '手机锁屏样式只能选择一种：num / pattern / qa。',
+    '如果选择 pattern，你必须返回一个可绘制的 3x3 图案轨迹字符串，例如 04876 这种，不要带分隔符。',
+    '返回格式必须严格为 JSON：',
+    '{',
+    '  "chatName": "10字以内的聊天网名昵称",',
+    '  "chatAcc": "8到18位英文数字的聊天账号",',
+    '  "chatPwd": "8位英文数字的聊天密码",',
+    '  "phoneLockType": "num 或 pattern 或 qa",',
+    '  "lockPwdNum": "当 phoneLockType=num 时填写，4或6位纯数字，否则留空",',
+    '  "lockPwdPat": "当 phoneLockType=pattern 时填写可绘制图案轨迹，否则留空",',
+    '  "lockPwdQA_Q": "当 phoneLockType=qa 时填写，否则留空",',
+    '  "lockPwdQA_A": "当 phoneLockType=qa 时填写，否则留空"',
+    '}'
+].join('\n');
 
         const userPrompt = `角色名：${c.name || ''}\n角色设定：${c.persona || ''}\n请返回JSON。`;
         alert(`正在调用模型 [${apiConf.activeModel}] 生成...`);

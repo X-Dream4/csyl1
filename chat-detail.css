@@ -69,3 +69,139 @@
 
 /* 美化预览框 */
 .ca-preview-box { height: 260px; border-radius: 20px; background-size: cover; background-position: center; background-color: var(--widget-bg-solid); box-shadow: inset 0 2px 10px rgba(0,0,0,.05); display: flex; flex-direction: column; justify-content: center; gap: 15px; padding: 15px; overflow: hidden; border: 2px dashed rgba(150,150,150,.2); }
+
+.ca-sys-tip {
+    align-self: center;
+    max-width: 78%;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: rgba(150,150,150,0.10);
+    color: var(--text-sub);
+    font-size: 10px;
+    line-height: 1.4;
+    text-align: center;
+    margin-bottom: 2px;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+.ca-msg-quote {
+    margin-bottom: 8px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: rgba(150,150,150,.10);
+    border-left: 3px solid rgba(150,150,150,.35);
+}
+.ca-msg-quote-name {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-sub);
+    margin-bottom: 2px;
+}
+.ca-msg-quote-text {
+    font-size: 12px;
+    line-height: 1.45;
+    opacity: .9;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ca-detail-compose-bar {
+    padding: 0 10px 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: var(--bg-color);
+}
+.ca-detail-compose-card {
+    background: var(--widget-bg-solid);
+    border: var(--glass-border);
+    border-radius: 16px;
+    padding: 10px 12px;
+    box-shadow: 0 4px 14px rgba(0,0,0,.03);
+}
+.ca-detail-compose-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 4px;
+}
+.ca-detail-compose-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-main);
+}
+.ca-detail-compose-close {
+    font-size: 11px;
+    color: var(--text-sub);
+    cursor: pointer;
+}
+.ca-detail-compose-name {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-sub);
+    margin-bottom: 2px;
+}
+.ca-detail-compose-text {
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text-main);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ca-msg-menu-mask {
+    position: absolute;
+    inset: 0;
+    z-index: 35;
+    background: rgba(0,0,0,.18);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 16px;
+}
+.ca-msg-menu-sheet {
+    width: 100%;
+    max-width: 420px;
+    background: var(--popup-bg);
+    border: var(--glass-border);
+    border-radius: 24px;
+    box-shadow: 0 16px 36px rgba(0,0,0,.12);
+    overflow: hidden;
+    animation: slideUpMini .18s ease;
+}
+.ca-msg-menu-title {
+    padding: 14px 16px 10px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-sub);
+    border-bottom: 1px solid rgba(150,150,150,.08);
+}
+.ca-msg-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 15px 16px;
+    font-size: 14px;
+    color: var(--text-main);
+    cursor: pointer;
+    border-bottom: 1px solid rgba(150,150,150,.08);
+}
+.ca-msg-menu-item:last-child {
+    border-bottom: none;
+}
+.ca-msg-menu-item:active {
+    background: rgba(150,150,150,.08);
+}
+.ca-msg-menu-item.danger {
+    color: #ff4d4f;
+}
+.ca-msg-menu-item i {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+}
