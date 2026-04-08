@@ -92,6 +92,16 @@ window.useChatDetailLogic = function(state, chatMethods) {
     ];
 
     const refreshIcons = () => nextTick(() => window.lucide && window.lucide.createIcons());
+    const getSharedApiRuntime = () => {
+        const apiConf = state.apiConfig || {};
+        let temperature = Number(apiConf.temperature);
+        if (Number.isNaN(temperature)) temperature = 0.85;
+        temperature = Math.max(0, Math.min(2, temperature));
+        return {
+            useStream: apiConf.stream !== false,
+            temperature
+        };
+    };
 
     const openConversation = (conv) => {
         chatState.activeConvId = conv.id;
@@ -277,6 +287,21 @@ window.useChatDetailLogic = function(state, chatMethods) {
             ? `当前虚拟时间：${settings.virtualTime || '未设置'}`
             : '';
 
+        // 新增：自动抓取角色在人脉库里所有的关系网，注入给 AI
+        const targetRels = safeArr(state.contactsData?.relationships).filter(r => r.sourceId === target.id || r.targetId === target.id);
+        const relsText = targetRels.map(r => {
+            const isSource = r.sourceId === target.id;
+            const otherId = isSource ? r.targetId : r.sourceId;
+            const otherUser = allPersonas.value.find(p => p.id === otherId);
+            if (!otherUser) return null;
+            const myView = isSource ? r.sourceView : r.targetView;
+            const theirView = isSource ? r.targetView : r.sourceView;
+            // 智能识别对方是不是现在跟你聊天的“我”
+            const isMe = otherId === chatState.currentUser.id;
+            const nameLabel = isMe ? `我 (${otherUser.name})` : otherUser.name;
+            return `- 对待 [${nameLabel}]：你认为对方是 "${myView}"，对方认为你是 "${theirView}"。`;
+        }).filter(Boolean).join('\n');
+
         const systemPrompt = [
             `你正在一款名为 Chat 的线上聊天APP里和我私聊。`,
             `你必须始终牢记：你是在聊天软件里发消息，不是在写小说、旁白、动作描写、场景描写。`,
@@ -289,15 +314,22 @@ window.useChatDetailLogic = function(state, chatMethods) {
             settings.foreignMode
                 ? `你必须使用 ${settings.foreignLang} 回复。每一条消息都必须使用 "原文||中文翻译" 的格式；多条消息之间仍然用 [[MSG]] 分隔。`
                 : `默认使用符合人设的自然聊天语言回复。`,
-            `你的可知资料：`,
-            `- 你的Chat昵称：${targetProfile.nickname || ''}`,
-            `- 你的真名：${targetProfile.realName || target.name || ''}`,
-            `- 你的Chat账号：${target.chatAcc || ''}`,
-            `- 你的人物设定：${target.persona || ''}`,
+            `【你的全量人设与私密资料（只有你自己知道）：】`,
+            `- 真名：${target.name || ''}`,
+            `- Chat昵称：${target.chatName || targetProfile.nickname || ''}`,
+            `- Chat账号：${target.chatAcc || ''}`,
+            `- Chat密码：${target.chatPwd || ''}`,
+            `- 手机号：${target.phone || ''}`,
+            `- 邮箱：${target.email || ''}`,
+            `- 锁屏数字密码：${target.lockPwdNum || ''}`,
+            `- 锁屏图案轨迹：${target.lockPwdPat || ''}`,
+            `- 锁屏密保问题：${target.lockPwdQA_Q || ''}`,
+            `- 锁屏密保答案：${target.lockPwdQA_A || ''}`,
+            `- 核心设定与记忆：${target.persona || ''}`,
             settings.coupleAvatar ? `- 你知道我们用了情侣头像：${settings.coupleAvatarDesc || '是情侣头像'}` : '',
-            buildKnownMeInfo() ? `- 你已知我的资料：\n${buildKnownMeInfo()}` : '',
-            buildRelationInfo(target.id),
-            worldbookText ? `- 你需要知道的世界书：\n${worldbookText}` : '',
+            relsText ? `【你的人脉与羁绊关系网（你的社交认知）：】\n${relsText}` : '',
+            buildKnownMeInfo() ? `\n【你目前已知我的公开资料（仅限我公开展示的部分）：】\n${buildKnownMeInfo()}` : '',
+            worldbookText ? `【你需要知道的世界书背景：】\n${worldbookText}` : '',
             realTimeText,
             virtualTimeText
         ].filter(Boolean).join('\n');
@@ -314,14 +346,16 @@ window.useChatDetailLogic = function(state, chatMethods) {
         if (url.endsWith('/')) url = url.slice(0, -1);
         if (!url.endsWith('/v1') && !url.includes('/v1/')) url += '/v1';
 
+        const { useStream, temperature } = getSharedApiRuntime();
+
         const requestBody = {
             model,
             messages: [
                 { role: 'system', content: systemPrompt },
                 ...history
             ],
-            temperature: 0.85,
-            stream: true
+            temperature,
+            stream: useStream
         };
 
         activeAbortController = new AbortController();
@@ -339,6 +373,11 @@ window.useChatDetailLogic = function(state, chatMethods) {
             if (!res.ok) throw new Error(`API 请求失败: ${res.status}`);
             const data = await res.json();
             const content = data?.choices?.[0]?.message?.content || '';
+
+            clearInterval(typingInterval);
+            chatState.isTyping = false;
+            chatState.typingText = '';
+
             const blocks = String(content).split('[[MSG]]').map(s => s.trim()).filter(Boolean);
             blocks.forEach(block => {
                 const parsed = parseMsgBlock(block, settings.foreignMode);
@@ -358,6 +397,14 @@ window.useChatDetailLogic = function(state, chatMethods) {
         };
 
         try {
+            if (!useStream) {
+                clearInterval(typingInterval);
+                chatState.isTyping = false;
+                chatState.typingText = '';
+                await handleNonStreamFallback();
+                return;
+            }
+
             const response = await fetch(url + '/chat/completions', {
                 method: 'POST',
                 headers: {
@@ -374,15 +421,12 @@ window.useChatDetailLogic = function(state, chatMethods) {
                 return;
             }
 
-            clearInterval(typingInterval);
-            chatState.isTyping = false;
-            chatState.typingText = '';
-
             const reader = response.body.getReader();
             const decoder = new TextDecoder('utf-8');
             let sseBuffer = '';
             let textBuffer = '';
             let currentBubble = null;
+            let hasStartedReply = false;
 
             const ensureCurrentBubble = () => {
                 if (!currentBubble) currentBubble = createAssistantBubble(conv, target.id);
@@ -398,6 +442,14 @@ window.useChatDetailLogic = function(state, chatMethods) {
 
             const applyChunkText = (delta) => {
                 if (!delta) return;
+
+                if (!hasStartedReply && String(delta).trim()) {
+                    hasStartedReply = true;
+                    clearInterval(typingInterval);
+                    chatState.isTyping = false;
+                    chatState.typingText = '';
+                }
+
                 textBuffer += delta;
 
                 while (textBuffer.includes('[[MSG]]')) {

@@ -1,5 +1,5 @@
 window.useSettingsLogic = function(state) {
-    if (!state.apiConfig) state.apiConfig = { baseUrl: '', apiKey: '', models: [], activeModel: '', presets: [] };
+    if (!state.apiConfig) state.apiConfig = { baseUrl: '', apiKey: '', models: [], activeModel: '', presets: [], stream: true, temperature: 0.85 };
     if (!Array.isArray(state.apiConfig.presets)) state.apiConfig.presets = [];
 
     const ensureApiShape = () => {
@@ -9,6 +9,9 @@ window.useSettingsLogic = function(state) {
         if (!Array.isArray(state.apiConfig.models)) state.apiConfig.models = [];
         if (!state.apiConfig.activeModel) state.apiConfig.activeModel = '';
         if (!Array.isArray(state.apiConfig.presets)) state.apiConfig.presets = [];
+        if (state.apiConfig.stream === undefined) state.apiConfig.stream = true;
+        if (state.apiConfig.temperature === undefined || Number.isNaN(Number(state.apiConfig.temperature))) state.apiConfig.temperature = 0.85;
+        state.apiConfig.temperature = Math.max(0, Math.min(2, Number(state.apiConfig.temperature)));
     };
 
     const fetchApiModels = async () => {
@@ -66,7 +69,9 @@ window.useSettingsLogic = function(state) {
             baseUrl: state.apiConfig.baseUrl || '',
             apiKey: state.apiConfig.apiKey || '',
             activeModel: state.apiConfig.activeModel || '',
-            models: Array.isArray(state.apiConfig.models) ? [...state.apiConfig.models] : []
+            models: Array.isArray(state.apiConfig.models) ? [...state.apiConfig.models] : [],
+            stream: state.apiConfig.stream !== false,
+            temperature: Math.max(0, Math.min(2, Number(state.apiConfig.temperature || 0.85)))
         };
         const same = state.apiConfig.presets.find(p => p.name === preset.name);
         if (same) {
@@ -85,6 +90,8 @@ window.useSettingsLogic = function(state) {
         state.apiConfig.apiKey = preset.apiKey || '';
         state.apiConfig.activeModel = preset.activeModel || '';
         state.apiConfig.models = Array.isArray(preset.models) ? [...preset.models] : [];
+        state.apiConfig.stream = preset.stream !== false;
+        state.apiConfig.temperature = Math.max(0, Math.min(2, Number(preset.temperature ?? 0.85)));
         alert(`已填入预设：${preset.name}`);
     };
 
