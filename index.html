@@ -79,7 +79,40 @@
 <div class="c-row"><span class="c-label">Chat Name</span><input class="c-value" v-model="activeChar.chatName" placeholder="聊天昵称" maxlength="15"></div>
 <div class="c-row"><span class="c-label">Chat ID</span><input class="c-value" v-model="activeChar.chatAcc" placeholder="聊天软件账号" maxlength="20"></div>
 <div class="c-row"><span class="c-label">Chat Pwd</span><input class="c-value" :class="{blurred: !pwdVisibility.chat}" :type="pwdVisibility.chat ? 'text' : 'password'" v-model="activeChar.chatPwd" placeholder="点击查看/修改" @click="pwdVisibility.chat = true" @blur="pwdVisibility.chat = false" maxlength="8"></div>
-<template v-if="!activeChar.isMe"><div style="border-top: 1px dashed rgba(150,150,150,0.2); margin: 6px 0;"></div><div class="c-row"><span class="c-label">Lock (Num)</span><input class="c-value" :class="{blurred: !pwdVisibility.lockNum}" :type="pwdVisibility.lockNum ? 'text' : 'password'" v-model="activeChar.lockPwdNum" placeholder="4-6位数字锁" @click="pwdVisibility.lockNum = true" @blur="pwdVisibility.lockNum = false" maxlength="6"></div><div class="c-row"><span class="c-label">Lock (Pat)</span><input class="c-value" :class="{blurred: !pwdVisibility.lockPat}" :type="pwdVisibility.lockPat ? 'text' : 'password'" v-model="activeChar.lockPwdPat" placeholder="可绘制图案轨迹" @click="pwdVisibility.lockPat = true" @blur="pwdVisibility.lockPat = false"></div><div class="c-row"><span class="c-label">Lock (Q)</span><input class="c-value" :class="{blurred: !pwdVisibility.lockQAQ}" :type="pwdVisibility.lockQAQ ? 'text' : 'password'" v-model="activeChar.lockPwdQA_Q" placeholder="问答密码问题" @click="pwdVisibility.lockQAQ = true" @blur="pwdVisibility.lockQAQ = false"></div><div class="c-row"><span class="c-label">Lock (A)</span><input class="c-value" :class="{blurred: !pwdVisibility.lockQAA}" :type="pwdVisibility.lockQAA ? 'text' : 'password'" v-model="activeChar.lockPwdQA_A" placeholder="问答密码答案" @click="pwdVisibility.lockQAA = true" @blur="pwdVisibility.lockQAA = false"></div></template></div><div class="c-card" style="padding:10px;"><div class="c-card-header" style="padding: 10px 10px 5px;"><span class="c-card-title">人物羁绊</span></div><div class="c-rel-canvas" ref="canvasRef" @mousedown="startPan" @touchstart="startPan" @mousemove="onCanvasMove" @touchmove.prevent="onCanvasMove" @mouseup="endDrag" @touchend="endDrag" @mouseleave="endDrag">
+<template v-if="!activeChar.isMe">
+    <div style="border-top: 1px dashed rgba(150,150,150,0.2); margin: 6px 0;"></div>
+
+    <div class="c-row">
+        <span class="c-label">Lock Type</span>
+        <select class="c-select" style="flex:1; padding:8px 12px;" v-model="activeChar.phoneLockType">
+            <option value="num">数字密码</option>
+            <option value="pattern">图案密码</option>
+            <option value="qa">问答密码</option>
+        </select>
+    </div>
+
+    <div class="c-row" v-if="activeChar.phoneLockType === 'num'">
+        <span class="c-label">Lock (Num)</span>
+        <input class="c-value" :class="{blurred: !pwdVisibility.lockNum}" :type="pwdVisibility.lockNum ? 'text' : 'password'" v-model="activeChar.lockPwdNum" placeholder="4-6位数字锁" @click="pwdVisibility.lockNum = true" @blur="pwdVisibility.lockNum = false" maxlength="6">
+    </div>
+
+    <div class="c-row" v-if="activeChar.phoneLockType === 'pattern'">
+        <span class="c-label">Lock (Pat)</span>
+        <input class="c-value" :class="{blurred: !pwdVisibility.lockPat}" :type="pwdVisibility.lockPat ? 'text' : 'password'" v-model="activeChar.lockPwdPat" placeholder="可绘制图案轨迹" @click="pwdVisibility.lockPat = true" @blur="pwdVisibility.lockPat = false">
+    </div>
+
+    <template v-if="activeChar.phoneLockType === 'qa'">
+        <div class="c-row">
+            <span class="c-label">Lock (Q)</span>
+            <input class="c-value" :class="{blurred: !pwdVisibility.lockQAQ}" :type="pwdVisibility.lockQAQ ? 'text' : 'password'" v-model="activeChar.lockPwdQA_Q" placeholder="问答密码问题" @click="pwdVisibility.lockQAQ = true" @blur="pwdVisibility.lockQAQ = false">
+        </div>
+        <div class="c-row">
+            <span class="c-label">Lock (A)</span>
+            <input class="c-value" :class="{blurred: !pwdVisibility.lockQAA}" :type="pwdVisibility.lockQAA ? 'text' : 'password'" v-model="activeChar.lockPwdQA_A" placeholder="问答密码答案" @click="pwdVisibility.lockQAA = true" @blur="pwdVisibility.lockQAA = false">
+        </div>
+    </template>
+</template>
+</div><div class="c-card" style="padding:10px;"><div class="c-card-header" style="padding: 10px 10px 5px;"><span class="c-card-title">人物羁绊</span></div><div class="c-rel-canvas" ref="canvasRef" @mousedown="startPan" @touchstart="startPan" @mousemove="onCanvasMove" @touchmove.prevent="onCanvasMove" @mouseup="endDrag" @touchend="endDrag" @mouseleave="endDrag">
     <div class="c-rel-canvas-inner" :style="{ transform: `translate(${canvasPan.x}px, ${canvasPan.y}px)`, position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }">
         <svg style="position:absolute; top:-2000px; left:-2000px; width:4000px; height:4000px; pointer-events:none; overflow:visible;">
             <g transform="translate(2000, 2000)">
@@ -179,31 +212,75 @@
     </div>
 
     <div class="ca-detail-messages" @click="chatState.showBottomMenu = false">
-        <div class="ca-msg-row" v-for="msg in activeMessages" :key="msg.id" :class="{me: msg.senderId === chatState.currentUser.id}" :style="{ opacity: msg.senderId === chatState.currentUser.id ? activeConvSettings.beautify.meOpacity : activeConvSettings.beautify.opOpacity }">
-            <img v-if="activeConvSettings.beautify.showAvatar" :src="msg.senderId === chatState.currentUser.id ? chatState.currentUser.avatar : activeConv?.avatar" class="ca-msg-avatar">
-            <div style="display:flex; flex-direction:column; gap:4px; max-width:72%;" :style="{ alignItems: msg.senderId === chatState.currentUser.id ? 'flex-end' : 'flex-start' }">
-                <span v-if="activeConvSettings.beautify.showName" style="font-size:10px; color:var(--text-sub);">{{ msg.senderId === chatState.currentUser.id ? (currentProfile?.nickname || chatState.currentUser.name) : activeConv?.name }}</span>
-                <span v-if="activeConvSettings.beautify.showTime && activeConvSettings.beautify.timePos === 'top'" style="font-size:9px; color:var(--text-sub);">{{ msg.time }}</span>
-                <div style="display:flex; align-items:center; gap:6px;" :style="{ flexDirection: msg.senderId === chatState.currentUser.id ? 'row-reverse' : 'row' }">
-                    <div class="ca-msg-bubble"
-                         :style="{ background: msg.senderId === chatState.currentUser.id ? activeConvSettings.beautify.meBg : activeConvSettings.beautify.opBg, color: msg.senderId === chatState.currentUser.id ? activeConvSettings.beautify.meText : activeConvSettings.beautify.opText, borderRadius: (msg.senderId === chatState.currentUser.id ? activeConvSettings.beautify.meRadius : activeConvSettings.beautify.opRadius) + 'px', maxWidth: '100%' }"
-                         @click="msg.showTrans = !msg.showTrans">
-                        {{ msg.text }}
-                        <div class="ca-msg-trans" v-if="msg.translation && msg.showTrans">{{ msg.translation }}</div>
+        <template v-for="msg in activeMessages" :key="msg.id">
+            <div v-if="msg.type === 'sys'" class="ca-sys-tip">{{ msg.text }}</div>
+
+            <div v-else class="ca-msg-row" :class="{me: msg.senderId === chatState.currentUser.id}" :style="{ opacity: msg.senderId === chatState.currentUser.id ? activeConvSettings.beautify.meOpacity : activeConvSettings.beautify.opOpacity }">
+                <img v-if="activeConvSettings.beautify.showAvatar" :src="msg.senderId === chatState.currentUser.id ? chatState.currentUser.avatar : activeConv?.avatar" class="ca-msg-avatar">
+                <div style="display:flex; flex-direction:column; gap:4px; max-width:72%;" :style="{ alignItems: msg.senderId === chatState.currentUser.id ? 'flex-end' : 'flex-start' }">
+                    <span v-if="activeConvSettings.beautify.showName" style="font-size:10px; color:var(--text-sub);">{{ msg.senderId === chatState.currentUser.id ? (currentProfile?.nickname || chatState.currentUser.name) : activeConv?.name }}</span>
+                    <span v-if="activeConvSettings.beautify.showTime && activeConvSettings.beautify.timePos === 'top'" style="font-size:9px; color:var(--text-sub);">{{ msg.time }}</span>
+                    <div style="display:flex; align-items:center; gap:6px;" :style="{ flexDirection: msg.senderId === chatState.currentUser.id ? 'row-reverse' : 'row' }">
+                        <div class="ca-msg-bubble"
+                             :style="{ background: msg.senderId === chatState.currentUser.id ? activeConvSettings.beautify.meBg : activeConvSettings.beautify.opBg, color: msg.senderId === chatState.currentUser.id ? activeConvSettings.beautify.meText : activeConvSettings.beautify.opText, borderRadius: (msg.senderId === chatState.currentUser.id ? activeConvSettings.beautify.meRadius : activeConvSettings.beautify.opRadius) + 'px', maxWidth: '100%' }"
+                             @click="msg.showTrans = !msg.showTrans"
+                             @mousedown="onMessagePressStart(msg)"
+                             @mouseup="onMessagePressEnd"
+                             @mouseleave="onMessagePressEnd"
+                             @touchstart.prevent="onMessagePressStart(msg)"
+                             @touchend="onMessagePressEnd"
+                             @touchcancel="onMessagePressEnd"
+                             @contextmenu.prevent="onMessagePressStart(msg)">
+                            <div class="ca-msg-quote" v-if="msg.quote">
+                                <div class="ca-msg-quote-name">{{ msg.quote.senderName }}</div>
+                                <div class="ca-msg-quote-text">{{ msg.quote.text }}</div>
+                            </div>
+                            {{ msg.text }}
+                            <div class="ca-msg-trans" v-if="msg.translation && msg.showTrans">{{ msg.translation }}</div>
+                        </div>
+                        <span v-if="activeConvSettings.beautify.showTime && activeConvSettings.beautify.timePos === 'right'" style="font-size:9px; color:var(--text-sub); flex-shrink:0;">{{ msg.time }}</span>
                     </div>
-                    <span v-if="activeConvSettings.beautify.showTime && activeConvSettings.beautify.timePos === 'right'" style="font-size:9px; color:var(--text-sub); flex-shrink:0;">{{ msg.time }}</span>
+                    <span v-if="activeConvSettings.beautify.showTime && activeConvSettings.beautify.timePos === 'bottom'" style="font-size:9px; color:var(--text-sub);">{{ msg.time }}</span>
                 </div>
-                <span v-if="activeConvSettings.beautify.showTime && activeConvSettings.beautify.timePos === 'bottom'" style="font-size:9px; color:var(--text-sub);">{{ msg.time }}</span>
             </div>
+        </template>
+    </div>
+
+    <div class="ca-msg-menu-mask" v-if="chatState.messageMenuOpen" @click="closeMessageMenu">
+        <div class="ca-msg-menu-sheet" @click.stop>
+            <div class="ca-msg-menu-title">消息操作</div>
+            <div class="ca-msg-menu-item" @click="quoteMessage"><i data-lucide="reply"></i><span>引用这条消息</span></div>
+            <div class="ca-msg-menu-item" @click="favoriteMessage"><i data-lucide="star"></i><span>收藏这条消息</span></div>
+            <div class="ca-msg-menu-item" @click="editMessage"><i data-lucide="pencil"></i><span>编辑这条消息</span></div>
+            <div class="ca-msg-menu-item danger" @click="deleteMessage"><i data-lucide="trash-2"></i><span>删除这条消息</span></div>
         </div>
     </div>
 
     <div class="ca-detail-bottom-area">
+        <div class="ca-detail-compose-bar" v-if="quoteSourceMessage || chatState.editingMsgId">
+            <div class="ca-detail-compose-card" v-if="quoteSourceMessage">
+                <div class="ca-detail-compose-top">
+                    <span class="ca-detail-compose-title">引用消息</span>
+                    <span class="ca-detail-compose-close" @click="cancelQuoteMessage">取消</span>
+                </div>
+                <div class="ca-detail-compose-name">{{ quoteSourceMessage.senderId === chatState.currentUser.id ? '我' : (activeConv?.name || '对方') }}</div>
+                <div class="ca-detail-compose-text">{{ quoteSourceMessage.text }}</div>
+            </div>
+            <div class="ca-detail-compose-card" v-if="chatState.editingMsgId">
+                <div class="ca-detail-compose-top">
+                    <span class="ca-detail-compose-title">编辑消息</span>
+                    <span class="ca-detail-compose-close" @click="cancelEditMessage">取消</span>
+                </div>
+                <div class="ca-detail-compose-text">你正在编辑一条消息，发送后会直接覆盖原消息内容。</div>
+            </div>
+        </div>
+
         <div class="ca-detail-footer">
             <div class="ca-detail-star-square" @click="toggleBottomMenu"><i data-lucide="star" fill="currentColor"></i></div>
-            <div class="ca-detail-input-wrap"><input class="ca-detail-input" v-model="chatState.detailInput" @keyup.enter="sendMessage" @focus="chatState.showBottomMenu = false" placeholder="发送消息..."></div>
-            <button class="ca-detail-send-btn" @click="triggerApiReply">发送</button>
+            <div class="ca-detail-input-wrap"><input class="ca-detail-input" v-model="chatState.detailInput" @keyup.enter="sendMessage" @focus="chatState.showBottomMenu = false" :placeholder="chatState.editingMsgId ? '编辑消息...' : '发送消息...'"></div>
+            <button class="ca-detail-send-btn" @click="chatState.editingMsgId ? sendMessage() : triggerApiReply()">{{ chatState.editingMsgId ? '保存' : '发送' }}</button>
         </div>
+
         <div class="ca-detail-menu-panel" :class="{open: chatState.showBottomMenu}">
             <div class="ca-menu-slider">
                 <div class="ca-menu-page">
@@ -300,6 +377,17 @@
                     <input class="c-input" v-model="activeConvSettings.foreignLang" placeholder="例如 English / 한국어 / 日本語">
                 </div>
             </div>
+   
+            <div class="c-card">
+                <div class="c-row" style="justify-content:space-between; width:100%;">
+                    <span class="c-card-title">角色可自动修改自身资料</span>
+                    <input type="checkbox" v-model="activeConvSettings.allowRoleAutoEdit">
+                </div>
+                <div style="font-size:11px; color:var(--text-sub); line-height:1.7;">
+                    开启后，角色在聊天过程中如果觉得合理，可以悄悄修改自己的状态、签名、公开资料、人脉资料与手机锁屏样式。
+                </div>
+            </div>
+
             <div class="c-card">
                 <div class="c-card-title">API 对话参数（全局同步）</div>
                 <div class="c-row" style="justify-content:space-between; width:100%;">
