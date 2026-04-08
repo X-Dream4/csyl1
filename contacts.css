@@ -1,0 +1,87 @@
+/* ==== 人脉 APP 样式 (INS 韩系极简风) ==== */
+.contacts-app { width: 100vw; height: 100vh; background-color: var(--bg-color); display: flex; flex-direction: column; overflow: hidden; position: fixed; top: 0; left: 0; z-index: 50; }
+.c-header { display: flex; align-items: center; justify-content: space-between; padding: 24px 20px 15px; background: var(--widget-bg-solid); z-index: 20; box-shadow: 0 2px 10px rgba(0,0,0,0.02);}
+.c-nav { display: flex; align-items: center; font-size: 15px; color: var(--text-sub); cursor: pointer; width: 80px;}
+.c-title { flex: 1; text-align: center; font-size: 16px; font-weight: 600; color: var(--text-main); }
+.c-action { display: flex; justify-content: flex-end; align-items: center; gap: 12px; color: var(--text-main); width: 120px;}
+
+.c-icon-btn { display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; cursor: pointer; color: var(--text-main); transition: opacity 0.2s; background: transparent; }
+.c-icon-btn:active { opacity: 0.4; }
+.c-icon-btn svg { stroke: currentColor; stroke-width: 2; width: 22px; height: 22px; }
+
+.c-content { flex: 1; overflow-y: auto; padding: 20px 20px 110px; background: var(--bg-color); animation: fadeIn 0.3s ease; position: relative; }
+.c-group { margin-bottom: 24px; }
+.c-group-title { font-size: 12px; font-weight: 600; color: var(--text-sub); margin-bottom: 10px; padding-left: 6px; display: flex; align-items: center; gap: 6px;}
+.c-group-title::before { content: ''; display: inline-block; width: 4px; height: 12px; background: var(--text-main); border-radius: 2px; }
+.c-card-list { background: var(--widget-bg-solid); border-radius: 24px; box-shadow: 0 4px 15px rgba(0,0,0,0.02); border: var(--glass-border); overflow: hidden; }
+.c-empty { padding: 30px; text-align: center; font-size: 12px; color: var(--text-sub); }
+.c-char-item { display: flex; align-items: center; padding: 16px; border-bottom: 1px solid rgba(150,150,150,0.08); gap: 14px; cursor: pointer; transition: background 0.2s;}
+.c-char-item:active { background: rgba(0,0,0,0.02); }
+.c-char-item:last-child { border-bottom: none; }
+.c-char-avatar { width: 48px; height: 48px; border-radius: 16px; object-fit: cover; background: var(--bg-color); flex-shrink: 0; box-shadow: 0 2px 8px rgba(0,0,0,0.05);}
+.c-char-info { flex: 1; overflow: hidden; display: flex; flex-direction: column; gap: 4px; }
+.c-char-name { font-size: 15px; font-weight: 600; color: var(--text-main); display: flex; align-items: center; gap: 6px;}
+.c-me-badge { font-size: 9px; background: var(--text-main); color: var(--bg-color); padding: 2px 6px; border-radius: 8px; font-weight: normal;}
+.c-char-desc { font-size: 12px; color: var(--text-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.c-wb-item { display: flex; flex-direction: column; padding: 16px; border-bottom: 1px solid rgba(150,150,150,0.08); gap: 8px; }
+.c-wb-item:last-child { border-bottom: none; }
+.c-wb-keys { display: flex; flex-wrap: wrap; gap: 6px; }
+.c-wb-key { font-size: 10px; font-weight: 600; color: var(--bg-color); background: var(--text-main); padding: 3px 8px; border-radius: 8px; }
+.c-wb-content { font-size: 13px; color: var(--text-sub); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* 悬浮胶囊底座 + 纯圆 Tab 按钮 */
+.c-floating-bar { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); background: var(--widget-bg-solid); padding: 8px; border-radius: 40px; box-shadow: 0 8px 25px rgba(0,0,0,0.08); display: flex; gap: 8px; border: var(--glass-border); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); z-index: 20; }
+.c-tab-btn { width: 46px; height: 46px; border-radius: 50%; display: flex; justify-content: center; align-items: center; color: var(--text-sub); cursor: pointer; transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); }
+.c-tab-btn.active { background: var(--text-main); color: var(--bg-color); transform: scale(1.05); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+.c-tab-btn svg { width: 22px; height: 22px; stroke: currentColor; }
+
+/* ==== 详情/编辑页 ==== */
+.c-detail-page { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg-color); z-index: 100; display: flex; flex-direction: column; animation: slideLeft 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); }
+@keyframes slideLeft { from { transform: translateX(100%); } to { transform: translateX(0); } }
+.c-detail-body { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 20px; }
+.c-card { background: var(--widget-bg-solid); border-radius: 24px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.02); border: var(--glass-border); display: flex; flex-direction: column; gap: 14px;}
+.c-card-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(150,150,150,0.1); padding-bottom: 10px;}
+.c-card-title { font-size: 14px; font-weight: 600; color: var(--text-main); }
+.c-api-btn { font-size: 11px; background: rgba(150,150,150,0.1); color: var(--text-main); padding: 6px 12px; border-radius: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; white-space: nowrap; }
+.c-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+.c-label { color: var(--text-sub); width: 75px; flex-shrink: 0; font-size: 11px;}
+.c-value { flex: 1; color: var(--text-main); text-align: right; border: none; background: transparent; outline: none; font-weight: 500; font-family: inherit;}
+.c-value.blurred { filter: blur(5px); cursor: pointer; user-select: none; opacity: 0.6; transition: filter 0.2s;}
+
+/* 关系网画布 (带名字渲染) */
+.c-rel-canvas { width: 100%; height: 260px; background: var(--bg-color); border-radius: 16px; position: relative; overflow: hidden; box-shadow: inset 0 2px 10px rgba(0,0,0,0.02);}
+.c-rel-node { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: grab; transform: translate(-50%, -50%); z-index: 10; width: 60px; height: 70px; justify-content: flex-start;}
+.c-rel-node:active { cursor: grabbing; z-index: 20;}
+.c-rel-avatar { width: 44px; height: 44px; border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.15); border: 2px solid var(--widget-bg-solid); object-fit: cover; background: var(--widget-bg-solid); pointer-events: none;}
+.c-rel-node.selected .c-rel-avatar { border-color: var(--text-main); box-shadow: 0 0 0 3px rgba(0,0,0,0.1);}
+.c-node-name { font-size: 10px; font-weight: 600; color: var(--text-sub); background: var(--widget-bg-solid); padding: 2px 6px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); pointer-events: none;}
+.c-add-rel-btn { width: 100%; padding: 12px; border-radius: 16px; background: rgba(150,150,150,0.1); color: var(--text-main); font-size: 12px; font-weight: 600; cursor: pointer; border: none; margin-top: 10px;}
+
+.c-btn-delete-ins { width: 100%; padding: 14px; border-radius: 18px; border: 1px solid rgba(255, 77, 79, 0.2); background: rgba(255, 77, 79, 0.04); color: #ff4d4f; font-size: 13px; font-weight: 600; display: flex; justify-content: center; align-items: center; gap: 8px; cursor: pointer; transition: background 0.2s; box-shadow: 0 2px 8px rgba(255, 77, 79, 0.05);}
+.c-btn-delete-ins:active { background: rgba(255, 77, 79, 0.1); }
+.dark-mode .c-btn-delete-ins { background: rgba(255, 77, 79, 0.08); border-color: rgba(255, 77, 79, 0.15); }
+
+/* 全屏表单弹窗 */
+.c-modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg-color); z-index: 200; display: flex; flex-direction: column; animation: slideUp 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); }
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.c-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 20px; border-bottom: 1px solid rgba(150,150,150,0.1); }
+.c-modal-title { font-size: 16px; font-weight: 600; color: var(--text-main); }
+.c-btn-close, .c-btn-save { font-size: 14px; font-weight: 600; cursor: pointer; padding: 6px 12px; border-radius: 12px; }
+.c-btn-close { color: var(--text-sub); }
+.c-btn-save { color: var(--bg-color); background: var(--text-main); }
+.c-modal-body { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 20px; }
+
+/* ==== 全新：中间弹出弹窗 (INS 风气泡) ==== */
+.c-modal-centered { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); z-index: 300; display: flex; justify-content: center; align-items: center; padding: 20px; animation: fadeIn 0.2s ease; }
+.c-modal-centered-content { background: var(--popup-bg); border-radius: 28px; padding: 24px; width: 100%; max-width: 320px; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); animation: popIn 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); border: var(--glass-border); }
+@keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+.c-avatar-upload { width: 80px; height: 80px; border-radius: 24px; background: var(--widget-bg-solid); border: 2px dashed rgba(150,150,150,0.3); margin: 0 auto 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer; overflow: hidden; position: relative;}
+.c-avatar-upload img { width: 100%; height: 100%; object-fit: cover; position: absolute; top:0; left:0;}
+.c-avatar-upload svg { color: var(--text-sub); z-index: 1;}
+.c-form-item { display: flex; flex-direction: column; gap: 8px; }
+.c-form-item label { font-size: 12px; font-weight: 600; color: var(--text-sub); margin-left: 4px; }
+.c-input, .c-select, .c-textarea { width: 100%; background: var(--widget-bg-solid); border: 1px solid rgba(150,150,150,0.15); border-radius: 16px; padding: 16px; font-size: 14px; color: var(--text-main); outline: none; transition: border-color 0.2s; box-shadow: inset 0 2px 4px rgba(0,0,0,0.01); }
+.c-input:focus, .c-select:focus, .c-textarea:focus { border-color: var(--text-main); }
+.c-textarea { resize: none; min-height: 160px; line-height: 1.7; font-size: 15px; }
