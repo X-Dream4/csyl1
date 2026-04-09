@@ -24,7 +24,7 @@ createApp({
             contactsData: { worlds: [], characters: [], myPersonas: [], wbCategories: [], worldbooks: [], relationships: [], layouts: {} },
             chatData: { accounts: {}, groups: {} },
             lockConfig: { enableLockScreen: false, wallpaper: '', enablePassword: false, pwdType: 'num', pwdNum: '', pwdQA_Q: '', pwdQA_A: '', pwdPattern: '' },
-            isLocked: false, showPwdInput: false, enteredPwd: ''
+            isLocked: false, showPwdInput: false, enteredPwd: '', customFontUrl: '', customFontFamily: '', customFontPresets: []
         });
 
         const isThemeModalOpen = ref(false); const isClockModalOpen = ref(false); const isWidgetBadgeModalOpen = ref(false); const hrDeg = ref(0), minDeg = ref(0), secDeg = ref(0); const currentWpIndex = ref(0); const fileInput = ref(null); let currentUploadTarget = null, currentUploadData = null; const currentDate = ref(new Date());
@@ -82,7 +82,8 @@ createApp({
         const clearEmojis = () => { if(confirm('清空散落表情？')) state.emojiWallItems = []; };
 
         const triggerUpload = (target, data = null) => { currentUploadTarget = target; currentUploadData = data; fileInput.value.click(); };
-        const handleFileChange = (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (event) => { const b64 = event.target.result; if (currentUploadTarget === 'appIcon') state[currentUploadData.group][currentUploadData.index].icon = b64; else if (currentUploadTarget === 'clockIcon') state.clockIcons[currentUploadData] = b64; else if (currentUploadTarget === 'wallpaper') { state.wallpapers.push(b64); currentWpIndex.value = state.wallpapers.length - 1; } else if (currentUploadTarget === 'lockConfig_wallpaper') { state.lockConfig.wallpaper = b64; } else if (currentUploadTarget === 'tempEmojiUpload') { if (window.tempEmojiUploadCallback) window.tempEmojiUploadCallback(b64); } else if (currentUploadTarget.includes('_')) { const [obj, key] = currentUploadTarget.split('_'); state[obj][key] = b64; } else state[currentUploadTarget] = b64; e.target.value = ''; }; reader.readAsDataURL(file); };
+        const handleFileChange = (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (event) => { const b64 = event.target.result; if (currentUploadTarget === 'appIcon') state[currentUploadData.group][currentUploadData.index].icon = b64; else if (currentUploadTarget === 'clockIcon') state.clockIcons[currentUploadData] = b64; else if (currentUploadTarget === 'wallpaper') { state.wallpapers.push(b64); currentWpIndex.value = state.wallpapers.length - 1; }         else if (currentUploadTarget === 'lockConfig_wallpaper') { state.lockConfig.wallpaper = b64; } else if (currentUploadTarget === 'tempEmojiUpload') { if (window.tempEmojiUploadCallback) window.tempEmojiUploadCallback(b64); } else if (currentUploadTarget === 'customFont') { state.customFontUrl = b64; state.customFontFamily = 'CustomFont_' + Date.now(); } else if (currentUploadTarget.includes('_')) { const [obj, key] = currentUploadTarget.split('_'); state[obj][key] = b64; } else state[currentUploadTarget] = b64; e.target.value = ''; }; reader.readAsDataURL(file); };
+
 
         const setTheme = (theme) => { state.theme = theme; isThemeModalOpen.value = false; };
         const editCapsuleBgUrl = () => { const url = prompt('URL (留空清除)：', state.capsuleBg); if (url !== null) state.capsuleBg = url; };
