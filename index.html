@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"><title>极简纯正黑白灰桌面</title>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"><title>Yl</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script><script src="https://unpkg.com/localforage@1.10.0/dist/localforage.min.js"></script><script src="https://unpkg.com/lucide@latest"></script>
     <link rel="stylesheet" href="desktop.css"><link rel="stylesheet" href="beautify.css"><link rel="stylesheet" href="settings.css"><link rel="stylesheet" href="contacts.css"><link rel="stylesheet" href="chat.css"><link rel="stylesheet" href="chat-detail.css">
 </head>
@@ -112,7 +112,31 @@
         </div>
     </template>
 </template>
-</div><div class="c-card" style="padding:10px;"><div class="c-card-header" style="padding: 10px 10px 5px;"><span class="c-card-title">人物羁绊</span></div><div class="c-rel-canvas" ref="canvasRef" @mousedown="startPan" @touchstart="startPan" @mousemove="onCanvasMove" @touchmove.prevent="onCanvasMove" @mouseup="endDrag" @touchend="endDrag" @mouseleave="endDrag">
+</div>
+
+<div class="c-card">
+    <div class="c-card-header" style="padding-bottom:5px;"><span class="c-card-title">核心记忆</span></div>
+    <div v-for="mem in activeChar.memories" :key="mem.id" class="c-row" style="flex-direction:column; align-items:flex-start; gap:4px; padding:8px 0; border-bottom:1px solid rgba(150,150,150,0.08);">
+        <div style="display:flex; justify-content:space-between; width:100%; font-size:10px; color:var(--text-sub);">
+            <span>{{ new Date(mem.timestamp).toLocaleString() }} (权重:{{ mem.weight }})</span>
+            <span @click="removeCharMemory(activeChar, mem.id)" style="color:#ff4d4f; cursor:pointer; padding:2px 4px;">删除</span>
+        </div>
+        <div style="font-size:13px; color:var(--text-main); line-height:1.4; word-break:break-all;">{{ mem.content }}</div>
+    </div>
+    <div style="display:flex; gap:8px; margin-top:5px;">
+        <input class="c-input" style="flex:1; padding:8px 12px; font-size:12px;" v-model="newMemoryText" placeholder="添加新记忆..." @keyup.enter="addCharMemory(activeChar)">
+        <select class="c-select" style="width:65px; padding:8px; font-size:12px;" v-model="newMemoryWeight">
+            <option value="1">1星</option>
+            <option value="2">2星</option>
+            <option value="3">3星</option>
+            <option value="4">4星</option>
+            <option value="5">5星</option>
+        </select>
+        <button class="c-api-btn" style="background:var(--text-main); color:var(--bg-color); border:none;" @click="addCharMemory(activeChar)">添加</button>
+    </div>
+</div>
+
+<div class="c-card" style="padding:10px;"><div class="c-card-header" style="padding: 10px 10px 5px;"><span class="c-card-title">人物羁绊</span></div><div class="c-rel-canvas" ref="canvasRef" @mousedown="startPan" @touchstart="startPan" @mousemove="onCanvasMove" @touchmove.prevent="onCanvasMove" @mouseup="endDrag" @touchend="endDrag" @mouseleave="endDrag">
     <div class="c-rel-canvas-inner" :style="{ transform: `translate(${canvasPan.x}px, ${canvasPan.y}px)`, position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }">
         <svg style="position:absolute; top:-2000px; left:-2000px; width:4000px; height:4000px; pointer-events:none; overflow:visible;">
             <g transform="translate(2000, 2000)">
@@ -214,51 +238,121 @@
     <div class="ca-detail-messages" @click="chatState.showBottomMenu = false">
         <template v-for="msg in activeMessages" :key="msg.id">
             <div v-if="msg.type === 'sys'" class="ca-sys-tip">{{ msg.text }}</div>
-
-            <div v-else class="ca-msg-row" :class="{me: msg.senderId === chatState.currentUser.id}" :style="{ opacity: msg.senderId === chatState.currentUser.id ? activeConvSettings.beautify.meOpacity : activeConvSettings.beautify.opOpacity }">
-                <img v-if="activeConvSettings.beautify.showAvatar" :src="msg.senderId === chatState.currentUser.id ? chatState.currentUser.avatar : activeConv?.avatar" class="ca-msg-avatar">
-                <div style="display:flex; flex-direction:column; gap:4px; max-width:72%;" :style="{ alignItems: msg.senderId === chatState.currentUser.id ? 'flex-end' : 'flex-start' }">
-                    <span v-if="activeConvSettings.beautify.showName" style="font-size:10px; color:var(--text-sub);">{{ msg.senderId === chatState.currentUser.id ? (currentProfile?.nickname || chatState.currentUser.name) : activeConv?.name }}</span>
-                    <span v-if="activeConvSettings.beautify.showTime && activeConvSettings.beautify.timePos === 'top'" style="font-size:9px; color:var(--text-sub);">{{ msg.time }}</span>
-                    <div style="display:flex; align-items:center; gap:6px;" :style="{ flexDirection: msg.senderId === chatState.currentUser.id ? 'row-reverse' : 'row' }">
-                        <div class="ca-msg-bubble"
-                             :style="{ background: msg.senderId === chatState.currentUser.id ? activeConvSettings.beautify.meBg : activeConvSettings.beautify.opBg, color: msg.senderId === chatState.currentUser.id ? activeConvSettings.beautify.meText : activeConvSettings.beautify.opText, borderRadius: (msg.senderId === chatState.currentUser.id ? activeConvSettings.beautify.meRadius : activeConvSettings.beautify.opRadius) + 'px', maxWidth: '100%' }"
-                             @click="msg.showTrans = !msg.showTrans"
-                             @mousedown="onMessagePressStart(msg)"
-                             @mouseup="onMessagePressEnd"
-                             @mouseleave="onMessagePressEnd"
-                             @touchstart.prevent="onMessagePressStart(msg)"
-                             @touchend="onMessagePressEnd"
-                             @touchcancel="onMessagePressEnd"
-                             @contextmenu.prevent="onMessagePressStart(msg)">
-                            <div class="ca-msg-quote" v-if="msg.quote">
-                                <div class="ca-msg-quote-name">{{ msg.quote.senderName }}</div>
-                                <div class="ca-msg-quote-text">{{ msg.quote.text }}</div>
-                            </div>
-                            {{ msg.text }}
-                            <div class="ca-msg-trans" v-if="msg.translation && msg.showTrans">{{ msg.translation }}</div>
-                        </div>
-                        <span v-if="activeConvSettings.beautify.showTime && activeConvSettings.beautify.timePos === 'right'" style="font-size:9px; color:var(--text-sub); flex-shrink:0;">{{ msg.time }}</span>
+            <div v-else-if="msg.recalled" class="ca-sys-tip ca-recalled-tip" @click="chatState.recalledMsgView = msg">
+                {{ msg.senderId === chatState.currentUser.id ? '你' : (activeConv?.name || '对方') }}撤回了一条消息
+            </div>
+            <div v-else style="display:flex; flex-direction:column; gap:4px; width:100%; transition:transform 0.2s;" :style="{ transform: chatState.isMultiSelectMode ? 'translateX(10px)' : 'none' }">
+                <div style="display:flex; align-items:flex-end; gap:10px; width:100%;">
+                    <div v-if="chatState.isMultiSelectMode" @click="toggleSelectMsg(msg)" style="cursor:pointer; flex-shrink:0; padding:10px 0;">
+                        <i :data-lucide="chatState.selectedMsgIds.includes(msg.id) ? 'check-circle-2' : 'circle'" :style="{ color: chatState.selectedMsgIds.includes(msg.id) ? 'var(--text-main)' : 'var(--text-sub)' }"></i>
                     </div>
-                    <span v-if="activeConvSettings.beautify.showTime && activeConvSettings.beautify.timePos === 'bottom'" style="font-size:9px; color:var(--text-sub);">{{ msg.time }}</span>
+                    <div class="ca-msg-row" :class="{me: msg.senderId === chatState.currentUser.id}" :style="{ opacity: msg.senderId === chatState.currentUser.id ? activeConvSettings.beautify.meOpacity : activeConvSettings.beautify.opOpacity, flex: 1 }">
+                        <img v-if="activeConvSettings.beautify.showAvatar" :src="msg.senderId === chatState.currentUser.id ? chatState.currentUser.avatar : activeConv?.avatar" class="ca-msg-avatar">
+                        <div style="display:flex; flex-direction:column; gap:4px; max-width:72%;" :style="{ alignItems: msg.senderId === chatState.currentUser.id ? 'flex-end' : 'flex-start' }">
+                            <span v-if="activeConvSettings.beautify.showName" style="font-size:10px; color:var(--text-sub);">{{ msg.senderId === chatState.currentUser.id ? (currentProfile?.nickname || chatState.currentUser.name) : activeConv?.name }}</span>
+                            <span v-if="activeConvSettings.beautify.showTime && activeConvSettings.beautify.timePos === 'top'" style="font-size:9px; color:var(--text-sub);">{{ msg.time }}</span>
+                            <div style="display:flex; align-items:center; gap:6px;" :style="{ flexDirection: msg.senderId === chatState.currentUser.id ? 'row-reverse' : 'row' }">
+                                <div class="ca-msg-bubble"
+                                     :style="{ background: isEmojiMsg(msg.text) ? 'transparent' : (msg.senderId === chatState.currentUser.id ? activeConvSettings.beautify.meBg : activeConvSettings.beautify.opBg), color: msg.senderId === chatState.currentUser.id ? activeConvSettings.beautify.meText : activeConvSettings.beautify.opText, borderRadius: (msg.senderId === chatState.currentUser.id ? activeConvSettings.beautify.meRadius : activeConvSettings.beautify.opRadius) + 'px', maxWidth: '100%', padding: isEmojiMsg(msg.text) ? '0' : '', boxShadow: isEmojiMsg(msg.text) ? 'none' : '', backdropFilter: isEmojiMsg(msg.text) ? 'none' : '', webkitBackdropFilter: isEmojiMsg(msg.text) ? 'none' : '' }"
+                                     @click="isVoiceMsg(msg.text) ? toggleVoiceText(msg) : toggleSelectMsg(msg, $event)"
+                                     @mousedown="onMessagePressStart(msg, $event)"
+                                     @mouseup="onMessagePressEnd"
+                                     @mouseleave="onMessagePressEnd"
+                                     @touchstart="onMessagePressStart(msg, $event)"
+                                     @touchmove="onMessagePressMove"
+                                     @touchend="onMessagePressEnd"
+                                     @touchcancel="onMessagePressEnd"
+                                     @contextmenu.prevent="onMessagePressStart(msg, $event)">
+                                    <template v-if="isVoiceMsg(msg.text)">
+                                        <div class="ca-voice-bar" :style="{ width: Math.max(60, Math.min(200, 60 + getVoiceDuration(msg.text) * 2)) + 'px', flexDirection: msg.senderId === chatState.currentUser.id ? 'row-reverse' : 'row' }">
+                                            <div class="ca-voice-wave" :style="{ flexDirection: msg.senderId === chatState.currentUser.id ? 'row-reverse' : 'row' }">
+                                                <span v-for="(h, idx) in getVoiceWaves(msg.text)" :key="idx" class="wave-bar" :style="{ height: h + 'px' }"></span>
+                                            </div>
+                                            <span style="font-size:13px; font-weight:600;">{{ getVoiceDuration(msg.text) }}''</span>
+                                        </div>
+                                    </template>
+                                    <template v-else-if="isEmojiMsg(msg.text)">
+                                        <div class="ca-msg-emoji">
+                                            <img :src="getEmojiUrl(msg.text) || defaultImg">
+                                            <span>{{ getEmojiName(msg.text) }}</span>
+                                        </div>
+                                    </template>
+                                    <template v-else>
+                                        <div class="ca-msg-quote" v-if="msg.quote">
+                                            <div class="ca-msg-quote-name">{{ msg.quote.senderName }}</div>
+                                            <div class="ca-msg-quote-text">{{ msg.quote.text }}</div>
+                                        </div>
+                                        {{ msg.text }}
+                                        <div class="ca-msg-trans" v-if="msg.translation && msg.showTrans">{{ msg.translation }}</div>
+                                    </template>
+                                </div>
+                                <span v-if="activeConvSettings.beautify.showTime && activeConvSettings.beautify.timePos === 'right'" style="font-size:9px; color:var(--text-sub); flex-shrink:0;">{{ msg.time }}</span>
+                            </div>
+                            <span v-if="activeConvSettings.beautify.showTime && activeConvSettings.beautify.timePos === 'bottom'" style="font-size:9px; color:var(--text-sub);">{{ msg.time }}</span>
+                        </div>
+                    </div>
+                </div>
+                <!-- 语音文字延伸气泡，用智能外边距规避掉头像的位置，独占行并悬挂于下方 -->
+                <div class="ca-voice-text-ext" v-if="isVoiceMsg(msg.text) && msg.showVoiceText"
+                     :style="{ 
+                         alignSelf: msg.senderId === chatState.currentUser.id ? 'flex-end' : 'flex-start',
+                         marginLeft: msg.senderId === chatState.currentUser.id ? '0' : (activeConvSettings.beautify.showAvatar ? '48px' : '0'),
+                         marginRight: msg.senderId === chatState.currentUser.id ? (activeConvSettings.beautify.showAvatar ? '48px' : '0') : '0',
+                         maxWidth: '72%',
+                         background: msg.senderId === chatState.currentUser.id ? activeConvSettings.beautify.meBg : activeConvSettings.beautify.opBg, 
+                         color: msg.senderId === chatState.currentUser.id ? activeConvSettings.beautify.meText : activeConvSettings.beautify.opText 
+                     }">
+                    {{ getVoiceText(msg.text) }}
                 </div>
             </div>
         </template>
     </div>
 
-    <div class="ca-msg-menu-mask" v-if="chatState.messageMenuOpen" @click="closeMessageMenu">
-        <div class="ca-msg-menu-sheet" @click.stop>
-            <div class="ca-msg-menu-title">消息操作</div>
-            <div class="ca-msg-menu-item" @click="quoteMessage"><i data-lucide="reply"></i><span>引用这条消息</span></div>
-            <div class="ca-msg-menu-item" @click="favoriteMessage"><i data-lucide="star"></i><span>收藏这条消息</span></div>
-            <div class="ca-msg-menu-item" @click="editMessage"><i data-lucide="pencil"></i><span>编辑这条消息</span></div>
-            <div class="ca-msg-menu-item danger" @click="deleteMessage"><i data-lucide="trash-2"></i><span>删除这条消息</span></div>
+    <!-- 胶囊气泡菜单 -->
+    <div class="ca-msg-menu-mask" v-if="chatState.messageMenuOpen" @click="closeMessageMenu" @contextmenu.prevent="closeMessageMenu">
+        <div class="ca-msg-capsule-menu" :style="{ top: chatState.menuY + 'px', left: chatState.menuX + 'px' }" @click.stop>
+            <div class="ca-msg-capsule-item" @click="quoteMessage">引用</div>
+            <div class="ca-msg-capsule-item" @click="favoriteMessage">收藏</div>
+            <div class="ca-msg-capsule-item" v-if="chatState.messageMenuMsg?.senderId === chatState.currentUser?.id" @click="recallMessage">撤回</div>
+            <div class="ca-msg-capsule-item" @click="editMessageModal">编辑</div>
+            <div class="ca-msg-capsule-item" @click="enterMultiSelect">多选</div>
+            <div class="ca-msg-capsule-item" style="color:#1890ff;" @click="openRawEditModal">调整</div>
+            <div class="ca-msg-capsule-item text-danger" @click="deleteMessage">删除</div>
+        </div>
+    </div>
+
+    <!-- 居中编辑消息弹窗 -->
+    <div class="c-modal-centered" v-if="chatState.editMsgModalOpen" @click.self="chatState.editMsgModalOpen = false">
+        <div class="c-modal-centered-content">
+            <h4 style="text-align:center; font-size:16px; color:var(--text-main); font-weight:700;">编辑消息</h4>
+            <div class="c-form-item">
+                <textarea class="c-textarea" v-model="chatState.editMsgText" style="min-height: 120px;"></textarea>
+            </div>
+            <div style="display:flex; gap:10px; margin-top:5px;">
+                <button class="c-add-rel-btn" style="flex:1; margin:0; background:var(--widget-bg); color:var(--text-main);" @click="chatState.editMsgModalOpen = false">取消</button>
+                <button class="c-add-rel-btn" style="flex:1; margin:0; background:var(--text-main); color:var(--bg-color);" @click="saveEditMessage">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 居中 Raw 调整弹窗 -->
+    <div class="c-modal-centered" v-if="chatState.rawEditModalOpen" @click.self="chatState.rawEditModalOpen = false">
+        <div class="c-modal-centered-content" style="max-width: 360px;">
+            <h4 style="text-align:center; font-size:16px; color:var(--text-main); font-weight:700;">调整 Raw 原始代码</h4>
+            <div style="font-size:11px; color:var(--text-sub); text-align:center; margin-top:-8px; margin-bottom: 4px;">编辑保存后将触发内部解析器重新渲染及执行指令</div>
+            <div class="c-form-item">
+                <textarea class="c-textarea" v-model="chatState.rawEditText" style="min-height: 220px; font-family: monospace; font-size: 13px; line-height: 1.5; white-space: pre-wrap; border-radius: 12px; padding: 12px; background: rgba(150,150,150,0.05);"></textarea>
+            </div>
+            <div style="display:flex; gap:10px; margin-top:5px;">
+                <button class="c-add-rel-btn" style="flex:1; margin:0; background:var(--widget-bg); color:var(--text-main);" @click="chatState.rawEditModalOpen = false">取消</button>
+                <button class="c-add-rel-btn" style="flex:1; margin:0; background:var(--text-main); color:var(--bg-color);" @click="saveRawEdit">保存并解析</button>
+            </div>
         </div>
     </div>
 
     <div class="ca-detail-bottom-area">
-        <div class="ca-detail-compose-bar" v-if="quoteSourceMessage || chatState.editingMsgId">
-            <div class="ca-detail-compose-card" v-if="quoteSourceMessage">
+        <div class="ca-detail-compose-bar" v-if="quoteSourceMessage && !chatState.isMultiSelectMode">
+            <div class="ca-detail-compose-card">
                 <div class="ca-detail-compose-top">
                     <span class="ca-detail-compose-title">引用消息</span>
                     <span class="ca-detail-compose-close" @click="cancelQuoteMessage">取消</span>
@@ -266,26 +360,28 @@
                 <div class="ca-detail-compose-name">{{ quoteSourceMessage.senderId === chatState.currentUser.id ? '我' : (activeConv?.name || '对方') }}</div>
                 <div class="ca-detail-compose-text">{{ quoteSourceMessage.text }}</div>
             </div>
-            <div class="ca-detail-compose-card" v-if="chatState.editingMsgId">
-                <div class="ca-detail-compose-top">
-                    <span class="ca-detail-compose-title">编辑消息</span>
-                    <span class="ca-detail-compose-close" @click="cancelEditMessage">取消</span>
-                </div>
-                <div class="ca-detail-compose-text">你正在编辑一条消息，发送后会直接覆盖原消息内容。</div>
-            </div>
         </div>
 
-        <div class="ca-detail-footer">
+        <!-- 多选模式下的底部栏 -->
+        <div v-if="chatState.isMultiSelectMode" class="ca-detail-footer" style="justify-content: space-between; padding: 14px 24px; background: var(--widget-bg-solid); border-top: 1px solid rgba(150,150,150,0.1); box-shadow: 0 -4px 15px rgba(0,0,0,0.03);">
+            <span @click="cancelMultiSelect" style="font-size:15px; color:var(--text-sub); font-weight:600; cursor:pointer;">取消</span>
+            <span style="font-size:15px; color:var(--text-main); font-weight:700;">已选 {{ chatState.selectedMsgIds.length }} 条</span>
+            <span @click="deleteSelectedMsgs" :style="{ color: chatState.selectedMsgIds.length > 0 ? '#ff4d4f' : 'var(--text-sub)', fontSize:'15px', fontWeight:'600', cursor:'pointer' }"><i data-lucide="trash-2" style="width:18px; vertical-align:middle; margin-bottom:2px;"></i> 删除</span>
+        </div>
+
+        <!-- 正常的底部输入栏 -->
+        <div v-else class="ca-detail-footer">
             <div class="ca-detail-star-square" @click="toggleBottomMenu"><i data-lucide="star" fill="currentColor"></i></div>
-            <div class="ca-detail-input-wrap"><input class="ca-detail-input" v-model="chatState.detailInput" @keyup.enter="sendMessage" @focus="chatState.showBottomMenu = false" :placeholder="chatState.editingMsgId ? '编辑消息...' : '发送消息...'"></div>
-            <button class="ca-detail-send-btn" @click="chatState.editingMsgId ? sendMessage() : triggerApiReply()">{{ chatState.editingMsgId ? '保存' : '发送' }}</button>
+            <div class="ca-detail-input-wrap"><input class="ca-detail-input" v-model="chatState.detailInput" @keyup.enter="sendMessage" @focus="chatState.showBottomMenu = false" placeholder="发送消息..."></div>
+            <button class="ca-detail-send-btn" @click="triggerApiReply()">发送</button>
         </div>
 
         <div class="ca-detail-menu-panel" :class="{open: chatState.showBottomMenu}">
-            <div class="ca-menu-slider">
+            
+            <div class="ca-menu-slider" v-if="chatState.bottomMenuType === 'main'">
                 <div class="ca-menu-page">
-                    <div class="ca-menu-item" @click="alert('语音功能开发中')"><div class="ca-menu-icon"><i data-lucide="mic"></i></div><div class="ca-menu-text">语音</div></div>
-                    <div class="ca-menu-item" @click="alert('表情包功能开发中')"><div class="ca-menu-icon"><i data-lucide="smile"></i></div><div class="ca-menu-text">表情包</div></div>
+                    <div class="ca-menu-item" @click="chatState.voiceModalOpen = true; chatState.showBottomMenu = false"><div class="ca-menu-icon"><i data-lucide="mic"></i></div><div class="ca-menu-text">语音</div></div>
+                    <div class="ca-menu-item" @click="openEmojiPanel"><div class="ca-menu-icon"><i data-lucide="smile"></i></div><div class="ca-menu-text">表情包</div></div>
                     <div class="ca-menu-item" @click="alert('拍摄功能开发中')"><div class="ca-menu-icon"><i data-lucide="camera"></i></div><div class="ca-menu-text">拍摄</div></div>
                     <div class="ca-menu-item" @click="alert('图片功能开发中')"><div class="ca-menu-icon"><i data-lucide="image"></i></div><div class="ca-menu-text">图片</div></div>
                     <div class="ca-menu-item" @click="alert('红包功能开发中')"><div class="ca-menu-icon"><i data-lucide="gift"></i></div><div class="ca-menu-text">红包</div></div>
@@ -301,6 +397,87 @@
                     <div class="ca-menu-item" @click="alert('音乐功能开发中')"><div class="ca-menu-icon"><i data-lucide="music"></i></div><div class="ca-menu-text">音乐</div></div>
                 </div>
             </div>
+
+            <!-- 表情包展示面板 -->
+            <div class="ca-emoji-panel" v-else-if="chatState.bottomMenuType === 'emoji'">
+                <div class="ca-emoji-tabs">
+                    <div class="ca-emoji-setting-btn" @click="switchBottomMenu('main')"><i data-lucide="chevron-down" style="width:20px;"></i></div>
+                    <div class="ca-emoji-setting-btn" @click="switchBottomMenu('emojiSettings')"><i data-lucide="settings" style="width:18px;"></i></div>
+                    <div class="ca-emoji-tab-btn" :class="{active: chatState.activeEmojiCat === cat.id, 'role-allowed': cat.allowRole}" v-for="cat in (chatDb.emojiCats || [])" :key="cat.id" @click="chatState.activeEmojiCat = cat.id" @contextmenu.prevent="toggleEmojiCatRole(cat)" @touchstart="onEmojiCatTouchStart(cat)" @touchend="onEmojiCatTouchEnd" @touchcancel="onEmojiCatTouchEnd">{{ cat.name }}</div>
+                    <div v-if="!(chatDb.emojiCats || []).length" style="font-size:12px; color:var(--text-sub); padding-left:10px;">暂无分类，请点击左侧设置添加</div>
+                </div>
+                <div class="ca-emoji-list" v-if="activeEmojiList.length > 0">
+                    <div class="ca-emoji-item" v-for="em in activeEmojiList" :key="em.id" @click="sendEmoji(em)">
+                        <img :src="em.url">
+                        <span>{{ em.name }}</span>
+                    </div>
+                </div>
+                <div v-else style="padding:40px; text-align:center; color:var(--text-sub); font-size:12px;">该分类下暂无表情包</div>
+            </div>
+
+            <!-- 表情包设置面板 -->
+            <div class="ca-emoji-panel" v-else-if="chatState.bottomMenuType === 'emojiSettings'">
+                <div class="ca-emoji-tabs">
+                    <div class="ca-emoji-setting-btn" @click="switchBottomMenu('emoji')"><i data-lucide="chevron-left" style="width:20px;"></i></div>
+                    <div style="font-size:14px; font-weight:700; color:var(--text-main); margin-left:8px;">表情包管理</div>
+                </div>
+                <div class="ca-emoji-settings">
+                    <div class="ca-emoji-sec">
+                        <div class="ca-emoji-sec-title">新建分类</div>
+                        <div style="display:flex; gap:8px;">
+                            <input class="c-input" style="padding:10px 14px;" v-model="emojiForm.newCatName" placeholder="输入分类名称">
+                            <button class="c-api-btn" style="background:var(--text-main); color:var(--bg-color); border:none; padding:0 20px;" @click="addEmojiCat">新建</button>
+                        </div>
+                    </div>
+                    <div class="ca-emoji-sec">
+                        <div class="ca-emoji-sec-title">导入单个表情包</div>
+                        <select class="c-select" style="padding:10px 14px;" v-model="emojiForm.singleCat">
+                            <option value="">选择分类</option>
+                            <option v-for="cat in (chatDb.emojiCats || [])" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
+                        </select>
+                        <input class="c-input" style="padding:10px 14px;" v-model="emojiForm.singleName" placeholder="表情包名称">
+                        <div style="display:flex; gap:8px;">
+                            <input class="c-input" style="padding:10px 14px;" v-model="emojiForm.singleUrl" placeholder="图片 URL">
+                            <button class="c-api-btn" style="background:var(--widget-bg); border:1px solid rgba(150,150,150,0.2);" @click="triggerUpload('tempEmojiUpload')">本地</button>
+                        </div>
+                        <button class="c-add-rel-btn" style="margin-top:0; background:var(--text-main); color:var(--bg-color);" @click="addSingleEmoji">保存表情包</button>
+                    </div>
+                    <div class="ca-emoji-sec">
+                        <div class="ca-emoji-sec-title">批量导入 (URL)</div>
+                        <select class="c-select" style="padding:10px 14px;" v-model="emojiForm.batchCat">
+                            <option value="">选择分类</option>
+                            <option v-for="cat in (chatDb.emojiCats || [])" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
+                        </select>
+                        <textarea class="c-textarea" style="min-height:100px; padding:12px 14px; font-size:12px;" v-model="emojiForm.batchText" placeholder="格式：\n开心:https://...\n难过:https://..."></textarea>
+                        <button class="c-add-rel-btn" style="margin-top:0; background:var(--text-main); color:var(--bg-color);" @click="addBatchEmoji">批量导入</button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- 语音输入弹窗 -->
+<div class="c-modal-centered" v-if="chatState.voiceModalOpen" @click.self="chatState.voiceModalOpen = false">
+    <div class="c-modal-centered-content">
+        <h4 style="text-align:center; font-size:16px; color:var(--text-main); font-weight:700;">发送语音</h4>
+        <div class="c-form-item">
+            <textarea class="c-textarea" v-model="chatState.voiceText" placeholder="在此输入文字，将伪装成一段语音气泡发送给对方..." style="min-height: 100px;"></textarea>
+        </div>
+        <div style="display:flex; gap:10px; margin-top:5px;">
+            <button class="c-add-rel-btn" style="flex:1; margin:0; background:var(--widget-bg); color:var(--text-main);" @click="chatState.voiceModalOpen = false">取消</button>
+            <button class="c-add-rel-btn" style="flex:1; margin:0; background:var(--text-main); color:var(--bg-color);" @click="sendVoiceMessage">发送</button>
+        </div>
+    </div>
+</div>
+
+<!-- 查看撤回消息弹窗 -->
+<div class="c-modal-centered" v-if="chatState.recalledMsgView" @click.self="chatState.recalledMsgView = null">
+    <div class="c-modal-centered-content" style="max-width:320px;">
+        <h4 style="text-align:center; font-size:14px; color:var(--text-sub); margin-bottom:12px; font-weight:700;">被撤回的文字</h4>
+        <div style="font-size:14px; line-height:1.6; color:var(--text-main); word-break:break-all; max-height: 200px; overflow-y: auto;">
+            {{ chatState.recalledMsgView.text }}
         </div>
     </div>
 </div>
@@ -397,6 +574,21 @@
                 <div class="c-form-item">
                     <label>AI 温度：{{ Number(state.apiConfig.temperature || 0.85).toFixed(2) }}</label>
                     <input type="range" min="0" max="2" step="0.05" v-model="state.apiConfig.temperature" style="width:100%; accent-color:var(--text-main);">
+                </div>
+            </div>
+
+            <div class="c-card">
+                <div class="c-card-title">上下文记忆（当前对话）</div>
+                <div class="c-form-item">
+                    <label>注入历史聊天消息数</label>
+                    <input class="c-input" type="number" min="0" max="200" step="1" v-model="activeConvSettings.injectHistoryCount" placeholder="例如 20">
+                </div>
+                <div class="c-form-item">
+                    <label>核心记忆注入条数</label>
+                    <input class="c-input" type="number" min="0" max="200" step="1" v-model="activeConvSettings.injectMemoryCount" placeholder="例如 30">
+                </div>
+                <div style="font-size:11px; color:var(--text-sub); line-height:1.7;">
+                    填 0 表示不注入；只对当前聊天生效。
                 </div>
             </div>
 

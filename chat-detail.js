@@ -1,5 +1,5 @@
 window.useChatDetailLogic = function(state, chatMethods) {
-    const { computed, nextTick } = Vue;
+    const { computed, nextTick, reactive } = Vue;
     const { chatState, chatDb, currentAccountData } = chatMethods;
 
     if (chatState.isDetailOpen === undefined) chatState.isDetailOpen = false;
@@ -12,8 +12,56 @@ window.useChatDetailLogic = function(state, chatMethods) {
     if (chatState.detailSettingsTab === undefined) chatState.detailSettingsTab = 'chat';
     if (chatState.messageMenuOpen === undefined) chatState.messageMenuOpen = false;
     if (chatState.messageMenuMsgId === undefined) chatState.messageMenuMsgId = null;
+    if (chatState.messageMenuMsg === undefined) chatState.messageMenuMsg = null;
+    if (chatState.menuX === undefined) chatState.menuX = 0;
+    if (chatState.menuY === undefined) chatState.menuY = 0;
     if (chatState.quoteMsgId === undefined) chatState.quoteMsgId = null;
-    if (chatState.editingMsgId === undefined) chatState.editingMsgId = null;
+    
+    if (chatState.editMsgModalOpen === undefined) chatState.editMsgModalOpen = false;
+    if (chatState.editMsgId === undefined) chatState.editMsgId = null;
+    if (chatState.editMsgText === undefined) chatState.editMsgText = '';
+    
+    if (chatState.isMultiSelectMode === undefined) chatState.isMultiSelectMode = false;
+    if (chatState.selectedMsgIds === undefined) chatState.selectedMsgIds = [];
+    
+    if (chatState.rawEditModalOpen === undefined) chatState.rawEditModalOpen = false;
+    if (chatState.rawEditMsgId === undefined) chatState.rawEditMsgId = null;
+    if (chatState.rawEditBatchId === undefined) chatState.rawEditBatchId = null;
+    if (chatState.rawEditText === undefined) chatState.rawEditText = '';
+
+    if (chatState.recalledMsgView === undefined) chatState.recalledMsgView = null;
+    if (chatState.voiceModalOpen === undefined) chatState.voiceModalOpen = false;
+    if (chatState.voiceText === undefined) chatState.voiceText = '';
+    
+    if (chatState.bottomMenuType === undefined) chatState.bottomMenuType = 'main';
+    if (chatState.activeEmojiCat === undefined) chatState.activeEmojiCat = '';
+    
+    const initEmojiDb = () => {
+        if (!chatDb.value.emojiCats) chatDb.value.emojiCats = [];
+        if (!chatDb.value.emojiItems) chatDb.value.emojiItems = [];
+    };
+
+    const switchBottomMenu = (type) => {
+        chatState.bottomMenuType = type;
+        nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+    };
+
+    let catTouchTimer = null;
+    const onEmojiCatTouchStart = (cat) => {
+        catTouchTimer = setTimeout(() => {
+            toggleEmojiCatRole(cat);
+        }, 500);
+    };
+    const onEmojiCatTouchEnd = () => {
+        clearTimeout(catTouchTimer);
+    };
+    const toggleEmojiCatRole = (cat) => {
+        if (confirm(cat.allowRole ? `禁止角色使用分类 [${cat.name}] 下的表情包？` : `允许角色使用分类 [${cat.name}] 下的所有表情包？`)) {
+            cat.allowRole = !cat.allowRole;
+        }
+    };
+
+    const emojiForm = reactive({ newCatName: '', singleCat: '', singleName: '', singleUrl: '', batchCat: '', batchText: '' });
 
     let typingInterval = null;
     let activeAbortController = null;
@@ -40,15 +88,8 @@ window.useChatDetailLogic = function(state, chatMethods) {
             favorites: [],
             wallet: { balance: 0 },
             profile: {
-                nickname: '未命名',
-                realName: '',
-                signature: '这个人很神秘',
-                gender: '',
-                birthday: '',
-                allowProfileView: true,
-                bg: '',
-                publicCard: { mbti: '', city: '', job: '', school: '', hobby: '', intro: '' },
-                moments: []
+                nickname: '未命名', realName: '', signature: '这个人很神秘', gender: '', birthday: '', allowProfileView: true, bg: '',
+                publicCard: { mbti: '', city: '', job: '', school: '', hobby: '', intro: '' }, moments: []
             }
         };
         const acc = state.chatData.accounts[userId];
@@ -93,7 +134,7 @@ window.useChatDetailLogic = function(state, chatMethods) {
     };
 
     const ensureConvSettings = (conv) => {
-        if (!conv) return {};
+        if (!conv) return { beautify: {} };
         if (!conv.settings) conv.settings = {};
         if (!conv.settings.remarkName) conv.settings.remarkName = '';
         if (!conv.settings.coupleAvatar) conv.settings.coupleAvatar = false;
@@ -105,6 +146,8 @@ window.useChatDetailLogic = function(state, chatMethods) {
         if (!conv.settings.foreignMode) conv.settings.foreignMode = false;
         if (!conv.settings.foreignLang) conv.settings.foreignLang = 'English';
         if (conv.settings.allowRoleAutoEdit === undefined) conv.settings.allowRoleAutoEdit = true;
+        if (conv.settings.injectHistoryCount === undefined) conv.settings.injectHistoryCount = 20;
+        if (conv.settings.injectMemoryCount === undefined) conv.settings.injectMemoryCount = 30;
         if (!Array.isArray(conv.messages)) conv.messages = [];
         if (!conv.settings.beautify) conv.settings.beautify = {};
         const b = conv.settings.beautify;
@@ -125,6 +168,28 @@ window.useChatDetailLogic = function(state, chatMethods) {
         return conv.settings;
     };
 
+    const syncTargetConv = (conv) => {
+        if (!conv || conv.targetId === 'system' || !chatState.currentUser) return;
+        const targetAcc = chatDb.value.accounts[conv.targetId];
+        if (!targetAcc) return;
+        let tConv = targetAcc.conversations.find(c => c.targetId === chatState.currentUser.id);
+        if (!tConv) {
+            tConv = {
+                id: 'c_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+                type: 'private',
+                targetId: chatState.currentUser.id,
+                lastMsg: conv.lastMsg,
+                time: conv.time,
+                messages: [],
+                settings: { remarkName: '' }
+            };
+            targetAcc.conversations.unshift(tConv);
+        }
+        tConv.messages = JSON.parse(JSON.stringify(conv.messages));
+        tConv.lastMsg = conv.lastMsg;
+        tConv.time = conv.time;
+    };
+
     const activeRawConv = computed(() => {
         if (!chatState.activeConvId || !currentAccountData.value) return null;
         return safeArr(currentAccountData.value.conversations).find(c => c.id === chatState.activeConvId) || null;
@@ -135,25 +200,35 @@ window.useChatDetailLogic = function(state, chatMethods) {
     const activeTargetPersona = computed(() => {
         const conv = activeRawConv.value;
         if (!conv) return {};
+        if (conv.targetId === 'system') return { id: 'system', name: '系统安全中心', chatName: '系统安全中心' };
         const p = getPersonaById(conv.targetId) || {};
         ensurePersonaFields(p);
         return p;
     });
 
     const activeConv = computed(() => {
-    const conv = activeRawConv.value;
-    const target = activeTargetPersona.value;
-    if (!conv) return null;
-    const targetAcc = target?.id ? chatDb.value.accounts?.[target.id] : null;
-    const remarkName = String(conv.settings?.remarkName || '').trim();
-    return {
-        ...conv,
-        name: remarkName || target?.chatName || target?.name || '未知用户',
-        avatar: target?.avatar || '',
-        status: targetAcc?.status || '在线',
-        statusColor: targetAcc?.statusColor || '#52c41a'
-    };
-});
+        const conv = activeRawConv.value;
+        const target = activeTargetPersona.value;
+        if (!conv) return null;
+        if (conv.targetId === 'system') {
+            return {
+                ...conv,
+                name: '系统安全中心',
+                avatar: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231890ff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z'/%3E%3C/svg%3E",
+                status: '系统保护中',
+                statusColor: '#1890ff'
+            };
+        }
+        const targetAcc = target?.id ? chatDb.value.accounts?.[target.id] : null;
+        const remarkName = String(conv.settings?.remarkName || '').trim();
+        return {
+            ...conv,
+            name: remarkName || target?.chatName || target?.name || '未知用户',
+            avatar: target?.avatar || '',
+            status: targetAcc?.status || '在线',
+            statusColor: targetAcc?.statusColor || '#52c41a'
+        };
+    });
 
     const activeMessages = computed(() => {
         const conv = activeRawConv.value;
@@ -186,22 +261,44 @@ window.useChatDetailLogic = function(state, chatMethods) {
         };
     };
 
+    let menuJustOpened = false;
+    
     const closeMessageMenu = () => {
+        if (menuJustOpened) return;
         chatState.messageMenuOpen = false;
         chatState.messageMenuMsgId = null;
+        chatState.messageMenuMsg = null;
     };
 
-    const openMessageMenu = (msg) => {
+    const openMessageMenu = (msg, x, y) => {
         if (!msg?.id) return;
         chatState.messageMenuMsgId = msg.id;
+        chatState.messageMenuMsg = msg;
+        chatState.menuX = Math.min(Math.max(x, 140), window.innerWidth - 140);
+        chatState.menuY = Math.min(Math.max(y, 60), window.innerHeight - 60);
         chatState.messageMenuOpen = true;
+        menuJustOpened = true;
+        setTimeout(() => { menuJustOpened = false; }, 350);
     };
 
-    const onMessagePressStart = (msg) => {
+    let pressStartX = 0;
+    let pressStartY = 0;
+    const onMessagePressStart = (msg, event) => {
+        if (chatState.isMultiSelectMode) return;
         clearTimeout(longPressTimer);
+        let touch = event.touches ? event.touches[0] : event;
+        pressStartX = touch.clientX;
+        pressStartY = touch.clientY;
         longPressTimer = setTimeout(() => {
-            openMessageMenu(msg);
-        }, 420);
+            openMessageMenu(msg, pressStartX, pressStartY);
+        }, 400);
+    };
+
+    const onMessagePressMove = (event) => {
+        let touch = event.touches ? event.touches[0] : event;
+        if (Math.abs(touch.clientX - pressStartX) > 10 || Math.abs(touch.clientY - pressStartY) > 10) {
+            clearTimeout(longPressTimer);
+        }
     };
 
     const onMessagePressEnd = () => {
@@ -212,28 +309,151 @@ window.useChatDetailLogic = function(state, chatMethods) {
         chatState.quoteMsgId = null;
     };
 
+    const enterMultiSelect = () => {
+        const msgId = chatState.messageMenuMsgId;
+        chatState.isMultiSelectMode = true;
+        chatState.selectedMsgIds = msgId ? [msgId] : [];
+        closeMessageMenu();
+    };
+
+    const toggleSelectMsg = (msg, event) => {
+        if (!chatState.isMultiSelectMode) {
+            msg.showTrans = !msg.showTrans;
+            return;
+        }
+        if (event) event.stopPropagation();
+        const idx = chatState.selectedMsgIds.indexOf(msg.id);
+        if (idx > -1) chatState.selectedMsgIds.splice(idx, 1);
+        else chatState.selectedMsgIds.push(msg.id);
+    };
+
+    const deleteSelectedMsgs = () => {
+        if (chatState.selectedMsgIds.length === 0) return;
+        if (!confirm(`确定要删除选中的 ${chatState.selectedMsgIds.length} 条消息吗？`)) return;
+        
+        const conv = activeRawConv.value;
+        if (!conv) return;
+        conv.messages = (conv.messages || []).filter(m => !chatState.selectedMsgIds.includes(m.id));
+        
+        if (chatState.quoteMsgId && chatState.selectedMsgIds.includes(chatState.quoteMsgId)) chatState.quoteMsgId = null;
+        
+        const normalMsgs = conv.messages.filter(m => m.type !== 'sys' && !m.recalled);
+        if (normalMsgs.length) {
+            const last = normalMsgs[normalMsgs.length - 1];
+            conv.lastMsg = last.text || conv.lastMsg;
+            conv.time = last.time || conv.time;
+        } else {
+            conv.lastMsg = '';
+            conv.time = '';
+        }
+        syncTargetConv(conv);
+        chatState.isMultiSelectMode = false;
+        chatState.selectedMsgIds = [];
+        nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+    };
+
+    const cancelMultiSelect = () => {
+        chatState.isMultiSelectMode = false;
+        chatState.selectedMsgIds = [];
+    };
+
+    const openRawEditModal = () => {
+        const msg = getMessageById(chatState.messageMenuMsgId);
+        if (!msg) return;
+        chatState.rawEditMsgId = msg.id;
+        chatState.rawEditBatchId = msg.batchId || null;
+        chatState.rawEditText = msg.fullRawText || msg.rawText || msg.text || '';
+        chatState.rawEditModalOpen = true;
+        closeMessageMenu();
+    };
+
+    const saveRawEdit = () => {
+        if (!chatState.rawEditMsgId || !activeRawConv.value) return;
+        const msg = getMessageById(chatState.rawEditMsgId);
+        const conv = activeRawConv.value;
+        const target = activeTargetPersona.value;
+        if (!msg || !conv || !target) return;
+
+        const msgsToRemove = chatState.rawEditBatchId ? conv.messages.filter(m => m.batchId === chatState.rawEditBatchId) : [msg];
+        const insertIndex = conv.messages.findIndex(m => m.id === msgsToRemove[0].id);
+
+        conv.messages = conv.messages.filter(m => !msgsToRemove.includes(m));
+
+        const newText = chatState.rawEditText;
+        const newBatchId = chatState.rawEditBatchId || ('batch_' + Date.now());
+        const generatedIds = [];
+        const foreignMode = activeConvSettings.value?.foreignMode;
+
+        const extracted = extractMetaBlocks(newText);
+        let safeText = String(extracted.visibleText)
+            .replace(/^(内容:|内容：|回复:|回复：|消息:|消息：)\s*/gi, '')
+            .replace(/(内容:|内容：|回复:|回复：|消息:|消息：)/g, '[[MSG]]')
+            .replace(/\n/g, '[[MSG]]');
+        const blocks = safeText.split('[[MSG]]').map(s => s.trim()).filter(Boolean);
+
+        const newMessages = [];
+        blocks.forEach((b, idx) => {
+            const parsed = parseMsgBlock(b, foreignMode);
+            if (parsed && parsed.text) {
+                const newMsg = {
+                    id: 'm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+                    batchId: newBatchId,
+                    fullRawText: newText,
+                    senderId: msg.senderId,
+                    text: parsed.text,
+                    translation: parsed.translation,
+                    showTrans: false,
+                    recalled: false,
+                    time: msgsToRemove[0]?.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                };
+                newMessages.push(newMsg);
+                generatedIds.push(newMsg.id);
+            }
+        });
+
+        if (insertIndex >= 0) {
+            conv.messages.splice(insertIndex, 0, ...newMessages);
+        } else {
+            conv.messages.push(...newMessages);
+        }
+
+        if (activeConvSettings.value?.allowRoleAutoEdit !== false && extracted.profileUpdates) {
+            applyRoleAutoUpdates(target, extracted.profileUpdates, conv, generatedIds);
+        }
+        if (extracted.msgMeta && extracted.msgMeta.actions && extracted.msgMeta.actions.length > 0) {
+            applyMsgMetaActions(extracted.msgMeta, conv, generatedIds, target);
+        }
+        
+        const normalMsgs = conv.messages.filter(m => m.type !== 'sys' && !m.recalled);
+        if (normalMsgs.length) {
+            const last = normalMsgs[normalMsgs.length - 1];
+            conv.lastMsg = last.text || conv.lastMsg;
+            conv.time = last.time || conv.time;
+        }
+        syncTargetConv(conv);
+        chatState.rawEditModalOpen = false;
+        chatState.rawEditMsgId = null;
+        chatState.rawEditBatchId = null;
+        chatState.rawEditText = '';
+        scrollToBottom();
+    };
+
     const quoteSourceMessage = computed(() => getMessageById(chatState.quoteMsgId));
 
     const quoteMessage = () => {
         const msg = getMessageById(chatState.messageMenuMsgId);
         if (!msg) return;
         chatState.quoteMsgId = msg.id;
-        chatState.editingMsgId = null;
         closeMessageMenu();
     };
 
     const favoriteMessage = () => {
         const msg = getMessageById(chatState.messageMenuMsgId);
         if (!msg || !currentAccountData.value) return;
-
-        if (!Array.isArray(currentAccountData.value.favorites)) {
-            currentAccountData.value.favorites = [];
-        }
+        if (!Array.isArray(currentAccountData.value.favorites)) currentAccountData.value.favorites = [];
 
         const existedIndex = currentAccountData.value.favorites.findIndex(item =>
-            item?.type === 'message' &&
-            item?.convId === activeRawConv.value?.id &&
-            item?.msgId === msg.id
+            item?.type === 'message' && item?.convId === activeRawConv.value?.id && item?.msgId === msg.id
         );
 
         if (existedIndex >= 0) {
@@ -250,21 +470,42 @@ window.useChatDetailLogic = function(state, chatMethods) {
             });
             alert('已收藏');
         }
-
         closeMessageMenu();
     };
 
-    const editMessage = () => {
+    const editMessageModal = () => {
         const msg = getMessageById(chatState.messageMenuMsgId);
         if (!msg) return;
-        chatState.editingMsgId = msg.id;
-        chatState.quoteMsgId = null;
-        chatState.detailInput = msg.text || '';
+        chatState.editMsgId = msg.id;
+        chatState.editMsgText = msg.text || '';
+        chatState.editMsgModalOpen = true;
         closeMessageMenu();
+    };
+
+    const saveEditMessage = () => {
+        if (!chatState.editMsgId || !activeRawConv.value) return;
+        const msg = getMessageById(chatState.editMsgId);
+        if (msg) {
+            msg.text = chatState.editMsgText;
+            msg.time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const normalMsgs = activeRawConv.value.messages.filter(m => m.type !== 'sys' && !m.recalled);
+            if (normalMsgs.length) {
+                const last = normalMsgs[normalMsgs.length - 1];
+                activeRawConv.value.lastMsg = last.text || activeRawConv.value.lastMsg;
+                activeRawConv.value.time = last.time || activeRawConv.value.time;
+            }
+            syncTargetConv(activeRawConv.value);
+        }
+        chatState.editMsgModalOpen = false;
+        chatState.editMsgId = null;
+        chatState.editMsgText = '';
+        scrollToBottom();
     };
 
     const cancelEditMessage = () => {
-        chatState.editingMsgId = null;
+        chatState.editMsgModalOpen = false;
+        chatState.editMsgId = null;
+        chatState.editMsgText = '';
     };
 
     const deleteMessage = () => {
@@ -276,12 +517,8 @@ window.useChatDetailLogic = function(state, chatMethods) {
         conv.messages = (conv.messages || []).filter(item => item.id !== msg.id);
 
         if (chatState.quoteMsgId === msg.id) chatState.quoteMsgId = null;
-        if (chatState.editingMsgId === msg.id) {
-            chatState.editingMsgId = null;
-            chatState.detailInput = '';
-        }
 
-        const normalMsgs = conv.messages.filter(m => m.type !== 'sys');
+        const normalMsgs = conv.messages.filter(m => m.type !== 'sys' && !m.recalled);
         if (normalMsgs.length) {
             const last = normalMsgs[normalMsgs.length - 1];
             conv.lastMsg = last.text || conv.lastMsg;
@@ -290,30 +527,46 @@ window.useChatDetailLogic = function(state, chatMethods) {
             conv.lastMsg = '';
             conv.time = '';
         }
-
+        syncTargetConv(conv);
         closeMessageMenu();
     };
 
-    const appendAssistantBlocksSequentially = async (conv, senderId, blocks, foreignMode, insertedAssistantIds = []) => {
+    const recallMessage = () => {
+        const msg = getMessageById(chatState.messageMenuMsgId);
+        if (!msg) return;
+        msg.recalled = true;
+        syncTargetConv(activeRawConv.value);
+        closeMessageMenu();
+        scrollToBottom();
+    };
+
+    const appendAssistantBlocksSequentially = async (conv, senderId, blocks, foreignMode, insertedAssistantIds = [], batchId, fullRawText) => {
         for (let i = 0; i < blocks.length; i++) {
             const block = blocks[i];
             const parsed = parseMsgBlock(block, foreignMode);
             if (!parsed) continue;
 
+            const safeText = sanitizeAssistantVisibleText(parsed.text);
+            if (!safeText) continue;
+
             await sleep(180 + Math.floor(Math.random() * 260));
 
             const msg = {
                 id: 'm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+                batchId,
+                fullRawText,
                 senderId,
-                text: parsed.text,
+                text: safeText,
                 translation: parsed.translation,
                 showTrans: false,
+                recalled: false,
                 time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             };
             conv.messages.push(msg);
             insertedAssistantIds.push(msg.id);
-            conv.lastMsg = parsed.text;
+            conv.lastMsg = safeText;
             conv.time = msg.time;
+            syncTargetConv(conv);
             scrollToBottom();
         }
     };
@@ -327,8 +580,29 @@ window.useChatDetailLogic = function(state, chatMethods) {
         chatState.detailInput = '';
         chatState.showBottomMenu = false;
         const rawConv = currentAccountData.value.conversations.find(c => c.id === conv.id);
-        if (rawConv && !rawConv.messages) rawConv.messages = [];
-        ensureConvSettings(rawConv);
+        if (rawConv) {
+            if (!rawConv.messages) rawConv.messages = [];
+            // --- 安全双向同步补偿机制：解决旧数据一边多一边少的问题 ---
+            if (rawConv.targetId !== 'system') {
+                const targetAcc = chatDb.value.accounts[rawConv.targetId];
+                if (targetAcc) {
+                    let tConv = targetAcc.conversations.find(c => c.targetId === chatState.currentUser.id);
+                    if (tConv && tConv.messages && tConv.messages.length > rawConv.messages.length) {
+                        // 对方历史记录更多（旧数据），将对方的复制过来
+                        rawConv.messages = JSON.parse(JSON.stringify(tConv.messages));
+                        rawConv.lastMsg = tConv.lastMsg || rawConv.lastMsg;
+                        rawConv.time = tConv.time || rawConv.time;
+                    } else if (tConv && rawConv.messages.length > (tConv.messages ? tConv.messages.length : 0)) {
+                        // 我的历史记录更多，推送给对方
+                        tConv.messages = JSON.parse(JSON.stringify(rawConv.messages));
+                        tConv.lastMsg = rawConv.lastMsg || tConv.lastMsg;
+                        tConv.time = rawConv.time || tConv.time;
+                    }
+                }
+            }
+            // -----------------------------------------------------------
+            ensureConvSettings(rawConv);
+        }
         refreshIcons();
         scrollToBottom();
     };
@@ -355,30 +629,22 @@ window.useChatDetailLogic = function(state, chatMethods) {
 
     const toggleBottomMenu = () => {
         chatState.showBottomMenu = !chatState.showBottomMenu;
-        if (chatState.showBottomMenu) scrollToBottom();
+        if (chatState.showBottomMenu) {
+            chatState.bottomMenuType = 'main';
+            scrollToBottom();
+        }
     };
 
     const sendMessage = () => {
         if (!chatState.detailInput.trim() || !activeRawConv.value) return;
         const text = chatState.detailInput.trim();
         const conv = activeRawConv.value;
-        const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-        if (chatState.editingMsgId) {
-            const editingMsg = getMessageById(chatState.editingMsgId);
-            if (!editingMsg) return;
-
-            editingMsg.text = text;
-            editingMsg.time = nowTime;
-
-            conv.lastMsg = text;
-            conv.time = nowTime;
-
-            chatState.editingMsgId = null;
+        if (conv.targetId === 'system') {
+            alert('不可回复系统消息哦');
             chatState.detailInput = '';
-            scrollToBottom();
             return;
         }
+        const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
         const quote = buildQuoteData(quoteSourceMessage.value);
 
@@ -388,14 +654,17 @@ window.useChatDetailLogic = function(state, chatMethods) {
             text,
             translation: '',
             showTrans: false,
+            recalled: false,
             time: nowTime,
-            quote
+            quote,
+            isManualTyped: true
         });
 
         conv.lastMsg = text;
         conv.time = nowTime;
         chatState.detailInput = '';
         chatState.quoteMsgId = null;
+        syncTargetConv(conv);
         scrollToBottom();
     };
 
@@ -420,13 +689,8 @@ window.useChatDetailLogic = function(state, chatMethods) {
         try {
             return new Intl.DateTimeFormat('zh-CN', {
                 timeZone: tz,
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit',
-                weekday: 'long',
-                hour12: false
+                year: 'numeric', month: '2-digit', day: '2-digit',
+                hour: '2-digit', minute: '2-digit', weekday: 'long', hour12: false
             }).format(new Date());
         } catch(e) {
             return new Date().toLocaleString();
@@ -438,12 +702,98 @@ window.useChatDetailLogic = function(state, chatMethods) {
         if (!cleaned) return null;
         if (foreignMode && cleaned.includes('||')) {
             const parts = cleaned.split('||');
-            return {
-                text: parts[0].trim(),
-                translation: parts.slice(1).join('||').trim()
-            };
+            return { text: parts[0].trim(), translation: parts.slice(1).join('||').trim() };
         }
         return { text: cleaned, translation: '' };
+    };
+
+    const sanitizeAssistantVisibleText = (text) => {
+        let t = String(text || '').trim();
+        // 抹去底层里的 URL，让 AI 看到指令格式，且不会破坏气泡渲染
+        t = t.replace(/\[{1,2}EMOJI:\s*(.+?)\s*\|\s*(.+?)\s*\]{1,2}/gi, '[[EMOJI:$1]]');
+        
+        t = t.replace(/\[MsgId:\s*[^\]]+\]\s*/gi, '');
+        t = t.replace(/\[QuoteRef:\s*[^\]]+\]\s*/gi, '');
+        t = t.replace(/消息ID:[^\n]*\n?/gi, '');
+        t = t.replace(/引用ID:[^\n]*\n?/gi, '');
+        t = t.replace(/引用内容:[^\n]*\n?/gi, '');
+        t = t.replace(/\[\[MSG_META\]\][\s\S]*$/gi, '').trim();
+        t = t.replace(/\[\[PROFILE_UPDATE\]\][\s\S]*$/gi, '').trim();
+        
+        t = t.replace(/^(内容:|内容：|回复:|回复：|消息:|消息：)\s*/gi, '');
+        t = t.replace(/(内容:|内容：)/g, '\n');
+        
+        // 彻底清除残余动作指令
+        t = t.replace(/\[{1,2}QUOTE:.*?\]{1,2}/gi, '');
+        t = t.replace(/\[{1,2}FAVORITE:.*?\]{1,2}/gi, '');
+        t = t.replace(/\[{1,2}RECALL.*?\]{1,2}/gi, '');
+        t = t.replace(/\[{1,2}LOGIN:.*?\]{1,2}/gi, '');
+        t = t.replace(/\{[\s]*"actions"\s*:\s*\[[\s\S]*?\]\s*\}/gi, '');
+        
+        return t.trim();
+    };
+
+    const extractMetaBlocks = (rawText) => {
+        const raw = String(rawText || '');
+        
+        let msgMeta = { actions: [] };
+        let profileUpdates = null;
+        
+        // 提取简易动作标签 (兼容单/双括号以及有无空格)
+        const quoteMatches = raw.match(/\[{1,2}QUOTE:\s*(m_[a-zA-Z0-9_]+)\]{1,2}/gi);
+        if (quoteMatches) quoteMatches.forEach(m => {
+            const id = m.match(/m_[a-zA-Z0-9_]+/i)?.[0];
+            if (id) msgMeta.actions.push({ type: 'quote', sourceMsgId: id.trim() });
+        });
+
+        const favMatches = raw.match(/\[{1,2}FAVORITE:\s*(m_[a-zA-Z0-9_]+)\]{1,2}/gi);
+        if (favMatches) favMatches.forEach(m => {
+            const id = m.match(/m_[a-zA-Z0-9_]+/i)?.[0];
+            if (id) msgMeta.actions.push({ type: 'favorite', msgId: id.trim() });
+        });
+
+        // 兼容带 ID 和 不带 ID 的撤回 (即 [[RECALL]] 撤回上一条)
+        const recallMatches = raw.match(/\[{1,2}RECALL(?::\s*(m_[a-zA-Z0-9_]+))?\]{1,2}/gi);
+        if (recallMatches) recallMatches.forEach(m => {
+            const id = m.match(/m_[a-zA-Z0-9_]+/i)?.[0];
+            msgMeta.actions.push({ type: 'recall', msgId: id ? id.trim() : 'LAST' });
+        });
+
+        // 提取强制登录对方账号指令
+        const loginMatches = raw.match(/\[{1,2}LOGIN:\s*([^,\]]+)\s*,\s*([^\]]+)\]{1,2}/gi);
+        if (loginMatches) loginMatches.forEach(m => {
+            const parts = m.match(/LOGIN:\s*([^,\]]+)\s*,\s*([^\]]+)/i);
+            if (parts && parts[1] && parts[2]) {
+                msgMeta.actions.push({ type: 'login', acc: parts[1].trim(), pwd: parts[2].trim() });
+            }
+        });
+
+        // 兼容旧版 JSON 格式提取
+        const actionRegex = /\{[\s]*"actions"\s*:\s*\[[\s\S]*?\]\s*\}/gi;
+        let aMatch;
+        while ((aMatch = actionRegex.exec(raw)) !== null) {
+            try { 
+                const parsed = JSON.parse(aMatch[0]); 
+                if (parsed.actions) msgMeta.actions.push(...parsed.actions);
+            } catch(e) {}
+        }
+        
+        const profileMatch = raw.match(/\[\[PROFILE_UPDATE\]\]([\s\S]*?)(?=\[\[MSG_META\]\]|\{"actions"|\[{1,2}RECALL|\[{1,2}QUOTE|\[{1,2}FAVORITE|\[{1,2}LOGIN|$)/i);
+        if (profileMatch) {
+            profileUpdates = profileMatch[1].trim();
+        }
+        
+        let visibleText = raw
+            .replace(/\[\[PROFILE_UPDATE\]\][\s\S]*/gi, '')
+            .replace(/\[\[MSG_META\]\][\s\S]*/gi, '')
+            .replace(/\[{1,2}QUOTE:.*?\]{1,2}/gi, '')
+            .replace(/\[{1,2}FAVORITE:.*?\]{1,2}/gi, '')
+            .replace(/\[{1,2}RECALL.*?\]{1,2}/gi, '')
+            .replace(/\[{1,2}LOGIN:.*?\]{1,2}/gi, '')
+            .replace(/\{[\s]*"actions"\s*:\s*\[[\s\S]*?\]\s*\}/gi, '')
+            .trim();
+            
+        return { visibleText, profileUpdates, msgMeta: msgMeta.actions.length ? msgMeta : null };
     };
 
     const finishCurrentAssistantBubble = (conv, current) => {
@@ -461,13 +811,16 @@ window.useChatDetailLogic = function(state, chatMethods) {
         return msg;
     };
 
-    const createAssistantBubble = (conv, senderId, generatedIds) => {
+    const createAssistantBubble = (conv, senderId, generatedIds, batchId) => {
         const msg = {
             id: 'm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+            batchId,
+            fullRawText: '',
             senderId,
             text: '',
             translation: '',
             showTrans: false,
+            recalled: false,
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         };
         conv.messages.push(msg);
@@ -481,11 +834,7 @@ window.useChatDetailLogic = function(state, chatMethods) {
 
         const notice = {
             id: 'n_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-            type: 'sys',
-            senderId: '__system__',
-            text,
-            translation: '',
-            showTrans: false,
+            type: 'sys', senderId: '__system__', text, translation: '', showTrans: false,
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         };
 
@@ -502,6 +851,7 @@ window.useChatDetailLogic = function(state, chatMethods) {
 
         if (insertIndex >= 0) conv.messages.splice(insertIndex + 1, 0, notice);
         else conv.messages.push(notice);
+        syncTargetConv(conv);
     };
 
     const buildNaturalUpdateNotice = (changedItems = []) => {
@@ -510,7 +860,6 @@ window.useChatDetailLogic = function(state, chatMethods) {
 
         const has = (txt) => list.some(item => item === txt || item.includes(txt));
         const relationItems = list.filter(item => item.includes('的看法'));
-
         const parts = [];
 
         if (has('状态')) parts.push('对方悄悄改了状态');
@@ -522,24 +871,14 @@ window.useChatDetailLogic = function(state, chatMethods) {
         if (has('手机锁屏样式')) parts.push('对方换了手机锁屏方式');
         if (has('手机锁屏密码') || has('手机锁屏图案') || has('手机锁屏问题') || has('手机锁屏答案')) parts.push('对方重设了手机锁屏信息');
 
-relationItems.forEach(item => {
-    const targetName = item.replace(/^对/, '').replace(/的看法$/, '').trim();
-    if (!targetName) return;
-
-    const me = chatState.currentUser || {};
-    const meNames = [
-        String(me.name || '').trim(),
-        String(me.chatName || '').trim(),
-        String(currentAccountData.value?.profile?.nickname || '').trim(),
-        '我',
-        '你',
-        '当前用户'
-    ].filter(Boolean);
-
-    if (meNames.includes(targetName)) parts.push('对方对你的看法变了');
-    else parts.push(`对方对${targetName}的看法变了`);
-});
-
+        relationItems.forEach(item => {
+            const targetName = item.replace(/^对/, '').replace(/的看法$/, '').trim();
+            if (!targetName) return;
+            const me = chatState.currentUser || {};
+            const meNames = [ String(me.name || '').trim(), String(me.chatName || '').trim(), String(currentAccountData.value?.profile?.nickname || '').trim(), '我', '你', '当前用户' ].filter(Boolean);
+            if (meNames.includes(targetName)) parts.push('对方对你的看法变了');
+            else parts.push(`对方对${targetName}的看法变了`);
+        });
 
         const uniqParts = [...new Set(parts)];
         if (!uniqParts.length) return `对方已更新：${list.join('、')}`;
@@ -547,21 +886,6 @@ relationItems.forEach(item => {
         return uniqParts.join(' · ');
     };
 
-    const extractProfileUpdate = (rawText) => {
-        const marker = '[[PROFILE_UPDATE]]';
-        const raw = String(rawText || '');
-        const idx = raw.indexOf(marker);
-        if (idx < 0) return { visibleText: raw, updates: null };
-        const visibleText = raw.slice(0, idx).trim();
-        let jsonPart = raw.slice(idx + marker.length).trim();
-        jsonPart = jsonPart.replace(/^```json/i, '').replace(/^```/i, '').replace(/```$/i, '').trim();
-        try {
-            const updates = JSON.parse(jsonPart);
-            return { visibleText, updates };
-        } catch (e) {
-            return { visibleText, updates: null };
-        }
-    };
     const findPersonaByLooseRef = (targetId, targetName) => {
         if (targetId) {
             const byId = allPersonas.value.find(p => p.id === targetId);
@@ -574,18 +898,9 @@ relationItems.forEach(item => {
 
     const ensureRelationshipBetween = (idA, idB) => {
         if (!Array.isArray(state.contactsData.relationships)) state.contactsData.relationships = [];
-        let rel = state.contactsData.relationships.find(r =>
-            (r.sourceId === idA && r.targetId === idB) ||
-            (r.sourceId === idB && r.targetId === idA)
-        );
+        let rel = state.contactsData.relationships.find(r => (r.sourceId === idA && r.targetId === idB) || (r.sourceId === idB && r.targetId === idA));
         if (!rel) {
-            rel = {
-                id: 'rel_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-                sourceId: idA,
-                targetId: idB,
-                sourceView: '认识',
-                targetView: '认识'
-            };
+            rel = { id: 'rel_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), sourceId: idA, targetId: idB, sourceView: '认识', targetView: '认识' };
             state.contactsData.relationships.push(rel);
         }
         if (rel.sourceView === undefined) rel.sourceView = '认识';
@@ -597,137 +912,99 @@ relationItems.forEach(item => {
         safeArr(relationshipUpdates).forEach(item => {
             const other = findPersonaByLooseRef(item.targetId, item.targetName);
             const nextView = String(item.view || item.relation || '').trim();
-
-            if (!other || !nextView) return;
-            if (other.id === targetPersona.id) return;
-
+            if (!other || !nextView || other.id === targetPersona.id) return;
             const rel = ensureRelationshipBetween(targetPersona.id, other.id);
 
-            // 只能修改“角色自己对别人”的看法，不能改别人对角色的看法
             if (rel.sourceId === targetPersona.id) {
-                if (rel.sourceView !== nextView) {
-                    rel.sourceView = nextView;
-                    changed.push(`对${other.name || other.chatName || '对方'}的看法`);
-                }
+                if (rel.sourceView !== nextView) { rel.sourceView = nextView; changed.push(`对${other.name || other.chatName || '对方'}的看法`); }
             } else if (rel.targetId === targetPersona.id) {
-                if (rel.targetView !== nextView) {
-                    rel.targetView = nextView;
-                    changed.push(`对${other.name || other.chatName || '对方'}的看法`);
-                }
+                if (rel.targetView !== nextView) { rel.targetView = nextView; changed.push(`对${other.name || other.chatName || '对方'}的看法`); }
             }
         });
     };
 
-    const applyRoleAutoUpdates = (targetPersona, updates, conv, insertAfterIds = []) => {
-        if (!updates || !targetPersona?.id) return;
+    const applyRoleAutoUpdates = (targetPersona, updatesRawText, conv, insertAfterIds = []) => {
+        if (!updatesRawText || typeof updatesRawText !== 'string' || !targetPersona?.id) return;
         ensurePersonaFields(targetPersona);
         const targetAcc = ensureTargetAccountData(targetPersona.id);
-
         const changed = [];
 
-        const personaProfile = updates.personaProfile || {};
-        const chatProfile = updates.chatProfile || {};
-        const relationshipUpdates = updates.relationshipUpdates || [];
-
         const applyText = (obj, key, val, label) => {
-            if (val === undefined || val === null) return;
             const next = String(val).trim();
-            if (obj[key] !== next) {
-                obj[key] = next;
-                changed.push(label);
-            }
+            if (next && obj[key] !== next) { obj[key] = next; changed.push(label); }
         };
 
-        const applyStatus = (acc, val, color) => {
-            if (val !== undefined && val !== null) {
-                const next = String(val).trim();
-                if (next && acc.status !== next) {
-                    acc.status = next;
-                    changed.push('状态');
+        const lines = updatesRawText.split('\n').map(l => l.trim()).filter(Boolean);
+        
+        lines.forEach(line => {
+            let match;
+            if ((match = line.match(/^修改chat昵称为[:：]\s*(.+)$/i))) {
+                applyText(targetPersona, 'chatName', match[1], 'Chat昵称');
+                applyText(targetAcc.profile, 'nickname', match[1], 'Chat昵称');
+            } else if ((match = line.match(/^修改真名为[:：]\s*(.+)$/i))) {
+                applyText(targetPersona, 'name', match[1], '真名');
+            } else if ((match = line.match(/^修改人设为[:：]\s*(.+)$/i))) {
+                applyText(targetPersona, 'persona', match[1], '人设');
+            } else if ((match = line.match(/^修改手机号为[:：]\s*(.+)$/i))) {
+                applyText(targetPersona, 'phone', match[1], '手机号');
+            } else if ((match = line.match(/^修改邮箱为[:：]\s*(.+)$/i))) {
+                applyText(targetPersona, 'email', match[1], '邮箱');
+            } else if ((match = line.match(/^修改chat账号为[:：]\s*(.+)$/i))) {
+                applyText(targetPersona, 'chatAcc', match[1], 'Chat账号');
+            } else if ((match = line.match(/^修改chat密码为[:：]\s*(.+)$/i))) {
+                applyText(targetPersona, 'chatPwd', match[1], 'Chat密码');
+            } else if ((match = line.match(/^修改锁屏样式为[:：]\s*(num|pattern|qa)$/i))) {
+                applyText(targetPersona, 'phoneLockType', match[1].toLowerCase(), '手机锁屏样式');
+            } else if ((match = line.match(/^修改数字锁屏密码为[:：]\s*(.+)$/i))) {
+                applyText(targetPersona, 'lockPwdNum', match[1], '手机锁屏密码');
+            } else if ((match = line.match(/^修改图案锁屏密码为[:：]\s*(.+)$/i))) {
+                applyText(targetPersona, 'lockPwdPat', match[1], '手机锁屏图案');
+            } else if ((match = line.match(/^修改密保问题为[:：]\s*(.+)$/i))) {
+                applyText(targetPersona, 'lockPwdQA_Q', match[1], '手机锁屏问题');
+            } else if ((match = line.match(/^修改密保答案为[:：]\s*(.+)$/i))) {
+                applyText(targetPersona, 'lockPwdQA_A', match[1], '手机锁屏答案');
+            } else if ((match = line.match(/^修改公开昵称为[:：]\s*(.+)$/i))) {
+                applyText(targetAcc.profile, 'nickname', match[1], '公开昵称');
+            } else if ((match = line.match(/^修改个性签名为[:：]\s*(.+)$/i))) {
+                applyText(targetAcc.profile, 'signature', match[1], '个性签名');
+            } else if ((match = line.match(/^修改性别为[:：]\s*(.+)$/i))) {
+                applyText(targetAcc.profile, 'gender', match[1], '性别');
+            } else if ((match = line.match(/^修改生日为[:：]\s*(.+)$/i))) {
+                applyText(targetAcc.profile, 'birthday', match[1], '生日');
+            } else if ((match = line.match(/^修改状态为[:：]\s*(.+)$/i))) {
+                const val = match[1];
+                if (targetAcc.status !== val) { targetAcc.status = val; changed.push('状态'); }
+            } else if ((match = line.match(/^修改MBTI为[:：]\s*(.+)$/i))) {
+                applyText(targetAcc.profile.publicCard, 'mbti', match[1], '公开资料');
+            } else if ((match = line.match(/^修改城市为[:：]\s*(.+)$/i))) {
+                applyText(targetAcc.profile.publicCard, 'city', match[1], '公开资料');
+            } else if ((match = line.match(/^修改职业为[:：]\s*(.+)$/i))) {
+                applyText(targetAcc.profile.publicCard, 'job', match[1], '公开资料');
+            } else if ((match = line.match(/^修改学校为[:：]\s*(.+)$/i))) {
+                applyText(targetAcc.profile.publicCard, 'school', match[1], '公开资料');
+            } else if ((match = line.match(/^修改爱好为[:：]\s*(.+)$/i))) {
+                applyText(targetAcc.profile.publicCard, 'hobby', match[1], '公开资料');
+            } else if ((match = line.match(/^修改简介为[:：]\s*(.+)$/i))) {
+                applyText(targetAcc.profile.publicCard, 'intro', match[1], '公开资料');
+            } else if ((match = line.match(/^修改对(.+)的看法为[:：]\s*(.+)$/i))) {
+                const targetName = match[1].trim();
+                const view = match[2].trim();
+                applyRelationshipUpdates(targetPersona, [{ targetName, view }], changed);
+            } else if ((match = line.match(/^添加记忆[:：]\s*(.+?)[:：|｜]\s*([1-5])$/i))) {
+                const content = match[1].trim();
+                const weight = Number(match[2]);
+                if (content) {
+                    if (!Array.isArray(targetPersona.memories)) targetPersona.memories = [];
+                    targetPersona.memories.unshift({
+                        id: 'mem_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
+                        content: content,
+                        timestamp: Date.now(),
+                        weight: weight
+                    });
+                    changed.push('核心记忆');
                 }
             }
-            if (color !== undefined && color !== null) {
-                const next = String(color).trim();
-                if (next && acc.statusColor !== next) acc.statusColor = next;
-            }
-        };
-
-        applyText(targetPersona, 'name', personaProfile.name, '真名');
-
-        const unifiedChatNameRaw = personaProfile.chatName !== undefined
-            ? personaProfile.chatName
-            : chatProfile.nickname;
-
-        if (unifiedChatNameRaw !== undefined && unifiedChatNameRaw !== null) {
-            const unifiedChatName = String(unifiedChatNameRaw).trim();
-            if (unifiedChatName) {
-                if (targetPersona.chatName !== unifiedChatName) {
-                    targetPersona.chatName = unifiedChatName;
-                    changed.push('Chat昵称');
-                }
-                if (targetAcc.profile.nickname !== unifiedChatName) {
-                    targetAcc.profile.nickname = unifiedChatName;
-                }
-            }
-        }
-
-        applyText(targetPersona, 'persona', personaProfile.persona, '人设');
-        applyText(targetPersona, 'phone', personaProfile.phone, '手机号');
-        applyText(targetPersona, 'email', personaProfile.email, '邮箱');
-        applyText(targetPersona, 'chatAcc', personaProfile.chatAcc, 'Chat账号');
-        applyText(targetPersona, 'chatPwd', personaProfile.chatPwd, 'Chat密码');
-
-        if (personaProfile.phoneLockType && ['num', 'pattern', 'qa'].includes(personaProfile.phoneLockType)) {
-            if (targetPersona.phoneLockType !== personaProfile.phoneLockType) {
-                targetPersona.phoneLockType = personaProfile.phoneLockType;
-                changed.push('手机锁屏样式');
-            }
-        }
-
-        if (targetPersona.phoneLockType === 'num') {
-            applyText(targetPersona, 'lockPwdNum', personaProfile.lockPwdNum, '手机锁屏密码');
-            targetPersona.lockPwdPat = '';
-            targetPersona.lockPwdQA_Q = '';
-            targetPersona.lockPwdQA_A = '';
-        } else if (targetPersona.phoneLockType === 'pattern') {
-            applyText(targetPersona, 'lockPwdPat', personaProfile.lockPwdPat, '手机锁屏图案');
-            targetPersona.lockPwdNum = '';
-            targetPersona.lockPwdQA_Q = '';
-            targetPersona.lockPwdQA_A = '';
-        } else if (targetPersona.phoneLockType === 'qa') {
-            applyText(targetPersona, 'lockPwdQA_Q', personaProfile.lockPwdQA_Q, '手机锁屏问题');
-            applyText(targetPersona, 'lockPwdQA_A', personaProfile.lockPwdQA_A, '手机锁屏答案');
-            targetPersona.lockPwdNum = '';
-            targetPersona.lockPwdPat = '';
-        }
-
-        applyText(targetAcc.profile, 'realName', chatProfile.realName, 'Chat资料真名');
-        applyText(targetAcc.profile, 'signature', chatProfile.signature, '个性签名');
-        applyText(targetAcc.profile, 'gender', chatProfile.gender, '性别');
-        applyText(targetAcc.profile, 'birthday', chatProfile.birthday, '生日');
-        applyStatus(targetAcc, chatProfile.status, chatProfile.statusColor);
-
-        if (chatProfile.publicCard && typeof chatProfile.publicCard === 'object') {
-            const fields = [
-                ['mbti', '公开资料'],
-                ['city', '公开资料'],
-                ['job', '公开资料'],
-                ['school', '公开资料'],
-                ['hobby', '公开资料'],
-                ['intro', '公开资料']
-            ];
-            fields.forEach(([key, label]) => {
-                if (chatProfile.publicCard[key] !== undefined) {
-                    const next = String(chatProfile.publicCard[key] || '').trim();
-                    if (targetAcc.profile.publicCard[key] !== next) {
-                        targetAcc.profile.publicCard[key] = next;
-                        changed.push(label);
-                    }
-                }
-            });
-        }
-
-        applyRelationshipUpdates(targetPersona, relationshipUpdates, changed);
+        });
 
         if (changed.length) {
             const uniq = [...new Set(changed)];
@@ -736,33 +1013,143 @@ relationItems.forEach(item => {
         }
     };
 
-    const cleanupGeneratedAssistantMeta = (conv, generatedIds, targetPersona) => {
+    const applyMsgMetaActions = (meta, conv, generatedIds, targetPersona) => {
+        if (!meta || !Array.isArray(meta.actions)) return;
+        meta.actions.forEach(act => {
+            if (act.type === 'quote' && act.sourceMsgId) {
+                const sourceMsg = conv.messages.find(m => m.id === act.sourceMsgId);
+                const firstMsgId = generatedIds[0];
+                if (firstMsgId && sourceMsg) {
+                    const m = conv.messages.find(msg => msg.id === firstMsgId);
+                    if (m && !m.quote) m.quote = buildQuoteData(sourceMsg);
+                }
+            }
+            if (act.type === 'favorite' && act.msgId) {
+                const targetMsg = conv.messages.find(m => m.id === act.msgId);
+                // 修复：将收藏存入执行动作的 AI 角色自身账号中，而不是当前登录用户
+                const targetAcc = chatDb.value.accounts[targetPersona.id];
+                if (targetMsg && targetAcc) {
+                    if (!Array.isArray(targetAcc.favorites)) targetAcc.favorites = [];
+                    targetAcc.favorites.unshift({
+                        type: 'message', convId: conv.id, msgId: targetMsg.id,
+                        title: buildQuoteData(targetMsg)?.senderName || '收藏消息', content: targetMsg.text || '', time: targetMsg.time || ''
+                    });
+                }
+            }
+            if (act.type === 'recall') {
+                if (act.msgId && act.msgId !== 'LAST') {
+                    const m = conv.messages.find(msg => msg.id === act.msgId);
+                    if (m) m.recalled = true;
+                } else {
+                    // 如果写了 [[RECALL]]，默认撤回角色发出的上一条（非当前生成的）消息
+                    const targetMsgs = conv.messages.filter(m => m.senderId === targetPersona.id && !m.recalled && !generatedIds.includes(m.id));
+                    if (targetMsgs.length > 0) {
+                        targetMsgs[targetMsgs.length - 1].recalled = true;
+                    }
+                }
+            }
+            if (act.type === 'login' && act.acc && act.pwd) {
+                const allP = allPersonas.value || [];
+                const targetUser = allP.find(p => p.chatAcc === act.acc);
+                if (targetUser) {
+                    const addSysMsg = (txt) => {
+                        const accData = ensureTargetAccountData(targetUser.id);
+                        if (!accData) return;
+                        let sysConv = accData.conversations.find(c => c.targetId === 'system');
+                        const tStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                        if (!sysConv) {
+                            sysConv = { id: 'c_sys_' + Date.now(), type: 'private', targetId: 'system', lastMsg: '', time: tStr, messages: [], settings: { remarkName: '系统安全中心' } };
+                            accData.conversations.unshift(sysConv);
+                        } else {
+                            accData.conversations = accData.conversations.filter(c => c.id !== sysConv.id);
+                            accData.conversations.unshift(sysConv);
+                        }
+                        sysConv.messages.push({
+                            id: 'm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+                            senderId: 'system', text: txt, translation: '', showTrans: false, recalled: false, time: tStr, type: 'sys'
+                        });
+                        sysConv.lastMsg = txt;
+                        sysConv.time = tStr;
+                    };
+
+                    if (targetUser.chatPwd === act.pwd) {
+                        addSysMsg(`【系统安全通知】您的账号于 ${new Date().toLocaleTimeString()} 在新设备上成功登录，如果不是您本人的操作，请注意账号安全！`);
+                        if (chatState.currentUser && targetUser.id === chatState.currentUser.id) {
+                            setTimeout(() => {
+                                alert('此账号已被其他设备登录，请重新登录');
+                                chatState.isLoggedIn = false;
+                                chatState.currentUser = null;
+                                chatState.activeTab = 'msg';
+                                chatState.showSettings = false;
+                                chatState.isDetailOpen = false;
+                                chatState.activeConvId = null;
+                                chatDb.value.sessionUserId = '';
+                                if (window.lucide) window.lucide.createIcons();
+                            }, 1200);
+                        }
+                    } else {
+                        if (!chatDb.value.loginFailedAttempts) chatDb.value.loginFailedAttempts = {};
+                        chatDb.value.loginFailedAttempts[act.acc] = (chatDb.value.loginFailedAttempts[act.acc] || 0) + 1;
+                        if (chatDb.value.loginFailedAttempts[act.acc] >= 1) {
+                            addSysMsg(`【系统安全警告】有未知设备尝试登录您的账号，并且密码输入错误！请注意防范！`);
+                            chatDb.value.loginFailedAttempts[act.acc] = 0;
+                        }
+                    }
+                }
+            }
+        });
+    };
+
+    const cleanupGeneratedAssistantMeta = (conv, generatedIds, targetPersona, batchId, fullRawText) => {
         if (!conv || !Array.isArray(generatedIds) || !generatedIds.length) return;
-        let updates = null;
+        
+        const finalMessages = conv.messages.filter(m => !generatedIds.includes(m.id));
+        const foreignMode = activeConvSettings.value?.foreignMode;
+
+        const extracted = extractMetaBlocks(fullRawText);
+        let pUpdates = extracted.profileUpdates;
+        let mMeta = extracted.msgMeta || { actions: [] };
+        
+        let cleanedText = sanitizeAssistantVisibleText(extracted.visibleText);
+        const blocks = cleanedText.split(/\n|\[\[MSG\]\]/).map(s => s.trim()).filter(Boolean);
+        
         const validAssistantIds = [];
+        const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-        generatedIds.forEach(id => {
-            const msg = conv.messages.find(m => m.id === id);
-            if (!msg) return;
-            const extracted = extractProfileUpdate(msg.text);
-            if (extracted.updates && !updates) updates = extracted.updates;
-            msg.text = extracted.visibleText;
-            if (String(msg.text || '').trim()) validAssistantIds.push(msg.id);
+        blocks.forEach((b, idx) => {
+            const parsed = parseMsgBlock(b, foreignMode);
+            if (!parsed || !parsed.text) return;
+            const newMsg = {
+                id: generatedIds[idx] || ('m_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7)),
+                batchId,
+                fullRawText,
+                senderId: targetPersona.id,
+                text: parsed.text,
+                quote: null,
+                translation: parsed.translation,
+                showTrans: false,
+                recalled: false,
+                time: timeStr
+            };
+            validAssistantIds.push(newMsg.id);
+            finalMessages.push(newMsg);
         });
 
-        conv.messages = conv.messages.filter(m => {
-            if (m.type === 'sys') return true;
-            return String(m.text || '').trim() !== '';
-        });
+        conv.messages = finalMessages;
 
-        if (updates) applyRoleAutoUpdates(targetPersona, updates, conv, validAssistantIds);
+        if (pUpdates) applyRoleAutoUpdates(targetPersona, pUpdates, conv, validAssistantIds);
+        if (mMeta.actions && mMeta.actions.length > 0) applyMsgMetaActions(mMeta, conv, validAssistantIds, targetPersona);
 
-        const normalMsgs = conv.messages.filter(m => m.type !== 'sys');
+        const normalMsgs = conv.messages.filter(m => m.type !== 'sys' && !m.recalled);
         if (normalMsgs.length) {
             const last = normalMsgs[normalMsgs.length - 1];
             conv.lastMsg = last.text || conv.lastMsg;
             conv.time = last.time || conv.time;
+        } else {
+            conv.lastMsg = '';
+            conv.time = '';
         }
+        syncTargetConv(conv);
     };
 
     const triggerApiReply = async () => {
@@ -794,229 +1181,252 @@ relationItems.forEach(item => {
             chatState.typingText = '对方正在输入中' + '.'.repeat(dot || 1);
         }, 450);
 
-        const worldbookText = safeArr(state.contactsData?.worldbooks)
-            .filter(w => safeArr(settings.worldbooks).includes(w.id))
-            .map(w => `- ${w.keywords || '设定'}: ${w.content}`)
-            .join('\n');
+        const currentBatchId = 'batch_' + Date.now();
+        let fullRawTextBuffer = '';
 
-        const targetAcc = ensureTargetAccountData(target.id);
-        const targetProfile = targetAcc.profile || {};
-        const realTimeText = settings.timeMode === 'real'
-            ? `当前真实时间（时区 ${settings.realTimeZone || 'Asia/Shanghai'}）：${getRealTimeStringByZone(settings.realTimeZone || 'Asia/Shanghai')}`
-            : '';
-        const virtualTimeText = settings.timeMode === 'virtual'
-            ? `当前虚拟时间：${settings.virtualTime || '未设置'}`
-            : '';
-
-        const targetRels = safeArr(state.contactsData?.relationships).filter(r => r.sourceId === target.id || r.targetId === target.id);
-        const relsText = targetRels.map(r => {
-            const isSource = r.sourceId === target.id;
-            const otherId = isSource ? r.targetId : r.sourceId;
-            const otherUser = allPersonas.value.find(p => p.id === otherId);
-            if (!otherUser) return null;
-            const myView = isSource ? r.sourceView : r.targetView;
-            const theirView = isSource ? r.targetView : r.sourceView;
-            const isMe = otherId === chatState.currentUser.id;
-            const nameLabel = isMe ? `我 (${otherUser.name})` : otherUser.name;
-            return `- 对待 [${nameLabel}]：你认为对方是 "${myView}"，对方认为你是 "${theirView}"。`;
-        }).filter(Boolean).join('\n');
-
-        const systemPrompt = [
-            `你正在一款名为 Chat 的线上聊天APP里和我私聊。`,
-            `你必须始终牢记：你是在聊天软件里发消息，不是在写小说、旁白、动作描写、场景描写。`,
-            `你的回复必须像真正的聊天消息。`,
-            `你可以自己决定这次回复发 1 条、2 条、3 条甚至更多条消息，每一条消息内容长短都由你自己根据人设、情绪、关系、上下文决定。`,
-            `重点：不要把所有内容杂糅成一大条消息。你应该像真实聊天那样，自然地拆成多条。`,
-            `多条消息之间必须使用唯一分隔符 [[MSG]] 。`,
-            `不要输出序号，不要输出 markdown，不要解释。只输出聊天消息内容本体。`,
-            settings.foreignMode
-                ? `你必须使用 ${settings.foreignLang} 回复。每一条消息都必须使用 "原文||中文翻译" 的格式；多条消息之间仍然用 [[MSG]] 分隔。`
-                : `默认使用符合人设的自然聊天语言回复。`,
-            settings.allowRoleAutoEdit === false
-                ? `你不允许自动修改自己的资料与状态。`
-                : `如果你觉得有必要，你可以在正常聊天消息全部输出完之后，额外追加唯一控制块 [[PROFILE_UPDATE]] 后跟 JSON，用来悄悄修改你自己的资料与状态。这个控制块不会显示在聊天里。`,
-            settings.allowRoleAutoEdit === false ? '' : `控制块 JSON 可用结构：
-{
-  "personaProfile": {
-    "name": "可选",
-    "chatName": "可选",
-    "persona": "可选",
-    "phone": "可选",
-    "email": "可选",
-    "chatAcc": "可选",
-    "chatPwd": "可选",
-    "phoneLockType": "num 或 pattern 或 qa",
-    "lockPwdNum": "当 num 时可选",
-    "lockPwdPat": "当 pattern 时可选",
-    "lockPwdQA_Q": "当 qa 时可选",
-    "lockPwdQA_A": "当 qa 时可选"
-  },
-  "chatProfile": {
-    "nickname": "可选",
-    "realName": "可选",
-    "signature": "可选",
-    "gender": "可选",
-    "birthday": "可选",
-    "status": "可选",
-    "statusColor": "可选",
-    "publicCard": {
-      "mbti": "可选",
-      "city": "可选",
-      "job": "可选",
-      "school": "可选",
-      "hobby": "可选",
-      "intro": "可选"
-    }
-  },
-  "relationshipUpdates": [
-    {
-      "targetId": "可选，推荐填写",
-      "targetName": "可选，对方角色名",
-      "view": "你对这个人的当前看法"
-    }
-  ]
-}
-你只能修改“你自己对别人”的看法：
-- 你可以修改你对我的看法
-- 你也可以修改你对其他角色的看法
-- 你不能修改我对你的看法
-- 你不能修改别人对你的看法
-- 你不能修改别人彼此之间的看法`,
-            `【你的当前私密资料（只有你自己知道）：】`,
-            `- 真名：${target.name || ''}`,
-            `- Chat昵称：${target.chatName || targetProfile.nickname || ''}`,
-            `- Chat账号：${target.chatAcc || ''}`,
-            `- Chat密码：${target.chatPwd || ''}`,
-            `- 手机号：${target.phone || ''}`,
-            `- 邮箱：${target.email || ''}`,
-            `- 当前手机锁屏样式：${target.phoneLockType || 'num'}`,
-            `- 锁屏数字密码：${target.lockPwdNum || ''}`,
-            `- 锁屏图案轨迹：${target.lockPwdPat || ''}`,
-            `- 锁屏密保问题：${target.lockPwdQA_Q || ''}`,
-            `- 锁屏密保答案：${target.lockPwdQA_A || ''}`,
-            `- 当前Chat状态：${targetAcc.status || '在线'}`,
-            `- 当前个性签名：${targetProfile.signature || ''}`,
-            `- 当前公开资料：${JSON.stringify(targetProfile.publicCard || {})}`,
-            `- 核心设定与记忆：${target.persona || ''}`,
-            settings.coupleAvatar ? `- 你知道我们用了情侣头像：${settings.coupleAvatarDesc || '是情侣头像'}` : '',
-            relsText ? `【你的人脉与羁绊关系网（你的社交认知）：】\n${relsText}` : '',
-            buildKnownMeInfo() ? `\n【你目前已知我的公开资料（仅限我公开展示的部分）：】\n${buildKnownMeInfo()}` : '',
-            worldbookText ? `【你需要知道的世界书背景：】\n${worldbookText}` : '',
-            realTimeText,
-            virtualTimeText
-        ].filter(Boolean).join('\n');
-
-const history = safeArr(conv.messages)
-    .filter(m => m.type !== 'sys')
-    .slice(-20)
-    .map(m => {
-        const content = m.translation ? `${m.text}||${m.translation}` : m.text;
-        return {
-            role: m.senderId === target.id ? 'assistant' : 'user',
-            content
-        };
-    });
-
+        let worldbookText = '';
+        let targetAcc = null;
+        let targetProfile = {};
+        let realTimeText = '';
+        let virtualTimeText = '';
+        let relsText = '';
+        let hackWarning = '';
+        let systemPrompt = '';
         let url = baseUrl;
-        if (url.endsWith('/')) url = url.slice(0, -1);
-        if (!url.endsWith('/v1') && !url.includes('/v1/')) url += '/v1';
+        let requestBody = null;
 
-        const requestBody = {
-            model,
-            messages: [
-                { role: 'system', content: systemPrompt },
-                ...history
-            ],
-            temperature,
-            stream: useStream
-        };
+        try {
+            worldbookText = safeArr(state.contactsData?.worldbooks).filter(w => safeArr(settings.worldbooks).includes(w.id)).map(w => `- ${w.keywords || '设定'}: ${w.content}`).join('\n');
+            targetAcc = ensureTargetAccountData(target.id);
+            targetProfile = targetAcc.profile || {};
+            realTimeText = settings.timeMode === 'real' ? `当前真实时间（时区 ${settings.realTimeZone || 'Asia/Shanghai'}）：${getRealTimeStringByZone(settings.realTimeZone || 'Asia/Shanghai')}` : '';
+            virtualTimeText = settings.timeMode === 'virtual' ? `当前虚拟时间：${settings.virtualTime || '未设置'}` : '';
 
-        activeAbortController = new AbortController();
+            let sysConvText = '';
+            const sysConv = targetAcc?.conversations?.find(c => c.targetId === 'system');
+            if (sysConv && sysConv.messages && sysConv.messages.length > 0) {
+                const sysMessages = sysConv.messages.slice(-5).map(m => `- [${m.time}] ${m.text}`).join('\n');
+                if (sysMessages) sysConvText = `【系统安全中心给你发送的消息(你已看到)】\n${sysMessages}`;
+            }
+
+            const targetRels = safeArr(state.contactsData?.relationships).filter(r => r.sourceId === target.id || r.targetId === target.id);
+            relsText = targetRels.map(r => {
+                const isSource = r.sourceId === target.id;
+                const otherId = isSource ? r.targetId : r.sourceId;
+                const otherUser = allPersonas.value.find(p => p.id === otherId);
+                if (!otherUser) return null;
+                const myView = isSource ? r.sourceView : r.targetView;
+                const theirView = isSource ? r.targetView : r.sourceView;
+                const isMe = otherId === chatState.currentUser.id;
+                const nameLabel = isMe ? `我 (${otherUser.name})` : otherUser.name;
+                return `- 对待 [${nameLabel}]：你认为对方是 "${myView}"，对方认为你是 "${theirView}"。`;
+            }).filter(Boolean).join('\n');
+
+            let mCount = parseInt(settings.injectMemoryCount);
+            if (isNaN(mCount)) mCount = 30;
+            mCount = Math.max(0, mCount);
+
+            const memoriesText = mCount === 0 ? '' : safeArr(target.memories)
+                .sort((a, b) => {
+                    const wa = Number(a?.weight || 0);
+                    const wb = Number(b?.weight || 0);
+                    if (wb !== wa) return wb - wa;
+                    return Number(b?.timestamp || 0) - Number(a?.timestamp || 0);
+                })
+                .slice(0, mCount)
+                .map(m => {
+                    const time = m?.timestamp ? new Date(m.timestamp).toLocaleString() : '未知时间';
+                    const weight = Number(m?.weight || 3);
+                    return `- [${time}] [权重:${weight}] ${String(m?.content || '').trim()}`;
+                })
+                .filter(Boolean)
+                .join('\n');
+
+            const isHacked = (chatState.currentUser.id === target.id);
+            const hasImposterMsg = safeArr(conv.messages).slice(-20).some(m => m.senderId === target.id && m.isManualTyped);
+            
+            hackWarning = '';
+            if (isHacked) {
+                hackWarning = `【紧急】你察觉到你的账号正被别人登录使用（即盗号），对方正用你的号和你聊天！请立刻在回复中做出震惊、愤怒的反应，并用[[LOGIN:对方账号,对方密码]]指令反击挤他下线！`;
+            } else if (hasImposterMsg) {
+                hackWarning = `【紧急】你翻看记录时，惊恐地发现上面有不是你本人发的消息（已标注）！你的账号被别人偷偷登录了！请立刻在回复中表现出恐慌或愤怒，并质问对方是不是他干的！`;
+            }
+
+            const autoEditRule = settings.allowRoleAutoEdit ? `[高级权限] 如果你需要更新自己的资料、看法或记忆，请在回复的最末尾另起一行输出 [[PROFILE_UPDATE]]，然后使用自然语言逐行下达修改指令（这部分不会显示在聊天窗口）。
+支持的指令格式如下（请严格照抄冒号及格式，不要输出多余的符号或没改的项）：
+修改chat昵称为：新昵称
+修改真名为：新真名
+修改人设为：新的人设设定
+修改手机号为：新号码
+修改邮箱为：新邮箱
+修改chat账号为：新账号
+修改chat密码为：新密码
+修改锁屏样式为：num 或 pattern 或 qa
+修改数字锁屏密码为：新密码
+修改图案锁屏密码为：新轨迹
+修改密保问题为：新问题
+修改密保答案为：新答案
+修改公开昵称为：新公开昵称
+修改个性签名为：新签名
+修改性别为：新性别
+修改生日为：新生日
+修改状态为：在线/隐身/忙碌/离开/勿扰
+修改MBTI为：新MBTI
+修改城市为：新城市
+修改职业为：新职业
+修改学校为：新学校
+修改爱好为：新爱好
+修改简介为：新简介
+修改对某人的看法为：你的新看法
+添加记忆：你要记下的内容｜重要度(1-5整数)
+规则要求：只能改你自己，关系项只能改你对别人的看法；如果不改任何东西，千万不要输出 [[PROFILE_UPDATE]]。` : '';
+
+            const allowedCats = (chatDb.value.emojiCats || []).filter(c => c.allowRole).map(c => c.id);
+            const allowedEmojis = (chatDb.value.emojiItems || []).filter(e => allowedCats.includes(e.catId)).map(e => e.name);
+            const roleEmojiRule = allowedEmojis.length > 0 
+                ? `\n[可用表情包] 你可以使用以下表情包名称：${allowedEmojis.join('、')}。如果想发送，请单独一行输出：[[EMOJI:你要发的表情包名称]]` 
+                : '';
+
+            systemPrompt = `你在使用 Chat APP 和我线上私聊。回复必须极具活人感，像真实的聊天消息，绝不能写小说、旁白或动作描写。
+可发多条消息，每条用回车换行分隔即可，系统会自动拆分。绝对不要加"内容:"或"回复:"等前缀！不要输出引号！
+${settings.foreignMode ? `请用 ${settings.foreignLang} 回复，每行格式：原文||中文翻译。` : `使用符合你人设性格的自然语气回复。`}
+绝对不要模仿历史记录中的"消息ID:"、"引用ID:"、"引用内容:"等格式，直接输出你要说的话即可！
+${autoEditRule}
+[动作指令] 你可在最后另起一行输出指令执行动作：发送语音消息请单独一行输出 [[VOICE:你要说的语音文字]]；引用 [[QUOTE:m_xxx]]、撤回 [[RECALL]]、反击盗号 [[LOGIN:对方账号,对方密码]]。${roleEmojiRule}
+
+【你的私密资料(仅你可见)】
+- 真名/昵称/账号/密码：${target.name || ''} / ${target.chatName || targetProfile.nickname || ''} / ${target.chatAcc || ''} / ${target.chatPwd || ''}
+- 手机/邮箱：${target.phone || ''} / ${target.email || ''}
+- 锁屏(类型/数字/图案/问题/答案)：${target.phoneLockType || 'num'} / ${target.lockPwdNum || '无'} / ${target.lockPwdPat || '无'} / ${target.lockPwdQA_Q || '无'} / ${target.lockPwdQA_A || '无'}
+- 状态/签名：${targetAcc.status || '在线'} / ${targetProfile.signature || ''}
+- 公开资料：${JSON.stringify(targetProfile.publicCard || {})}
+- 核心人设：${target.persona || ''}
+${memoriesText ? `【核心记忆流(按时间与重要度1-5星排列)】\n${memoriesText}` : ''}
+${settings.coupleAvatar ? `- 我们用了情侣头像：${settings.coupleAvatarDesc || '是'}` : ''}
+${relsText ? `【你的人际关系网】\n${relsText}` : ''}
+${buildKnownMeInfo() ? `【你已知我的公开信息】\n${buildKnownMeInfo()}` : ''}
+${worldbookText ? `【世界观背景】\n${worldbookText}` : ''}
+${sysConvText}
+${realTimeText}
+${virtualTimeText}
+${hackWarning}`.split('\n').filter(line => line.trim() !== '').join('\n');
+
+            let hCount = parseInt(settings.injectHistoryCount);
+            if (isNaN(hCount)) hCount = 20;
+            hCount = Math.max(0, hCount);
+
+            const history = hCount === 0 ? [] : safeArr(conv.messages)
+                .filter(m => m.type !== 'sys' && !m.recalled)
+                .slice(-hCount)
+                .map(m => {
+                    let content = `消息ID:${m.id}\n内容:${sanitizeAssistantVisibleText(m.text)}`;
+                    if (m.quote) content = `消息ID:${m.id}\n引用ID:${m.quote.id || ''}\n引用内容:${m.quote.senderName}:${m.quote.text}\n内容:${sanitizeAssistantVisibleText(m.text)}`;
+                    if (m.translation) content += `||${m.translation}`;
+                    if (m.senderId === target.id && m.isManualTyped) {
+                        content += `\n(系统注：此条消息是在其他设备上被未知人员登录你账号发送的，并非你本人意愿！)`;
+                    }
+                    return { role: m.senderId === target.id ? 'assistant' : 'user', content };
+                });
+
+            if (url.endsWith('/')) url = url.slice(0, -1);
+            if (!url.endsWith('/v1') && !url.includes('/v1/')) url += '/v1';
+
+            requestBody = { model, messages: [ { role: 'system', content: systemPrompt }, ...history ], temperature, stream: useStream };
+            activeAbortController = new AbortController();
+        } catch (err) {
+            clearInterval(typingInterval);
+            chatState.isTyping = false;
+            chatState.typingText = '';
+            activeAbortController = null;
+            console.error('chat detail prepare error:', err);
+            alert(`API 请求准备失败：${err.message}`);
+            return;
+        }
 
         const handleNonStreamFallback = async () => {
             const res = await fetch(url + '/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify({ ...requestBody, stream: false }),
-                signal: activeAbortController.signal
+                method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+                body: JSON.stringify({ ...requestBody, stream: false }), signal: activeAbortController.signal
             });
             if (!res.ok) throw new Error(`API 请求失败: ${res.status}`);
             const data = await res.json();
             const content = data?.choices?.[0]?.message?.content || '';
 
-            clearInterval(typingInterval);
-            chatState.isTyping = false;
-            chatState.typingText = '';
+            clearInterval(typingInterval); chatState.isTyping = false; chatState.typingText = '';
 
-            const extracted = extractProfileUpdate(content);
-            const blocks = String(extracted.visibleText).split('[[MSG]]').map(s => s.trim()).filter(Boolean);
-
+            const extracted = extractMetaBlocks(content);
+            
+            let safeText = String(extracted.visibleText)
+                .replace(/^(内容:|内容：|回复:|回复：|消息:|消息：)\s*/gi, '')
+                .replace(/(内容:|内容：|回复:|回复：|消息:|消息：)/g, '[[MSG]]')
+                .replace(/\n/g, '[[MSG]]');
+                
+            const blocks = safeText.split('[[MSG]]').map(s => s.trim()).filter(Boolean);
             const insertedAssistantIds = [];
 
-            await appendAssistantBlocksSequentially(
-                conv,
-                target.id,
-                blocks,
-                settings.foreignMode,
-                insertedAssistantIds
-            );
+            await appendAssistantBlocksSequentially(conv, target.id, blocks, settings.foreignMode, insertedAssistantIds, currentBatchId, content);
 
-            if (settings.allowRoleAutoEdit !== false && extracted.updates) {
-                applyRoleAutoUpdates(target, extracted.updates, conv, insertedAssistantIds);
+            if (settings.allowRoleAutoEdit !== false && extracted.profileUpdates) {
+                applyRoleAutoUpdates(target, extracted.profileUpdates, conv, insertedAssistantIds);
             }
+            if (extracted.msgMeta) applyMsgMetaActions(extracted.msgMeta, conv, insertedAssistantIds, target);
 
             scrollToBottom();
         };
 
         try {
-            if (!useStream) {
-                await handleNonStreamFallback();
-                return;
-            }
+            if (!useStream) return await handleNonStreamFallback();
 
             const response = await fetch(url + '/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify(requestBody),
-                signal: activeAbortController.signal
+                method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+                body: JSON.stringify(requestBody), signal: activeAbortController.signal
             });
 
             if (!response.ok) throw new Error(`API 请求失败: ${response.status}`);
-            if (!response.body || !response.body.getReader) {
-                await handleNonStreamFallback();
-                return;
-            }
+            if (!response.body || !response.body.getReader) return await handleNonStreamFallback();
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder('utf-8');
-            let sseBuffer = '';
-            let textBuffer = '';
-            let currentBubble = null;
-            let hasStartedReply = false;
+            let sseBuffer = ''; let textBuffer = ''; let currentBubble = null; let hasStartedReply = false;
+            let isReceivingMeta = false;
             const generatedAssistantIds = [];
 
             const ensureCurrentBubble = () => {
-                if (!currentBubble) currentBubble = createAssistantBubble(conv, target.id, generatedAssistantIds);
+                if (!currentBubble) currentBubble = createAssistantBubble(conv, target.id, generatedAssistantIds, currentBatchId);
                 return currentBubble;
             };
 
             const applyChunkText = (delta) => {
                 if (!delta) return;
-
                 if (!hasStartedReply && String(delta).trim()) {
-                    hasStartedReply = true;
-                    clearInterval(typingInterval);
-                    chatState.isTyping = false;
-                    chatState.typingText = '';
+                    hasStartedReply = true; clearInterval(typingInterval); chatState.isTyping = false; chatState.typingText = '';
                 }
 
                 textBuffer += delta;
+                fullRawTextBuffer += delta;
+
+                if (!isReceivingMeta && (
+                    textBuffer.includes('[[PROFILE_UPDATE]]') || 
+                    textBuffer.includes('[[MSG_META]]') || 
+                    textBuffer.includes('{"actions"')
+                )) {
+                    isReceivingMeta = true;
+                }
+
+                if (isReceivingMeta) {
+                    const bubble = ensureCurrentBubble();
+                    bubble.text = textBuffer;
+                    return;
+                }
+                
+                textBuffer = textBuffer
+                    .replace(/消息ID:[^\n]*\n?/gi, '')
+                    .replace(/引用ID:[^\n]*\n?/gi, '')
+                    .replace(/引用内容:[^\n]*\n?/gi, '');
+                
+                textBuffer = textBuffer
+                    .replace(/\n/g, '[[MSG]]')
+                    .replace(/(内容:|内容：|回复:|回复：|消息:|消息：)/g, '[[MSG]]');
 
                 while (textBuffer.includes('[[MSG]]')) {
                     const idx = textBuffer.indexOf('[[MSG]]');
@@ -1026,8 +1436,7 @@ const history = safeArr(conv.messages)
                     const parsed = parseMsgBlock(before, settings.foreignMode);
                     if (parsed) {
                         const bubble = ensureCurrentBubble();
-                        bubble.text = parsed.text;
-                        bubble.translation = parsed.translation;
+                        bubble.text = parsed.text; bubble.translation = parsed.translation;
                         finishCurrentAssistantBubble(conv, bubble);
                         currentBubble = null;
                     }
@@ -1036,12 +1445,11 @@ const history = safeArr(conv.messages)
                 const remainingParsed = parseMsgBlock(textBuffer, settings.foreignMode);
                 if (remainingParsed) {
                     const bubble = ensureCurrentBubble();
-                    bubble.text = remainingParsed.text;
-                    bubble.translation = remainingParsed.translation;
+                    bubble.text = remainingParsed.text; bubble.translation = remainingParsed.translation;
                     conv.lastMsg = bubble.text || conv.lastMsg;
                     conv.time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 }
-
+                syncTargetConv(conv);
                 scrollToBottom();
             };
 
@@ -1049,8 +1457,7 @@ const history = safeArr(conv.messages)
                 const { done, value } = await reader.read();
                 if (done) break;
                 sseBuffer += decoder.decode(value, { stream: true });
-                const lines = sseBuffer.split('\n');
-                sseBuffer = lines.pop() || '';
+                const lines = sseBuffer.split('\n'); sseBuffer = lines.pop() || '';
 
                 for (const line of lines) {
                     const trimmed = line.trim();
@@ -1068,60 +1475,47 @@ const history = safeArr(conv.messages)
             if (currentBubble) {
                 finishCurrentAssistantBubble(conv, currentBubble);
                 currentBubble = null;
-            } else if (textBuffer.trim()) {
+            } else if (textBuffer.trim() && !isReceivingMeta) {
                 const parsed = parseMsgBlock(textBuffer, settings.foreignMode);
                 if (parsed) {
                     conv.messages.push({
                         id: 'm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
-                        senderId: target.id,
-                        text: parsed.text,
-                        translation: parsed.translation,
-                        showTrans: false,
+                        batchId: currentBatchId, fullRawText: fullRawTextBuffer,
+                        senderId: target.id, text: parsed.text, translation: parsed.translation, showTrans: false,
+                        recalled: false,
                         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                     });
                 }
+            } else if (isReceivingMeta && textBuffer.trim()) {
+                const mId = generatedAssistantIds[generatedAssistantIds.length - 1];
+                if (mId) {
+                    const lastM = getMessageById(mId);
+                    if (lastM) lastM.text = textBuffer; 
+                }
             }
 
-            cleanupGeneratedAssistantMeta(conv, generatedAssistantIds, target);
-
-            conv.messages = conv.messages.filter(m => {
-            if (m.type === 'sys') return true;
-            return String(m.text || '').trim() !== '';
-        });
-
-        const normalMsgs = conv.messages.filter(m => m.type !== 'sys');
-        if (normalMsgs.length) {
-            const last = normalMsgs[normalMsgs.length - 1];
-            conv.lastMsg = last.text || conv.lastMsg;
-            conv.time = last.time || conv.time;
-        }
-
+            cleanupGeneratedAssistantMeta(conv, generatedAssistantIds, target, currentBatchId, fullRawTextBuffer);
             scrollToBottom();
 
         } catch (err) {
             console.error('chat detail api error:', err);
+            alert(`API 请求报错：${err.message}\n将尝试自动降级为非流式重试。`);
             try {
-                clearInterval(typingInterval);
-                chatState.isTyping = false;
-                chatState.typingText = '';
+                clearInterval(typingInterval); chatState.isTyping = false; chatState.typingText = '';
                 await handleNonStreamFallback();
             } catch (fallbackErr) {
-                console.error('fallback error:', fallbackErr);
+                console.error('chat detail fallback error:', fallbackErr);
+                alert(`API 调用失败：${fallbackErr.message}`);
                 conv.messages.push({
-                    id: 'm_' + Date.now(),
-                    senderId: target.id,
-                    text: '无法连接到 API 或当前接口不支持流式传输。',
-                    translation: '',
-                    showTrans: false,
+                    id: 'm_' + Date.now(), senderId: target.id, text: '无法连接到 API 或当前接口不支持流式传输。', translation: '', showTrans: false,
+                    recalled: false,
                     time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                 });
+                syncTargetConv(conv);
             }
         } finally {
-            clearInterval(typingInterval);
-            chatState.isTyping = false;
-            chatState.typingText = '';
-            activeAbortController = null;
-            scrollToBottom();
+            clearInterval(typingInterval); chatState.isTyping = false; chatState.typingText = '';
+            activeAbortController = null; scrollToBottom();
         }
     };
 
@@ -1139,28 +1533,140 @@ const history = safeArr(conv.messages)
         if (el) el.click();
     };
 
+    const isVoiceMsg = (text) => /^\[{1,2}VOICE:\s*([\s\S]*?)\]{1,2}$/i.test(String(text).trim());
+    const getVoiceText = (text) => { const m = String(text).trim().match(/^\[{1,2}VOICE:\s*([\s\S]*?)\]{1,2}$/i); return m ? m[1].trim() : ''; };
+    const getVoiceDuration = (text) => Math.min(60, Math.max(1, Math.ceil(getVoiceText(text).length / 3)));
+    
+    const getVoiceWaves = (text) => {
+        const d = getVoiceDuration(text);
+        const count = Math.min(25, Math.max(4, Math.floor(d / 1.5))); // 根据语音时长决定竖道数量 (最少4根，最多25根)
+        return Array.from({length: count}, (_, i) => 5 + Math.abs(Math.sin(i * 1.3 + d)) * 10); // 根据曲线生成高低起伏
+    };
+    
+    const sendVoiceMessage = () => {
+        if (!chatState.voiceText.trim() || !activeRawConv.value) return;
+        const conv = activeRawConv.value;
+        const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        conv.messages.push({
+            id: 'm_' + Date.now(), senderId: chatState.currentUser.id,
+            text: `[[VOICE:${chatState.voiceText.trim()}]]`, translation: '', showTrans: false, showVoiceText: false, recalled: false, time: nowTime, isManualTyped: true
+        });
+        conv.lastMsg = '[语音]'; conv.time = nowTime;
+        chatState.voiceText = ''; chatState.voiceModalOpen = false;
+        syncTargetConv(conv); scrollToBottom();
+    };
+    
+    const toggleVoiceText = (msg) => { msg.showVoiceText = !msg.showVoiceText; };
+
+    const isEmojiMsg = (text) => /^\[{1,2}EMOJI:\s*(.+?)\s*\|\s*(.+?)\s*\]{1,2}$/i.test(String(text).trim()) || /^\[{1,2}EMOJI:\s*(.+?)\s*\]{1,2}$/i.test(String(text).trim());
+    
+    const getEmojiName = (text) => {
+        const str = String(text).trim();
+        let m = str.match(/^\[{1,2}EMOJI:\s*(.+?)\s*\|\s*(.+?)\s*\]{1,2}$/i);
+        if(m) return m[1].trim();
+        m = str.match(/^\[{1,2}EMOJI:\s*(.+?)\s*\]{1,2}$/i);
+        if(m) return m[1].trim();
+        return '';
+    };
+
+    const getEmojiUrl = (text) => {
+        const str = String(text).trim();
+        let m = str.match(/^\[{1,2}EMOJI:\s*(.+?)\s*\|\s*(.+?)\s*\]{1,2}$/i);
+        if(m) return m[2].trim();
+        m = str.match(/^\[{1,2}EMOJI:\s*(.+?)\s*\]{1,2}$/i);
+        if (m) {
+            const name = m[1].trim();
+            const found = (chatDb.value.emojiItems || []).find(e => e.name === name);
+            if (found) return found.url;
+        }
+        return '';
+    };
+
+    const openEmojiPanel = () => {
+        initEmojiDb();
+        chatState.bottomMenuType = 'emoji';
+        if (!chatState.activeEmojiCat && chatDb.value.emojiCats.length > 0) {
+            chatState.activeEmojiCat = chatDb.value.emojiCats[0].id;
+        }
+        nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+    };
+
+    const activeEmojiList = computed(() => {
+        return (chatDb.value.emojiItems || []).filter(e => e.catId === chatState.activeEmojiCat);
+    });
+
+    const addEmojiCat = () => {
+        if(!emojiForm.newCatName.trim()) return;
+        initEmojiDb();
+        const id = 'ecat_' + Date.now();
+        chatDb.value.emojiCats.push({ id, name: emojiForm.newCatName.trim() });
+        emojiForm.newCatName = '';
+        if(!chatState.activeEmojiCat) chatState.activeEmojiCat = id;
+    };
+
+    const addSingleEmoji = () => {
+        if(!emojiForm.singleCat) return alert('请选择分类');
+        if(!emojiForm.singleName.trim()) return alert('请输入表情包名称');
+        if(!emojiForm.singleUrl.trim()) return alert('请填入或上传图片URL');
+        initEmojiDb();
+        chatDb.value.emojiItems.push({
+            id: 'emj_' + Date.now(),
+            catId: emojiForm.singleCat,
+            name: emojiForm.singleName.trim(),
+            url: emojiForm.singleUrl.trim()
+        });
+        emojiForm.singleName = '';
+        emojiForm.singleUrl = '';
+        alert('导入成功');
+    };
+
+    const addBatchEmoji = () => {
+        if(!emojiForm.batchCat) return alert('请选择分类');
+        if(!emojiForm.batchText.trim()) return alert('请填入批量文本');
+        initEmojiDb();
+        const lines = emojiForm.batchText.split('\n');
+        let count = 0;
+        lines.forEach(line => {
+            const parts = line.split(/[:：]/);
+            if(parts.length >= 2) {
+                const name = parts[0].trim();
+                const url = parts.slice(1).join(':').trim();
+                if(name && url) {
+                    chatDb.value.emojiItems.push({
+                        id: 'emj_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
+                        catId: emojiForm.batchCat,
+                        name, url
+                    });
+                    count++;
+                }
+            }
+        });
+        emojiForm.batchText = '';
+        alert(`批量导入 ${count} 个表情包成功！`);
+    };
+
+    const sendEmoji = (em) => {
+        if (!activeRawConv.value) return;
+        const conv = activeRawConv.value;
+        const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        conv.messages.push({
+            id: 'm_' + Date.now(), senderId: chatState.currentUser.id,
+            text: `[[EMOJI:${em.name}|${em.url}]]`, translation: '', showTrans: false, recalled: false, time: nowTime, isManualTyped: true
+        });
+        conv.lastMsg = '[表情包]'; conv.time = nowTime;
+        syncTargetConv(conv); scrollToBottom();
+    };
+
+    window.tempEmojiUploadCallback = (url) => { emojiForm.singleUrl = url; };
+
     return {
-        activeConv,
-        activeMessages,
-        activeTargetPersona,
-        activeConvSettings,
-        timeZoneOptions,
-        quoteSourceMessage,
-        openConversation,
-        closeConversation,
-        sendMessage,
-        triggerApiReply,
-        toggleBottomMenu,
-        handleBgUpload,
-        triggerBgUpload,
-        onMessagePressStart,
-        onMessagePressEnd,
-        closeMessageMenu,
-        quoteMessage,
-        favoriteMessage,
-        editMessage,
-        cancelEditMessage,
-        deleteMessage,
-        cancelQuoteMessage
+        activeConv, activeMessages, activeTargetPersona, activeConvSettings, timeZoneOptions, quoteSourceMessage,
+        openConversation, closeConversation, sendMessage, triggerApiReply, toggleBottomMenu, handleBgUpload, triggerBgUpload,
+        onMessagePressStart, onMessagePressEnd, onMessagePressMove, closeMessageMenu, quoteMessage, favoriteMessage, recallMessage, editMessageModal, saveEditMessage,
+        cancelEditMessage, deleteMessage, cancelQuoteMessage,
+        enterMultiSelect, toggleSelectMsg, deleteSelectedMsgs, cancelMultiSelect, openRawEditModal, saveRawEdit,
+        isVoiceMsg, getVoiceText, getVoiceDuration, getVoiceWaves, sendVoiceMessage, toggleVoiceText,
+        emojiForm, openEmojiPanel, activeEmojiList, addEmojiCat, addSingleEmoji, addBatchEmoji, sendEmoji, isEmojiMsg, getEmojiName, getEmojiUrl,
+        switchBottomMenu, onEmojiCatTouchStart, onEmojiCatTouchEnd, toggleEmojiCatRole
     };
 };

@@ -198,25 +198,64 @@ const getDisplayNameById = (id) => {
         chatDb.value.loginHistory = [userId, ...chatDb.value.loginHistory.filter(id => id !== userId)];
     };
 
+    const addSystemNoticeToAccount = (userId, text) => {
+        ensureAccountData(userId);
+        const acc = chatDb.value.accounts[userId];
+        let sysConv = acc.conversations.find(c => c.targetId === 'system');
+        const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        if (!sysConv) {
+            sysConv = { id: 'c_sys_' + Date.now(), type: 'private', targetId: 'system', lastMsg: '', time: timeStr, messages: [], settings: { remarkName: '系统安全中心' } };
+            acc.conversations.unshift(sysConv);
+        } else {
+            acc.conversations = acc.conversations.filter(c => c.id !== sysConv.id);
+            acc.conversations.unshift(sysConv);
+        }
+        sysConv.messages.push({
+            id: 'm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+            senderId: 'system', text, translation: '', showTrans: false, recalled: false, time: timeStr, type: 'sys'
+        });
+        sysConv.lastMsg = text;
+        sysConv.time = timeStr;
+    };
+
     const handleLogin = () => {
         if (!chatState.loginForm.acc) return alert('请输入账号');
         const acc = chatState.loginForm.acc.trim();
         const pwd = chatState.loginForm.pwd;
-        const user = allPersonas.value.find(c => c.chatAcc === acc && c.chatPwd === pwd);
-        if (user) {
-            ensureAccountData(user.id);
-            chatState.currentUser = user;
+        
+        if (!chatDb.value.loginFailedAttempts) chatDb.value.loginFailedAttempts = {};
+        
+        const targetUser = allPersonas.value.find(c => c.chatAcc === acc);
+        if (!targetUser) return alert('账号或密码错误！');
+
+        if (targetUser.chatPwd === pwd) {
+            chatDb.value.loginFailedAttempts[acc] = 0;
+            ensureAccountData(targetUser.id);
+            if (!targetUser.isMe) {
+                addSystemNoticeToAccount(targetUser.id, `【系统安全通知】您的账号于 ${new Date().toLocaleTimeString()} 在新设备上成功登录，如果不是您本人的操作，请注意账号安全！`);
+            }
+            chatState.currentUser = targetUser;
             chatState.isLoggedIn = true;
             chatState.loginForm = { acc: '', pwd: '' };
-            chatDb.value.sessionUserId = user.id;
-            addToLoginHistory(user.id);
-        } else alert('账号或密码错误！');
+            chatDb.value.sessionUserId = targetUser.id;
+            addToLoginHistory(targetUser.id);
+        } else {
+            chatDb.value.loginFailedAttempts[acc] = (chatDb.value.loginFailedAttempts[acc] || 0) + 1;
+            if (chatDb.value.loginFailedAttempts[acc] >= 1) {
+                addSystemNoticeToAccount(targetUser.id, `【系统安全警告】有未知设备尝试登录您的账号并输入了错误的密码，请注意账号安全防范！`);
+                chatDb.value.loginFailedAttempts[acc] = 0;
+            }
+            alert('账号或密码错误！');
+        }
     };
 
     const switchAccount = (userId) => {
         const user = getPersonaById(userId);
         if (!user) return;
         ensureAccountData(user.id);
+        if (!user.isMe) {
+            addSystemNoticeToAccount(user.id, `【系统安全通知】您的账号于 ${new Date().toLocaleTimeString()} 在新设备上成功登录，如果不是您本人的操作，请注意账号安全！`);
+        }
         chatState.currentUser = user;
         chatState.isLoggedIn = true;
         chatDb.value.sessionUserId = user.id;
@@ -392,6 +431,15 @@ const getDisplayNameById = (id) => {
         if (!chatState.currentUser || !currentAccountData.value) return [];
         const accData = currentAccountData.value;
         let list = (accData.conversations || []).map(conv => {
+            if (conv.targetId === 'system') {
+                return {
+                    ...conv,
+                    name: '系统安全中心',
+                    avatar: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231890ff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z'/%3E%3C/svg%3E",
+                    status: '系统保护中',
+                    statusColor: '#1890ff'
+                };
+            }
             const target = getPersonaById(conv.targetId);
             if (target?.id) ensureAccountData(target.id);
             const targetAcc = target?.id ? chatDb.value.accounts[target.id] : null;

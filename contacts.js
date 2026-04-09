@@ -118,23 +118,44 @@ const newChar = {
         modals.wb = false;
     };
 
-const ensureCharFields = (char) => {
-    if (char.chatName === undefined) char.chatName = char.name || '';
-    if (char.phone === undefined) char.phone = '';
-    if (char.email === undefined) char.email = '';
-    if (char.chatAcc === undefined) char.chatAcc = '';
-    if (char.chatPwd === undefined) char.chatPwd = '';
-    if (char.lockPwdNum === undefined) char.lockPwdNum = '';
-    if (char.lockPwdPat === undefined) char.lockPwdPat = '';
-    if (char.lockPwdQA_Q === undefined) char.lockPwdQA_Q = '';
-    if (char.lockPwdQA_A === undefined) char.lockPwdQA_A = '';
-    if (char.phoneLockType === undefined || !['num', 'pattern', 'qa'].includes(char.phoneLockType)) {
-        if (char.lockPwdNum) char.phoneLockType = 'num';
-        else if (char.lockPwdPat) char.phoneLockType = 'pattern';
-        else if (char.lockPwdQA_Q || char.lockPwdQA_A) char.phoneLockType = 'qa';
-        else char.phoneLockType = 'num';
-    }
-};
+    const ensureCharFields = (char) => {
+        if (char.chatName === undefined) char.chatName = char.name || '';
+        if (char.phone === undefined) char.phone = '';
+        if (char.email === undefined) char.email = '';
+        if (char.chatAcc === undefined) char.chatAcc = '';
+        if (char.chatPwd === undefined) char.chatPwd = '';
+        if (char.lockPwdNum === undefined) char.lockPwdNum = '';
+        if (char.lockPwdPat === undefined) char.lockPwdPat = '';
+        if (char.lockPwdQA_Q === undefined) char.lockPwdQA_Q = '';
+        if (char.lockPwdQA_A === undefined) char.lockPwdQA_A = '';
+        if (!Array.isArray(char.memories)) char.memories = [];
+        if (char.phoneLockType === undefined || !['num', 'pattern', 'qa'].includes(char.phoneLockType)) {
+            if (char.lockPwdNum) char.phoneLockType = 'num';
+            else if (char.lockPwdPat) char.phoneLockType = 'pattern';
+            else if (char.lockPwdQA_Q || char.lockPwdQA_A) char.phoneLockType = 'qa';
+            else char.phoneLockType = 'num';
+        }
+    };
+
+    const newMemoryText = ref('');
+    const newMemoryWeight = ref('3');
+    
+    const addCharMemory = (char) => {
+        if (!newMemoryText.value.trim()) return;
+        if (!Array.isArray(char.memories)) char.memories = [];
+        char.memories.unshift({
+            id: 'mem_' + Date.now(),
+            content: newMemoryText.value.trim(),
+            timestamp: Date.now(),
+            weight: parseInt(newMemoryWeight.value) || 3
+        });
+        newMemoryText.value = '';
+    };
+
+    const removeCharMemory = (char, memId) => {
+        if (!Array.isArray(char.memories)) return;
+        char.memories = char.memories.filter(m => m.id !== memId);
+    };
 
     const openCharDetail = (char) => {
         ensureCharFields(char);
@@ -457,6 +478,7 @@ const systemPrompt = [
         openAddWorld, openAddWbCat, openAddChar, triggerAvatarUpload, saveChar, openAddWb, saveWb,
         activeChar, pwdVisibility, openCharDetail, callApiToGenerate, deleteActiveChar,
         canvasRef, canvasPan, canvasNodes, canvasEdges, availableRelChars, confirmAddRel, handleNodeClick, selectedNodeId,
-        openRelEdit, relEditForm, saveRelEdit, startPan, startDrag, onCanvasMove, endDrag
+        openRelEdit, relEditForm, saveRelEdit, startPan, startDrag, onCanvasMove, endDrag,
+        newMemoryText, newMemoryWeight, addCharMemory, removeCharMemory
     };
 };
