@@ -65,8 +65,39 @@ window.useBeautifyLogic = function(state, context) {
         if (url) state[group][index].icon = url;
     };
 
+    const applyPresetFont = (fontFamily, fontUrl = '') => {
+        state.customFontUrl = fontUrl;
+        state.customFontFamily = fontFamily;
+    };
+    const uploadFontUrl = () => {
+        const url = prompt('请输入字体文件 URL (ttf/otf/woff)：');
+        if (url) {
+            state.customFontUrl = url;
+            state.customFontFamily = 'CustomFont_' + Date.now();
+        }
+    };
+    const saveCurrentFontToPreset = () => {
+        if (!state.customFontFamily) return alert('当前使用的是系统默认字体，无需保存。');
+        const name = prompt('给当前这个字体起个名字保存到预设库：');
+        if (!name) return;
+        if (!state.customFontPresets) state.customFontPresets = [];
+        state.customFontPresets.push({
+            id: 'font_' + Date.now(),
+            name: name,
+            family: state.customFontFamily,
+            url: state.customFontUrl
+        });
+        alert('字体预设保存成功！');
+    };
+    const deleteFontPreset = (id) => {
+        if(confirm('确定要删除这个字体预设吗？')) {
+            state.customFontPresets = state.customFontPresets.filter(f => f.id !== id);
+        }
+    };
+
     return {
         getDockStyles, getWpCardStyle, onWpTouchStart, onWpTouchEnd, 
-        handleWpClick, deleteWallpaper, addWallpaperUrl, editAppInfo, editAppIconUrl
+        handleWpClick, deleteWallpaper, addWallpaperUrl, editAppInfo, editAppIconUrl,
+        applyPresetFont, uploadFontUrl, saveCurrentFontToPreset, deleteFontPreset
     };
 };

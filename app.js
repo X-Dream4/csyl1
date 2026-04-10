@@ -15,7 +15,7 @@ createApp({
             avatarCard1: { imgLeft: defaultAvatar1, textLeft: 'User A', imgRight: defaultAvatar2, textRight: 'User B', titleTop: 'Sweet Memory', titleBottom: 'Forever' },
             avatarCard2: { imgLeft: defaultAvatar1, textLeft: 'User C', imgRight: defaultAvatar2, textRight: 'User D', titleTop: 'Our Story', titleBottom: 'Together' },
             clockIcons: [...defaultClockIcons], clockBg: '', clockHandHr: '', clockHandMin: '', clockHandSec: '', clockCenterDot: '',
-            topShowName: true, topHasShadow: false, appsTop: [{ id: 't1', name: 'Chat', icon: defaultImg }, { id: 't2', name: 'Photos', icon: defaultImg }, { id: 't3', name: 'Notes', icon: defaultImg }, { id: 't4', name: 'Music', icon: defaultImg }],
+            topShowName: true, topHasShadow: false, appsTop: [{ id: 't1', name: 'Chat', icon: defaultImg }, { id: 't2', name: 'Blog', icon: defaultImg }, { id: 't3', name: 'Notes', icon: defaultImg }, { id: 't4', name: 'Music', icon: defaultImg }],
             bottomShowName: true, bottomHasShadow: false, appsBottom: [{ id: 'b1', name: 'Weather', icon: defaultImg }, { id: 'b2', name: 'App Store', icon: defaultImg }, { id: 'b3', name: 'Maps', icon: defaultImg }, { id: 'b4', name: 'Wallet', icon: defaultImg }],
             dockShowName: false, dockHasShadow: false, dockHidden: false, dockColor: '', dockOpacity: 0.5, dockBlur: 15,
             appsDock: [{ id: 'd1', name: '设置', icon: defaultImg }, { id: 'd2', name: '人脉', icon: defaultImg }, { id: 'd3', name: '美化', icon: defaultImg }],
@@ -57,7 +57,14 @@ createApp({
             }
             setTimeout(() => { if(window.lucide) lucide.createIcons(); }, 100);
         };
-        watch(state, (newState) => { localforage.setItem('ins_desktop_v8_state', JSON.parse(JSON.stringify(newState))); }, { deep: true });
+        
+        let saveTimeout = null;
+        watch(state, (newState) => { 
+            if (saveTimeout) clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(() => {
+                localforage.setItem('ins_desktop_v8_state', JSON.parse(JSON.stringify(newState))); 
+            }, 2000); // 延迟 2000 毫秒 (2秒) 保存，极大降低性能负担
+        }, { deep: true });
 
         const updateClock = () => { const now = new Date(); currentDate.value = now; secDeg.value = now.getSeconds() * 6; minDeg.value = now.getMinutes() * 6 + now.getSeconds() * 0.1; hrDeg.value = (now.getHours() % 12) * 30 + now.getMinutes() * 0.5; requestAnimationFrame(updateClock); };
         const getClockNumberStyle = (index) => ({ left: `${50 + 38 * Math.cos((index * 30 - 90) * (Math.PI / 180))}%`, top: `${50 + 38 * Math.sin((index * 30 - 90) * (Math.PI / 180))}%` });
@@ -97,10 +104,12 @@ createApp({
 
         const contactsMethods = window.useContactsLogic(state);
         const chatMethods = window.useChatLogic(state);
+        const chatMomentMethods = window.useChatMomentLogic(state, chatMethods); // <--- 加入对动态的引入
         const chatDetailMethods = window.useChatDetailLogic(state, chatMethods);
         
         const openApp = (app) => { 
             if (app.id === 't1') { state.activeApp = 'chat'; nextTick(() => { if(window.lucide) lucide.createIcons(); }); } 
+            else if (app.id === 't2') { state.activeApp = 'blog'; nextTick(() => { if(window.lucide) lucide.createIcons(); }); } 
             else if (app.id === 'd3') { state.activeApp = 'beautify'; nextTick(() => { if(window.lucide) lucide.createIcons(); }); } 
             else if (app.id === 'd1') { state.activeApp = 'settings'; nextTick(() => { if(window.lucide) lucide.createIcons(); settingsMethods.updateStorageInfo(); }); }
             else if (app.id === 'd2') { state.activeApp = 'contacts'; contactsMethods.contactsTab.value = 'chars'; contactsMethods.activeChar.value = null; nextTick(() => { if(window.lucide) lucide.createIcons(); }); }
@@ -111,9 +120,10 @@ createApp({
 
         const beautifyMethods = window.useBeautifyLogic(state, { currentWpIndex, triggerUpload });
         const settingsMethods = window.useSettingsLogic(state);
+        const blogMethods = window.useBlogLogic(state, contactsMethods, chatMethods);
 
         onMounted(() => { loadData(); requestAnimationFrame(updateClock); });
 
-        return { state, defaultImg, isThemeModalOpen, isClockModalOpen, isWidgetBadgeModalOpen, hrDeg, minDeg, secDeg, fileInput, currentWpIndex, currentDate, calendarGrid, getClockNumberStyle, setTheme, triggerUpload, handleFileChange, openApp, closeApp, editApp, editClockUrl, resetClock, editCapsuleBgUrl, openWidgetBadge1Editor, chooseWidgetBadge1Image, onWidgetBadge1ColorChange, resetWidgetBadge1, addEmoji, clearEmojis, formatTime, formatDate, unlockState, onLockTouchStart, onLockTouchMove, onLockTouchEnd, verifyLockPwd, patternState, patternPathPoints, startPattern, movePattern, endPattern, ...beautifyMethods, ...settingsMethods, ...contactsMethods, ...chatMethods, ...chatDetailMethods };
+        return { state, defaultImg, isThemeModalOpen, isClockModalOpen, isWidgetBadgeModalOpen, hrDeg, minDeg, secDeg, fileInput, currentWpIndex, currentDate, calendarGrid, getClockNumberStyle, setTheme, triggerUpload, handleFileChange, openApp, closeApp, editApp, editClockUrl, resetClock, editCapsuleBgUrl, openWidgetBadge1Editor, chooseWidgetBadge1Image, onWidgetBadge1ColorChange, resetWidgetBadge1, addEmoji, clearEmojis, formatTime, formatDate, unlockState, onLockTouchStart, onLockTouchMove, onLockTouchEnd, verifyLockPwd, patternState, patternPathPoints, startPattern, movePattern, endPattern, ...beautifyMethods, ...settingsMethods, ...contactsMethods, ...chatMethods, ...chatMomentMethods, ...chatDetailMethods, ...blogMethods };
     }
 }).mount('#app');

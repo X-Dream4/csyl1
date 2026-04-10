@@ -87,3 +87,8 @@
     margin: 0;
     pointer-events: none;
 }
+/* ==== 字体预览样式 ==== */
+.b-font-tab { display: flex; flex-direction: column; }
+.font-preview-box { background: var(--widget-bg-solid); border: var(--glass-border); border-radius: 16px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); display: flex; flex-direction: column; gap: 12px; margin-bottom: 5px; color: var(--text-main); }
+.font-preview-line { font-size: 15px; line-height: 1.6; word-break: break-word; border-bottom: 1px dashed rgba(150,150,150,0.2); padding-bottom: 8px; }
+.font-preview-line:last-child { border-bottom: none; padding-bottom: 0; }

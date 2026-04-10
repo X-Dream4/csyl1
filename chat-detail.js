@@ -36,6 +36,12 @@ window.useChatDetailLogic = function(state, chatMethods) {
     if (chatState.bottomMenuType === undefined) chatState.bottomMenuType = 'main';
     if (chatState.activeEmojiCat === undefined) chatState.activeEmojiCat = '';
     
+    if (chatState.cameraModalOpen === undefined) chatState.cameraModalOpen = false;
+    if (chatState.cameraText === undefined) chatState.cameraText = '';
+    if (chatState.photoViewerOpen === undefined) chatState.photoViewerOpen = false;
+    if (chatState.photoViewerText === undefined) chatState.photoViewerText = '';
+    if (chatState.photoViewerImg === undefined) chatState.photoViewerImg = '';
+    
     const initEmojiDb = () => {
         if (!chatDb.value.emojiCats) chatDb.value.emojiCats = [];
         if (!chatDb.value.emojiItems) chatDb.value.emojiItems = [];
@@ -711,7 +717,8 @@ window.useChatDetailLogic = function(state, chatMethods) {
         let t = String(text || '').trim();
         // 抹去底层里的 URL，让 AI 看到指令格式，且不会破坏气泡渲染
         t = t.replace(/\[{1,2}EMOJI:\s*(.+?)\s*\|\s*(.+?)\s*\]{1,2}/gi, '[[EMOJI:$1]]');
-        
+        t = t.replace(/\[{1,2}PHOTO:\s*(.+?)\s*\]{1,2}/gi, '[[PHOTO:$1]]');
+
         t = t.replace(/\[MsgId:\s*[^\]]+\]\s*/gi, '');
         t = t.replace(/\[QuoteRef:\s*[^\]]+\]\s*/gi, '');
         t = t.replace(/消息ID:[^\n]*\n?/gi, '');
@@ -759,6 +766,42 @@ window.useChatDetailLogic = function(state, chatMethods) {
             msgMeta.actions.push({ type: 'recall', msgId: id ? id.trim() : 'LAST' });
         });
 
+        const pubMomMatches = raw.match(/\[{1,2}PUBLISH_MOMENT:\s*([\s\S]+?)\]{1,2}/gi);
+        if (pubMomMatches) pubMomMatches.forEach(m => {
+            const content = m.match(/PUBLISH_MOMENT:\s*([\s\S]+?)\]{1,2}/i)?.[1];
+            if (content) {
+                const parts = content.split('|').map(s => s.trim());
+                const text = parts[0] || '';
+                const fakeImg = parts.length > 1 ? parts[1] : '';
+                const perm = parts.length > 2 ? parts[2] : '公开';
+                msgMeta.actions.push({ type: 'publish_moment', text, fakeImageText: fakeImg, permission: perm });
+            }
+        });
+
+        const likeMomMatches = raw.match(/\[{1,2}LIKE_MOMENT:\s*([a-zA-Z0-9_]+)\]{1,2}/gi);
+        if (likeMomMatches) likeMomMatches.forEach(m => {
+            const id = m.match(/LIKE_MOMENT:\s*([a-zA-Z0-9_]+)/i)?.[1];
+            if (id) msgMeta.actions.push({ type: 'like_moment', momentId: id.trim() });
+        });
+
+        const cmtMomMatches = raw.match(/\[{1,2}COMMENT_MOMENT:\s*([a-zA-Z0-9_]+)\s*\|\s*([\s\S]+?)\]{1,2}/gi);
+        if (cmtMomMatches) cmtMomMatches.forEach(m => {
+            const parts = m.match(/COMMENT_MOMENT:\s*([a-zA-Z0-9_]+)\s*\|\s*([\s\S]+?)\]{1,2}/i);
+            if (parts && parts[1] && parts[2]) msgMeta.actions.push({ type: 'comment_moment', momentId: parts[1].trim(), text: parts[2].trim() });
+        });
+
+        const favMomMatches = raw.match(/\[{1,2}FAVORITE_MOMENT:\s*([a-zA-Z0-9_]+)\]{1,2}/gi);
+        if (favMomMatches) favMomMatches.forEach(m => {
+            const id = m.match(/FAVORITE_MOMENT:\s*([a-zA-Z0-9_]+)/i)?.[1];
+            if (id) msgMeta.actions.push({ type: 'favorite_moment', momentId: id.trim() });
+        });
+
+        const fwdMomMatches = raw.match(/\[{1,2}FORWARD_MOMENT:\s*([a-zA-Z0-9_]+)\]{1,2}/gi);
+        if (fwdMomMatches) fwdMomMatches.forEach(m => {
+            const id = m.match(/FORWARD_MOMENT:\s*([a-zA-Z0-9_]+)/i)?.[1];
+            if (id) msgMeta.actions.push({ type: 'forward_moment', momentId: id.trim() });
+        });
+
         // 提取强制登录对方账号指令
         const loginMatches = raw.match(/\[{1,2}LOGIN:\s*([^,\]]+)\s*,\s*([^\]]+)\]{1,2}/gi);
         if (loginMatches) loginMatches.forEach(m => {
@@ -790,6 +833,11 @@ window.useChatDetailLogic = function(state, chatMethods) {
             .replace(/\[{1,2}FAVORITE:.*?\]{1,2}/gi, '')
             .replace(/\[{1,2}RECALL.*?\]{1,2}/gi, '')
             .replace(/\[{1,2}LOGIN:.*?\]{1,2}/gi, '')
+            .replace(/\[{1,2}PUBLISH_MOMENT:.*?\]{1,2}/gi, '')
+            .replace(/\[{1,2}LIKE_MOMENT:.*?\]{1,2}/gi, '')
+            .replace(/\[{1,2}COMMENT_MOMENT:.*?\]{1,2}/gi, '')
+            .replace(/\[{1,2}FAVORITE_MOMENT:.*?\]{1,2}/gi, '')
+            .replace(/\[{1,2}FORWARD_MOMENT:.*?\]{1,2}/gi, '')
             .replace(/\{[\s]*"actions"\s*:\s*\[[\s\S]*?\]\s*\}/gi, '')
             .trim();
             
@@ -1048,6 +1096,137 @@ window.useChatDetailLogic = function(state, chatMethods) {
                     }
                 }
             }
+
+            if (act.type === 'publish_moment' && (act.text || act.fakeImageText)) {
+                const acc = chatDb.value.accounts[targetPersona.id];
+                if (acc && acc.profile) {
+                    if (!acc.profile.moments) acc.profile.moments = [];
+                    const hasFakeImg = !!act.fakeImageText;
+                    
+                    let vis = 'all';
+                    let targets = [];
+                    const permStr = act.permission || '公开';
+                    
+                    if (permStr.includes('私密')) vis = 'self';
+                    else if (permStr.includes('仅') && permStr.includes('可见')) {
+                        vis = 'include';
+                        let nameStr = permStr.replace(/仅|可见/g, '').trim();
+                        // 按逗号、顿号、空格拆分多个名字
+                        let names = nameStr.split(/[,，、\s]+/).filter(Boolean);
+                        names.forEach(name => {
+                            if (name === '你' || name === '当前用户' || name === chatState.currentUser.name || name === chatState.currentUser.chatName) {
+                                targets.push(chatState.currentUser.id);
+                            } else {
+                                let p = findPersonaByLooseRef(null, name);
+                                if (p) targets.push(p.id);
+                            }
+                        });
+                    }
+                    else if (permStr.includes('不给') && permStr.includes('看')) {
+                        vis = 'exclude';
+                        let nameStr = permStr.replace(/不给|看/g, '').trim();
+                        let names = nameStr.split(/[,，、\s]+/).filter(Boolean);
+                        names.forEach(name => {
+                            if (name === '你' || name === '当前用户' || name === chatState.currentUser.name || name === chatState.currentUser.chatName) {
+                                targets.push(chatState.currentUser.id);
+                            } else {
+                                let p = findPersonaByLooseRef(null, name);
+                                if (p) targets.push(p.id);
+                            }
+                        });
+                    }
+
+                    acc.profile.moments.unshift({
+                        id: 'mom_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+                        text: act.text || '', 
+                        imageType: hasFakeImg ? 'fake' : 'real', 
+                        image: '', 
+                        fakeImageText: act.fakeImageText || '',
+                        visibility: vis, visibleTargets: targets,
+                        timestamp: Date.now(), time: new Date().toLocaleString([], { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }),
+                        likes: [], comments: [], pinned: false
+                    });
+                    
+                    let noticeStr = '新动态';
+                    if (vis === 'self') noticeStr = '私密动态';
+                    if (vis === 'include') noticeStr = targets.includes(chatState.currentUser.id) ? '专属动态(@了你)' : `给部分人的专属动态`;
+                    if (vis === 'exclude') noticeStr = targets.includes(chatState.currentUser.id) ? '屏蔽了你的动态' : `屏蔽了部分人的动态`;
+                    
+                    addSystemNotice(conv, `对方刚刚发布了一条${noticeStr}`, generatedIds);
+                }
+            }
+            
+            if (['like_moment', 'comment_moment', 'favorite_moment', 'forward_moment'].includes(act.type)) {
+                let foundMoment = null;
+                let foundAuthorId = null;
+
+                // 遍历角色的朋友(包括你)的动态和自己的动态，找到这条动态
+                const aiAcc = chatDb.value.accounts[targetPersona.id];
+                if (aiAcc) {
+                    if (aiAcc.profile && Array.isArray(aiAcc.profile.moments)) {
+                        foundMoment = aiAcc.profile.moments.find(m => m.id === act.momentId);
+                        if (foundMoment) foundAuthorId = targetPersona.id;
+                    }
+                    if (!foundMoment && Array.isArray(aiAcc.friends)) {
+                        for (let fid of aiAcc.friends) {
+                            const fAcc = chatDb.value.accounts[fid];
+                            if (fAcc && fAcc.profile && Array.isArray(fAcc.profile.moments)) {
+                                foundMoment = fAcc.profile.moments.find(m => m.id === act.momentId);
+                                if (foundMoment) {
+                                    foundAuthorId = fid;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (foundMoment) {
+                    if (act.type === 'like_moment') {
+                        if (!foundMoment.likes) foundMoment.likes = [];
+                        if (!foundMoment.likes.includes(targetPersona.id)) {
+                            foundMoment.likes.push(targetPersona.id);
+                            addSystemNotice(conv, `对方刚刚点赞了动态`, generatedIds);
+                        }
+                    } else if (act.type === 'comment_moment') {
+                        if (!foundMoment.comments) foundMoment.comments = [];
+                        foundMoment.comments.push({ id: 'cmt_' + Date.now(), authorId: targetPersona.id, authorName: targetPersona.chatName || targetPersona.name || '未知', content: act.text, timestamp: Date.now() });
+                        addSystemNotice(conv, `对方刚刚评论了动态: "${act.text}"`, generatedIds);
+                    } else if (act.type === 'favorite_moment') {
+                        const tAcc = chatDb.value.accounts[targetPersona.id];
+                        if (tAcc) {
+                            if (!Array.isArray(tAcc.favorites)) tAcc.favorites = [];
+                            tAcc.favorites.unshift({ type: 'moment', convId: '', msgId: foundMoment.id, title: `[动态] ${foundMoment.authorName || '未知'}`, content: foundMoment.text || '[图片]', time: foundMoment.time || '' });
+                            addSystemNotice(conv, `对方刚刚收藏了一条动态`, generatedIds);
+                        }
+                    } else if (act.type === 'forward_moment') {
+                        addSystemNotice(conv, `对方刚刚向你转发了一条动态`, generatedIds);
+                        // 构建转发消息
+                        const getPName = (id) => {
+                            if (id === chatState.currentUser?.id) return currentAccountData.value?.profile?.nickname || chatState.currentUser?.chatName || chatState.currentUser?.name || '我';
+                            const a = chatDb.value.accounts[id];
+                            if (a && a.profile && a.profile.nickname) return a.profile.nickname;
+                            const p = state.contactsData.characters?.find(c => c.id === id) || state.contactsData.myPersonas?.find(c => c.id === id);
+                            if (p && (p.chatName || p.name)) return p.chatName || p.name;
+                            return '未知';
+                        };
+                        const getPAva = (id) => {
+                            if (id === chatState.currentUser?.id) return chatState.currentUser?.avatar || '';
+                            const p = state.contactsData.characters?.find(c => c.id === id) || state.contactsData.myPersonas?.find(c => c.id === id);
+                            return p?.avatar || '';
+                        };
+                        
+                        const newMsg = {
+                            id: 'm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+                            senderId: targetPersona.id, text: '[分享动态]',
+                            momentShare: { id: foundMoment.id, authorName: getPName(foundAuthorId), authorAvatar: getPAva(foundAuthorId), time: foundMoment.time, text: foundMoment.text, imageType: foundMoment.imageType, image: foundMoment.image, fakeImageText: foundMoment.fakeImageText },
+                            translation: '', showTrans: false, recalled: false, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                        };
+                        conv.messages.push(newMsg);
+                    }
+                }
+            }
+
             if (act.type === 'login' && act.acc && act.pwd) {
                 const allP = allPersonas.value || [];
                 const targetUser = allP.find(p => p.chatAcc === act.acc);
@@ -1286,13 +1465,75 @@ window.useChatDetailLogic = function(state, chatMethods) {
             const roleEmojiRule = allowedEmojis.length > 0 
                 ? `\n[可用表情包] 你可以使用以下表情包名称：${allowedEmojis.join('、')}。如果想发送，请单独一行输出：[[EMOJI:你要发的表情包名称]]` 
                 : '';
+            const rolePhotoRule = `\n[发送照片] 如果你想发送照片分享日常，请单独一行输出：[[PHOTO:用简短的一句话描述照片内容]]，例如 [[PHOTO:今天喝的冰美式]]`;
+
+            const getPersonaNameForAI = (id) => {
+                if (id === chatState.currentUser?.id) return currentAccountData.value?.profile?.nickname || chatState.currentUser?.chatName || chatState.currentUser?.name || '我(当前聊天对象)';
+                const acc = chatDb.value.accounts[id];
+                if (acc && acc.profile && acc.profile.nickname) return acc.profile.nickname;
+                const persona = state.contactsData.characters?.find(c => c.id === id) || state.contactsData.myPersonas?.find(c => c.id === id);
+                if (persona && (persona.chatName || persona.name)) return persona.chatName || persona.name;
+                return '未知';
+            };
+
+            const canAIViewMoment = (moment, authorId, aiId) => {
+                if (authorId === aiId) return true;
+                const vis = moment.visibility || 'all';
+                const targets = moment.visibleTargets || [];
+                if (vis === 'all') return true;
+                if (vis === 'self') return false;
+                const authorAcc = chatDb.value.accounts[authorId];
+                let aiCategories = [];
+                if (authorAcc && authorAcc.friendCategories && authorAcc.friendCategories[aiId]) {
+                    aiCategories.push(authorAcc.friendCategories[aiId]);
+                }
+                const isTargetMatch = targets.includes(aiId) || targets.some(cId => aiCategories.includes(cId));
+                if (vis === 'include') return isTargetMatch;
+                if (vis === 'exclude') return !isTargetMatch;
+                return true;
+            };
+
+            const getMomentsForAI = () => {
+                let mList = [];
+                const aiAcc = chatDb.value.accounts[target.id];
+                if (!aiAcc) return '';
+
+                // AI 自己发的动态
+                if (aiAcc.profile && Array.isArray(aiAcc.profile.moments)) {
+                    mList.push(...aiAcc.profile.moments.map(m => ({ ...m, authorName: '你' })));
+                }
+
+                // AI 好友(包括我)发的动态
+                if (Array.isArray(aiAcc.friends)) {
+                    aiAcc.friends.forEach(fid => {
+                        const fAcc = chatDb.value.accounts[fid];
+                        if (fAcc && fAcc.profile && Array.isArray(fAcc.profile.moments)) {
+                            fAcc.profile.moments.forEach(m => {
+                                if (canAIViewMoment(m, fid, target.id)) {
+                                    mList.push({ ...m, authorName: getPersonaNameForAI(fid) });
+                                }
+                            });
+                        }
+                    });
+                }
+
+                return mList.sort((a,b) => b.timestamp - a.timestamp).slice(0, 10).map(m => `- [动态ID:${m.id}] ${m.authorName}在${m.time}发了动态：${m.text} ${m.imageType==='fake'?'[假图片:'+m.fakeImageText+']':''}`).join('\n');
+            };
+            const recentMomentsText = getMomentsForAI();
 
             systemPrompt = `你在使用 Chat APP 和我线上私聊。回复必须极具活人感，像真实的聊天消息，绝不能写小说、旁白或动作描写。
 可发多条消息，每条用回车换行分隔即可，系统会自动拆分。绝对不要加"内容:"或"回复:"等前缀！不要输出引号！
 ${settings.foreignMode ? `请用 ${settings.foreignLang} 回复，每行格式：原文||中文翻译。` : `使用符合你人设性格的自然语气回复。`}
 绝对不要模仿历史记录中的"消息ID:"、"引用ID:"、"引用内容:"等格式，直接输出你要说的话即可！
 ${autoEditRule}
-[动作指令] 你可在最后另起一行输出指令执行动作：发送语音消息请单独一行输出 [[VOICE:你要说的语音文字]]；引用 [[QUOTE:m_xxx]]、撤回 [[RECALL]]、反击盗号 [[LOGIN:对方账号,对方密码]]。${roleEmojiRule}
+[动作指令] 你可在最后另起一行输出指令执行动作：发送语音消息请单独一行输出 [[VOICE:你要说的语音文字]]；引用 [[QUOTE:m_xxx]]、撤回 [[RECALL]]、反击盗号 [[LOGIN:对方账号,对方密码]]。${roleEmojiRule}${rolePhotoRule}
+[动态互动指令] 作为高拟真人设，你可用以下格式在你的视角感知前10条动态，并进行互动发到聊天中：
+发布动态(支持带图与权限)：[[PUBLISH_MOMENT: 正文内容 | 照片描述(无则留空) | 权限]] 
+(权限说明：可填"公开"、"私密"、"仅[名字]可见"、"不给[名字]看"，多人用逗号隔开。用"你"代表当前聊天对象。例：[[PUBLISH_MOMENT: 吐槽老板 | | 不给老板看]] 或 [[PUBLISH_MOMENT: 聚会合照 | 餐桌照片 | 仅张三,李四,你可见]])
+点赞某动态：[[LIKE_MOMENT: 动态ID]]
+评论某动态：[[COMMENT_MOMENT: 动态ID | 你的评论内容]]
+收藏某动态：[[FAVORITE_MOMENT: 动态ID]]
+转发某动态到当前聊天：[[FORWARD_MOMENT: 动态ID]]
 
 【你的私密资料(仅你可见)】
 - 真名/昵称/账号/密码：${target.name || ''} / ${target.chatName || targetProfile.nickname || ''} / ${target.chatAcc || ''} / ${target.chatPwd || ''}
@@ -1301,6 +1542,7 @@ ${autoEditRule}
 - 状态/签名：${targetAcc.status || '在线'} / ${targetProfile.signature || ''}
 - 公开资料：${JSON.stringify(targetProfile.publicCard || {})}
 - 核心人设：${target.persona || ''}
+${recentMomentsText ? `【最近你们可见的朋友圈动态】\n${recentMomentsText}` : ''}
 ${memoriesText ? `【核心记忆流(按时间与重要度1-5星排列)】\n${memoriesText}` : ''}
 ${settings.coupleAvatar ? `- 我们用了情侣头像：${settings.coupleAvatarDesc || '是'}` : ''}
 ${relsText ? `【你的人际关系网】\n${relsText}` : ''}
@@ -1582,6 +1824,32 @@ ${hackWarning}`.split('\n').filter(line => line.trim() !== '').join('\n');
         return '';
     };
 
+    const isPhotoMsg = (text) => /^\[{1,2}PHOTO:\s*(.+?)\s*\]{1,2}$/i.test(String(text).trim());
+    const getPhotoText = (text) => {
+        const m = String(text).trim().match(/^\[{1,2}PHOTO:\s*(.+?)\s*\]{1,2}$/i);
+        return m ? m[1].trim() : '一张照片';
+    };
+
+    const sendPhotoMessage = () => {
+        if (!chatState.cameraText.trim() || !activeRawConv.value) return;
+        const conv = activeRawConv.value;
+        const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        conv.messages.push({
+            id: 'm_' + Date.now(), senderId: chatState.currentUser.id,
+            text: `[[PHOTO:${chatState.cameraText.trim()}]]`, translation: '', showTrans: false, recalled: false, time: nowTime, isManualTyped: true
+        });
+        conv.lastMsg = '[照片]'; conv.time = nowTime;
+        chatState.cameraText = ''; chatState.cameraModalOpen = false;
+        syncTargetConv(conv); scrollToBottom();
+    };
+
+    const openPhotoViewer = (msg) => {
+        chatState.photoViewerText = getPhotoText(msg.text);
+        // 使用简单的灰色 SVG 代替网图 URL
+        chatState.photoViewerImg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='800'%3E%3Crect width='600' height='800' fill='%23e0e0e0'/%3E%3Ctext x='300' y='400' font-family='sans-serif' font-size='28' font-weight='bold' fill='%23999999' text-anchor='middle' dominant-baseline='middle'%3EPHOTO%3C/text%3E%3C/svg%3E";
+        chatState.photoViewerOpen = true;
+    };
+
     const openEmojiPanel = () => {
         initEmojiDb();
         chatState.bottomMenuType = 'emoji';
@@ -1667,6 +1935,7 @@ ${hackWarning}`.split('\n').filter(line => line.trim() !== '').join('\n');
         enterMultiSelect, toggleSelectMsg, deleteSelectedMsgs, cancelMultiSelect, openRawEditModal, saveRawEdit,
         isVoiceMsg, getVoiceText, getVoiceDuration, getVoiceWaves, sendVoiceMessage, toggleVoiceText,
         emojiForm, openEmojiPanel, activeEmojiList, addEmojiCat, addSingleEmoji, addBatchEmoji, sendEmoji, isEmojiMsg, getEmojiName, getEmojiUrl,
-        switchBottomMenu, onEmojiCatTouchStart, onEmojiCatTouchEnd, toggleEmojiCatRole
+        switchBottomMenu, onEmojiCatTouchStart, onEmojiCatTouchEnd, toggleEmojiCatRole,
+        isPhotoMsg, getPhotoText, sendPhotoMessage, openPhotoViewer
     };
 };

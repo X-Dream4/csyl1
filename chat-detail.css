@@ -134,3 +134,23 @@
 .ca-msg-emoji { display: flex; flex-direction: column; align-items: center; gap: 4px; background: transparent !important; box-shadow: none !important; padding: 0 !important; cursor: pointer;}
 .ca-msg-emoji img { max-width: 120px; max-height: 120px; object-fit: contain; border-radius: 12px; }
 .ca-msg-emoji span { font-size: 10px; color: var(--text-sub); background: rgba(150,150,150,0.1); padding: 2px 8px; border-radius: 10px; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);}
+
+/* ==== 照片消息样式 ==== */
+.ca-msg-photo { position: relative; display: block; cursor: pointer; width: 140px; height: 190px; border-radius: 14px; overflow: hidden; background-color: #e0e0e0 !important; border: 1px solid rgba(150,150,150,0.1); box-shadow: 0 2px 10px rgba(0,0,0,0.03); }
+.ca-msg-photo-img-wrap { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+.ca-msg-photo-icon { width: 36px; height: 36px; color: #999; opacity: 0.6; }
+.ca-msg-photo-tag { display: none; }
+
+.ca-fake-camera-view { width: 100%; height: 160px; background: rgba(150,150,150,0.1); border-radius: 16px; margin-bottom: 8px; display: flex; justify-content: center; align-items: center; border: 2px dashed rgba(150,150,150,0.2); }
+
+/* ==== 转发动态的特殊气泡样式 ==== */
+.ca-msg-moment-share { background: rgba(150,150,150,0.05); border: 1px solid rgba(150,150,150,0.15); border-radius: 12px; padding: 10px; min-width: 180px; max-width: 260px; display: flex; flex-direction: column; gap: 8px; text-align: left; }
+.ca-ms-header { display: flex; align-items: center; gap: 8px; }
+.ca-ms-header img { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; }
+.ca-ms-info { display: flex; flex-direction: column; }
+.ca-ms-name { font-size: 12px; font-weight: 700; color: var(--text-main); }
+.ca-ms-time { font-size: 9px; color: var(--text-sub); }
+.ca-ms-text { font-size: 13px; color: var(--text-main); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.ca-ms-img { width: 100%; height: 100px; border-radius: 8px; object-fit: cover; }
+.ca-ms-fake-img { width: 100%; height: 100px; border-radius: 8px; background: #e0e0e0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border: 1px solid rgba(150,150,150,0.1); }
+.ca-ms-fake-text { font-size: 10px; color: #888; padding: 0 10px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }

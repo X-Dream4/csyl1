@@ -1,0 +1,63 @@
+/* ==== Chat APP 动态/朋友圈 样式 (INS 韩系极简风) ==== */
+.ca-moment-container { flex: 1; overflow-y: auto; background: var(--bg-color); padding-bottom: 100px; position: relative; display: flex; flex-direction: column; }
+.ca-moment-hero { height: 25vh; min-height: 200px; background-size: cover; background-position: center; background-color: var(--widget-bg-solid); position: relative; margin-bottom: 40px; flex-shrink: 0; }
+.ca-moment-user { position: absolute; bottom: -35px; left: 20px; display: flex; align-items: flex-end; gap: 15px; z-index: 5; }
+.ca-moment-avatar { width: 76px; height: 76px; border-radius: 50%; object-fit: cover; border: 3px solid var(--bg-color); box-shadow: 0 4px 15px rgba(0,0,0,0.08); background-color: var(--widget-bg-solid); }
+.ca-moment-name { font-size: 22px; font-weight: 800; color: #ffffff; text-shadow: 0 2px 10px rgba(0,0,0,0.4); margin-bottom: 45px; letter-spacing: 0.5px; }
+
+/* 置顶栏样式 */
+.ca-moment-pinned-bar { display: flex; gap: 12px; padding: 0 20px 20px; overflow-x: auto; scrollbar-width: none; flex-shrink: 0; }
+.ca-moment-pinned-bar::-webkit-scrollbar { display: none; }
+.ca-moment-pinned-item { width: 120px; height: 120px; flex-shrink: 0; background: var(--widget-bg-solid); border-radius: 16px; padding: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); border: var(--glass-border); display: flex; flex-direction: column; gap: 6px; cursor: pointer; position: relative; overflow: hidden; }
+.ca-moment-pinned-item-pin { position: absolute; top: 8px; right: 8px; color: var(--text-main); opacity: 0.5; z-index: 4; }
+.ca-moment-pinned-text { font-size: 12px; color: var(--text-main); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; word-break: break-all; position: relative; z-index: 3; }
+.ca-moment-pinned-img { width: 100%; height: 100%; object-fit: cover; position: absolute; top:0; left:0; z-index: 1; }
+.ca-moment-pinned-mask { position: absolute; inset:0; background: rgba(0,0,0,0.4); z-index: 2; }
+
+.ca-moment-list { padding: 0 20px; display: flex; flex-direction: column; gap: 25px; }
+.ca-moment-item { display: flex; gap: 12px; border-bottom: 1px solid rgba(150, 150, 150, 0.08); padding-bottom: 25px; }
+.ca-moment-item:last-child { border-bottom: none; }
+.ca-moment-item-avatar { width: 44px; height: 44px; border-radius: 5px; object-fit: cover; flex-shrink: 0; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+.ca-moment-item-content { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.ca-moment-item-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+.ca-moment-item-header-left { display: flex; flex-direction: column; }
+.ca-moment-item-name { font-size: 15px; font-weight: 700; color: #576b95; margin-bottom: 2px; }
+.ca-moment-item-time { font-size: 11px; color: var(--text-sub); font-weight: 500; }
+.ca-moment-item-more { color: var(--text-sub); cursor: pointer; padding: 0 4px; transition: opacity 0.2s; }
+.ca-moment-item-more:active { opacity: 0.5; }
+.ca-moment-item-text { font-size: 14px; color: var(--text-main); line-height: 1.6; margin-bottom: 10px; word-break: break-word; white-space: pre-wrap; }
+.ca-moment-item-img { max-width: 100%; max-height: 280px; border-radius: 8px; object-fit: cover; margin-bottom: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.03); }
+.ca-moment-fake-img { width: 140px; height: 190px; border-radius: 8px; background-color: #e0e0e0; border: 1px solid rgba(150,150,150,0.1); display: flex; justify-content: center; align-items: center; margin-bottom: 10px; position: relative; overflow: hidden; cursor: pointer; }
+.ca-moment-item-actions-bar { display: flex; justify-content: flex-end; gap: 20px; color: var(--text-sub); margin-bottom: 8px; }
+.ca-moment-action-btn { display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.1s, color 0.2s; width: 20px; height: 20px; }
+.ca-moment-action-btn:active { transform: scale(0.85); }
+.ca-moment-action-btn.liked { color: #ff4d4f; }
+.ca-moment-action-btn svg { width: 18px; height: 18px; }
+.ca-moment-interactions { background: rgba(150,150,150,0.06); border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.ca-moment-likes { display: flex; align-items: center; color: #576b95; font-weight: 600; word-break: break-word; line-height: 1.4; border-bottom: 1px solid rgba(150,150,150,0.08); padding-bottom: 6px; }
+.ca-moment-likes:last-child { border-bottom: none; padding-bottom: 0; }
+.ca-moment-comments { display: flex; flex-direction: column; gap: 4px; }
+.ca-moment-comment-item { line-height: 1.5; color: var(--text-main); word-break: break-word; }
+.ca-moment-comment-name { color: #576b95; font-weight: 600; cursor: pointer; }
+.ca-moment-comment-text { margin-left: 2px; }
+.ca-moment-fab { position: fixed; right: 20px; bottom: 110px; width: 54px; height: 54px; border-radius: 50%; background: var(--text-main); color: var(--bg-color); display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 20px rgba(0,0,0,0.15); cursor: pointer; z-index: 80; transition: transform 0.2s; }
+.ca-moment-fab:active { transform: scale(0.9); }
+.ca-moment-publish-page { position: absolute; inset: 0; background: var(--bg-color); z-index: 100; display: flex; flex-direction: column; animation: fadeIn 0.2s ease; }
+.ca-mp-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 20px 10px; border-bottom: 1px solid rgba(150,150,150,0.1); }
+.ca-mp-body { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; }
+.ca-mp-textarea { width: 100%; min-height: 120px; font-size: 15px; color: var(--text-main); background: transparent; border: none; outline: none; resize: none; line-height: 1.6; }
+.ca-mp-img-switch { display: flex; gap: 10px; margin-bottom: 10px; }
+.ca-mp-img-tab { padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; background: rgba(150,150,150,0.1); color: var(--text-sub); cursor: pointer; transition: all 0.2s; }
+.ca-mp-img-tab.active { background: var(--text-main); color: var(--bg-color); }
+.ca-mp-fake-input { width: 100%; height: 80px; background: rgba(150,150,150,0.05); border: 1px dashed rgba(150,150,150,0.3); border-radius: 14px; padding: 12px; font-size: 13px; color: var(--text-main); resize: none; outline: none; }
+.ca-mp-setting-row { display: flex; justify-content: space-between; align-items: center; padding: 16px 0; border-top: 1px solid rgba(150,150,150,0.08); border-bottom: 1px solid rgba(150,150,150,0.08); cursor: pointer; }
+.ca-mp-setting-left { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--text-main); }
+.ca-mp-setting-right { display: flex; align-items: center; gap: 4px; font-size: 13px; color: var(--text-sub); }
+.ca-mp-footer { padding: 20px; display: flex; gap: 15px; background: var(--widget-bg-solid); box-shadow: 0 -4px 15px rgba(0,0,0,0.03); }
+.ca-mp-btn { flex: 1; padding: 14px; border-radius: 16px; font-size: 14px; font-weight: 700; cursor: pointer; border: none; display: flex; justify-content: center; align-items: center; }
+.ca-mp-btn-cancel { background: rgba(150,150,150,0.1); color: var(--text-main); }
+.ca-mp-btn-submit { background: var(--text-main); color: var(--bg-color); }
+.ca-visibility-item { display: flex; align-items: center; justify-content: space-between; padding: 16px; border-bottom: 1px solid rgba(150,150,150,0.05); cursor: pointer; }
+.ca-visibility-item:active { background: rgba(150,150,150,0.05); }
+.ca-vis-title { font-size: 14px; font-weight: 600; color: var(--text-main); }
+.ca-vis-sub { font-size: 11px; color: var(--text-sub); margin-top: 4px; }
