@@ -41,6 +41,7 @@ window.useChatDetailLogic = function(state, chatMethods) {
     if (chatState.photoViewerOpen === undefined) chatState.photoViewerOpen = false;
     if (chatState.photoViewerText === undefined) chatState.photoViewerText = '';
     if (chatState.photoViewerImg === undefined) chatState.photoViewerImg = '';
+    if (chatState.displayMessageCount === undefined) chatState.displayMessageCount = 60;
     
     const initEmojiDb = () => {
         if (!chatDb.value.emojiCats) chatDb.value.emojiCats = [];
@@ -79,7 +80,15 @@ window.useChatDetailLogic = function(state, chatMethods) {
         ...(state.contactsData?.characters || [])
     ]);
 
-    const getPersonaById = (id) => allPersonas.value.find(c => c.id === id) || null;
+    const getPersonaById = (id) => {
+        let p = allPersonas.value.find(c => c.id === id);
+        if (p) return p;
+        if (chatDb.value.accounts[id] && chatDb.value.accounts[id].profile) {
+            const prof = chatDb.value.accounts[id].profile;
+            return { id: id, name: prof.realName || prof.nickname || '未知用户', chatName: prof.nickname || '未知用户', avatar: prof.avatar || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect width='100' height='100' fill='%23dcdcdc'/%3E%3C/svg%3E", persona: prof.signature || '' };
+        }
+        return null;
+    };
 
     const ensureTargetAccountData = (userId) => {
         if (!userId) return null;
@@ -201,15 +210,65 @@ window.useChatDetailLogic = function(state, chatMethods) {
         return safeArr(currentAccountData.value.conversations).find(c => c.id === chatState.activeConvId) || null;
     });
 
-    const activeConvSettings = computed(() => ensureConvSettings(activeRawConv.value));
+    const activeConvSettings = computed(() => {
+        const conv = activeRawConv.value;
+        if (!conv) return { beautify: {} };
+        const s = conv.settings || {};
+        const b = s.beautify || {};
+        
+        // 绝对安全的展开合并，绝不修改原响应式对象，彻底告别Vue循环卡死报错！
+        return {
+            remarkName: s.remarkName || '',
+            coupleAvatar: s.coupleAvatar || false,
+            coupleAvatarDesc: s.coupleAvatarDesc || '',
+            worldbooks: Array.isArray(s.worldbooks) ? s.worldbooks : [],
+            timeMode: s.timeMode || 'auto',
+            virtualTime: s.virtualTime || '',
+            realTimeZone: s.realTimeZone || 'Asia/Shanghai',
+            foreignMode: s.foreignMode || false,
+            foreignLang: s.foreignLang || 'English',
+            allowRoleAutoEdit: s.allowRoleAutoEdit !== undefined ? s.allowRoleAutoEdit : true,
+            injectHistoryCount: s.injectHistoryCount !== undefined ? s.injectHistoryCount : 20,
+            injectMemoryCount: s.injectMemoryCount !== undefined ? s.injectMemoryCount : 30,
+            beautify: {
+                bg: b.bg || '',
+                showAvatar: b.showAvatar !== undefined ? b.showAvatar : true,
+                showName: b.showName !== undefined ? b.showName : false,
+                showTime: b.showTime !== undefined ? b.showTime : false,
+                timePos: b.timePos || 'bottom',
+                meBg: b.meBg || '#333333',
+                meText: b.meText || '#ffffff',
+                meRadius: b.meRadius !== undefined ? b.meRadius : 18,
+                meOpacity: b.meOpacity !== undefined ? b.meOpacity : 1,
+                opBg: b.opBg || '#ffffff',
+                opText: b.opText || '#333333',
+                opRadius: b.opRadius !== undefined ? b.opRadius : 18,
+                opOpacity: b.opOpacity !== undefined ? b.opOpacity : 1,
+                customCss: b.customCss || ''
+            }
+        };
+    });
 
     const activeTargetPersona = computed(() => {
         const conv = activeRawConv.value;
         if (!conv) return {};
         if (conv.targetId === 'system') return { id: 'system', name: '系统安全中心', chatName: '系统安全中心' };
         const p = getPersonaById(conv.targetId) || {};
-        ensurePersonaFields(p);
-        return p;
+        
+        // 安全合并
+        return {
+            ...p,
+            chatName: p.chatName !== undefined ? p.chatName : (p.name || ''),
+            phone: p.phone || '',
+            email: p.email || '',
+            chatAcc: p.chatAcc || '',
+            chatPwd: p.chatPwd || '',
+            phoneLockType: p.phoneLockType || 'num',
+            lockPwdNum: p.lockPwdNum || '',
+            lockPwdPat: p.lockPwdPat || '',
+            lockPwdQA_Q: p.lockPwdQA_Q || '',
+            lockPwdQA_A: p.lockPwdQA_A || ''
+        };
     });
 
     const activeConv = computed(() => {
@@ -238,14 +297,77 @@ window.useChatDetailLogic = function(state, chatMethods) {
 
     const activeMessages = computed(() => {
         const conv = activeRawConv.value;
-        return conv ? safeArr(conv.messages) : [];
+        if (!conv) return [];
+        const msgs = safeArr(conv.messages);
+        if (msgs.length <= chatState.displayMessageCount) return msgs;
+        return msgs.slice(msgs.length - chatState.displayMessageCount);
     });
+
+    const hasMoreMessages = computed(() => {
+        const conv = activeRawConv.value;
+        if (!conv) return false;
+        return safeArr(conv.messages).length > chatState.displayMessageCount;
+    });
+
+    const loadMoreMessages = () => {
+        const el = document.querySelector('.ca-detail-messages');
+        const oldScrollHeight = el ? el.scrollHeight : 0;
+        
+        chatState.displayMessageCount += 60;
+        
+        // 保持滚动条位置，不要让它猛地跳到最顶部
+        nextTick(() => {
+            if (el) {
+                const newScrollHeight = el.scrollHeight;
+                el.scrollTop = el.scrollTop + (newScrollHeight - oldScrollHeight);
+            }
+        });
+    };
 
     const timeZoneOptions = [
         'Asia/Shanghai','Asia/Tokyo','Asia/Seoul','Asia/Singapore',
         'Europe/London','Europe/Paris','America/New_York','America/Los_Angeles'
     ];
     const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    const getMsgTimestamp = (msg) => {
+        if (!msg) return 0;
+        if (msg.timestamp) return msg.timestamp;
+        const match = msg.id.match(/^m_(\d+)/);
+        if (match) return parseInt(match[1]);
+        return 0;
+    };
+
+    const shouldShowTimeGap = (msg, index, msgsArr) => {
+        const ts = getMsgTimestamp(msg);
+        if (!ts) return false;
+        if (index === 0) return true;
+        const prevMsg = msgsArr[index - 1];
+        const prevTs = getMsgTimestamp(prevMsg);
+        if (!prevTs) return true;
+        return (ts - prevTs) > 20 * 60 * 1000;
+    };
+
+    const formatTimeGap = (msg) => {
+        const ts = getMsgTimestamp(msg);
+        if (!ts) return msg.time || '';
+        const date = new Date(ts);
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const targetDay = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+        
+        const diffDays = Math.floor((today - targetDay) / (1000 * 60 * 60 * 24));
+        const h = String(date.getHours()).padStart(2, '0');
+        const m = String(date.getMinutes()).padStart(2, '0');
+        const timeStr = `${h}:${m}`;
+        
+        if (diffDays === 0) return timeStr;
+        if (diffDays === 1) return `昨天 ${timeStr}`;
+        if (diffDays === 2) return `前天 ${timeStr}`;
+        if (diffDays < 30) return `${diffDays}天前 ${timeStr}`;
+        if (diffDays < 365) return `${date.getMonth()+1}月${date.getDate()}日 ${timeStr}`;
+        return `${date.getFullYear()}年${date.getMonth()+1}月${date.getDate()}日 ${timeStr}`;
+    };
 
     const getMessageById = (msgId) => {
         const conv = activeRawConv.value;
@@ -585,6 +707,7 @@ window.useChatDetailLogic = function(state, chatMethods) {
         chatState.isDetailSettingsOpen = false;
         chatState.detailInput = '';
         chatState.showBottomMenu = false;
+        chatState.displayMessageCount = 60;
         const rawConv = currentAccountData.value.conversations.find(c => c.id === conv.id);
         if (rawConv) {
             if (!rawConv.messages) rawConv.messages = [];
@@ -1431,6 +1554,28 @@ window.useChatDetailLogic = function(state, chatMethods) {
                 hackWarning = `【紧急】你翻看记录时，惊恐地发现上面有不是你本人发的消息（已标注）！你的账号被别人偷偷登录了！请立刻在回复中表现出恐慌或愤怒，并质问对方是不是他干的！`;
             }
 
+            const normalMsgsForGap = safeArr(conv.messages).filter(m => m.type !== 'sys' && !m.recalled);
+            let timeGapText = '';
+            if (normalMsgsForGap.length >= 2) {
+                const lastMsg = normalMsgsForGap[normalMsgsForGap.length - 1]; 
+                const prevMsg = normalMsgsForGap[normalMsgsForGap.length - 2]; 
+                const currTs = getMsgTimestamp(lastMsg);
+                const prevTs = getMsgTimestamp(prevMsg);
+                if (currTs && prevTs && (currTs - prevTs) > 20 * 60 * 1000) {
+                    const diffMinutes = Math.floor((currTs - prevTs) / 60000);
+                    const days = Math.floor(diffMinutes / (60 * 24));
+                    const hours = Math.floor((diffMinutes % (60 * 24)) / 60);
+                    const mins = diffMinutes % 60;
+                    
+                    let timeStrArr = [];
+                    if (days > 0) timeStrArr.push(`${days}天`);
+                    if (hours > 0) timeStrArr.push(`${hours}小时`);
+                    if (mins > 0) timeStrArr.push(`${mins}分钟`);
+                    
+                    timeGapText = `【时间感知】距离你们上一次对话已经过去了 ${timeStrArr.join('')}。请在回复中自然地体现出对这段时间间隔的感知（比如如果隔了很久可以感叹一下、问这几天干嘛去了，没隔多久就不必多说）。`;
+                }
+            }
+
             const autoEditRule = settings.allowRoleAutoEdit ? `[高级权限] 如果你需要更新自己的资料、看法或记忆，请在回复的最末尾另起一行输出 [[PROFILE_UPDATE]]，然后使用自然语言逐行下达修改指令（这部分不会显示在聊天窗口）。
 支持的指令格式如下（请严格照抄冒号及格式，不要输出多余的符号或没改的项）：
 修改chat昵称为：新昵称
@@ -1551,6 +1696,7 @@ ${worldbookText ? `【世界观背景】\n${worldbookText}` : ''}
 ${sysConvText}
 ${realTimeText}
 ${virtualTimeText}
+${timeGapText}
 ${hackWarning}`.split('\n').filter(line => line.trim() !== '').join('\n');
 
             let hCount = parseInt(settings.injectHistoryCount);
@@ -1926,9 +2072,80 @@ ${hackWarning}`.split('\n').filter(line => line.trim() !== '').join('\n');
     };
 
     window.tempEmojiUploadCallback = (url) => { emojiForm.singleUrl = url; };
+    const triggerTargetAvatarUpload = () => {
+        const target = activeTargetPersona.value;
+        if (!target || !target.id || target.id === 'system') return;
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const b64 = ev.target.result;
+                if (target.isMe) {
+                    const idx = state.contactsData.myPersonas.findIndex(p => p.id === target.id);
+                    if (idx > -1) state.contactsData.myPersonas[idx].avatar = b64;
+                } else {
+                    const idx = state.contactsData.characters.findIndex(p => p.id === target.id);
+                    if (idx > -1) state.contactsData.characters[idx].avatar = b64;
+                }
+                if (chatDb.value.accounts[target.id] && chatDb.value.accounts[target.id].profile) {
+                    chatDb.value.accounts[target.id].profile.avatar = b64;
+                }
+            };
+            reader.readAsDataURL(file);
+        };
+        input.click();
+    };
+
+    const triggerMyAvatarUploadInDetail = () => {
+        if (!chatState.currentUser) return;
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const b64 = ev.target.result;
+                chatState.currentUser.avatar = b64;
+                if (chatDb.value.accounts[chatState.currentUser.id] && chatDb.value.accounts[chatState.currentUser.id].profile) {
+                    chatDb.value.accounts[chatState.currentUser.id].profile.avatar = b64;
+                }
+            };
+            reader.readAsDataURL(file);
+        };
+        input.click();
+    };
+
+    const deleteCurrentContact = () => {
+        const conv = activeRawConv.value;
+        const target = activeTargetPersona.value;
+        if (!conv || !target || target.id === 'system') return;
+        
+        if (!confirm(`警告：确定要删除联系人 [${activeConv.value?.name}] 及其所有聊天记录吗？\n注意：这会把TA从你的好友列表中永久移除！`)) return;
+
+        const acc = chatDb.value.accounts[chatState.currentUser.id];
+        if (acc) {
+            acc.conversations = acc.conversations.filter(c => c.id !== conv.id);
+            acc.friends = acc.friends.filter(fid => fid !== target.id);
+            if (acc.friendCategories && acc.friendCategories[target.id]) {
+                delete acc.friendCategories[target.id];
+            }
+        }
+        
+        chatState.isDetailSettingsOpen = false;
+        closeConversation();
+    };
 
     return {
-        activeConv, activeMessages, activeTargetPersona, activeConvSettings, timeZoneOptions, quoteSourceMessage,
+        deleteCurrentContact,
+        activeConv, activeMessages, triggerTargetAvatarUpload, triggerMyAvatarUploadInDetail, 
+activeTargetPersona, activeConvSettings, timeZoneOptions, quoteSourceMessage,
+        shouldShowTimeGap, formatTimeGap, hasMoreMessages, loadMoreMessages,
         openConversation, closeConversation, sendMessage, triggerApiReply, toggleBottomMenu, handleBgUpload, triggerBgUpload,
         onMessagePressStart, onMessagePressEnd, onMessagePressMove, closeMessageMenu, quoteMessage, favoriteMessage, recallMessage, editMessageModal, saveEditMessage,
         cancelEditMessage, deleteMessage, cancelQuoteMessage,

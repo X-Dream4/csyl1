@@ -101,6 +101,12 @@
 .ca-wallet-balance { font-size: 28px; font-weight: 800; color: var(--text-main); text-align: center; }
 .ca-wallet-sub { text-align: center; font-size: 12px; color: var(--text-sub); }
 
+/* 胶囊提示样式 */
+@keyframes spin { 100% { transform: rotate(360deg); } }
+.ca-bg-capsule { position: absolute; left: 50%; transform: translateX(-50%); background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); padding: 8px 18px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); font-size: 12px; font-weight: 600; color: var(--text-main); z-index: 9999; display: flex; align-items: center; gap: 8px; border: var(--glass-border); transition: all 0.3s; animation: dropIn 0.3s ease; }
+.ca-bg-capsule.success { color: #52c41a; }
+.ca-bg-capsule.error { color: #ff4d4f; cursor: pointer; }
+
 .c-modal-centered { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); z-index: 300; display: flex; justify-content: center; align-items: center; padding: 20px; animation: fadeIn 0.2s ease; }
 .c-modal-centered-content { background: var(--popup-bg); border-radius: 28px; padding: 24px; width: 100%; max-width: 320px; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); animation: popIn 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); border: var(--glass-border); }
 
@@ -439,3 +445,41 @@
     max-height: 320px;
     background: rgba(150,150,150,.08);
 }
+/* ==== 新的朋友 & 好友验证 样式 ==== */
+.ca-new-friend-entry { display: flex; align-items: center; justify-content: space-between; background: var(--widget-bg-solid); padding: 14px 16px; border-radius: 16px; margin-bottom: 15px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.02); border: var(--glass-border); transition: transform 0.1s; }
+.ca-new-friend-entry:active { transform: scale(0.98); }
+.ca-nfe-left { display: flex; align-items: center; gap: 12px; font-size: 15px; font-weight: 700; color: var(--text-main); }
+.ca-nfe-icon { width: 36px; height: 36px; border-radius: 10px; background: rgba(150,150,150,0.15); color: var(--text-main); display: flex; align-items: center; justify-content: center; }
+.ca-nfe-right { display: flex; align-items: center; gap: 8px; }
+.ca-red-dot { width: 8px; height: 8px; background: #ff4d4f; border-radius: 50%; box-shadow: 0 0 6px rgba(255,77,79,0.5); }
+
+.ca-req-item { display: flex; flex-direction: column; gap: 10px; background: rgba(150,150,150,0.05); padding: 14px; border-radius: 16px; margin-bottom: 10px; }
+.ca-req-header { display: flex; align-items: center; justify-content: space-between; }
+.ca-req-user { display: flex; align-items: center; gap: 10px; }
+.ca-req-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
+.ca-req-name { font-size: 14px; font-weight: 700; color: var(--text-main); }
+.ca-req-text { font-size: 13px; color: var(--text-main); line-height: 1.5; background: var(--widget-bg-solid); padding: 10px; border-radius: 10px; border: var(--glass-border); }
+.ca-req-actions { display: flex; gap: 10px; margin-top: 4px; }
+.ca-req-btn { flex: 1; padding: 8px; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; }
+.ca-req-btn.reject { background: rgba(150,150,150,0.1); color: var(--text-sub); }
+.ca-req-btn.accept { background: var(--text-main); color: var(--bg-color); }
+.ca-req-status { font-size: 12px; color: var(--text-sub); text-align: right; font-weight: 600; }
+
+/* ==== 头像频道专有样式 ==== */
+.ca-channel-card { background: var(--widget-bg-solid); border-radius: 18px; padding: 16px; margin-top: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); border: var(--glass-border); cursor: pointer; transition: transform 0.1s; }
+.ca-channel-card:active { transform: scale(0.98); }
+.ca-cc-top { display: flex; align-items: center; gap: 12px; margin-bottom: 15px; }
+.ca-cc-avatar-box { width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(135deg, #1890ff, #722ed1); display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 4px 10px rgba(24,144,255,0.3); }
+.ca-cc-info { flex: 1; }
+.ca-cc-name { font-size: 15px; font-weight: 700; color: var(--text-main); }
+.ca-cc-members { font-size: 11px; color: var(--text-sub); margin-top: 4px; }
+.ca-cc-enter { padding: 6px 14px; border-radius: 14px; background: rgba(150,150,150,0.1); font-size: 12px; font-weight: 600; color: var(--text-main); }
+.ca-cc-bottom { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.ca-cc-preview-img { width: 100%; aspect-ratio: 1/1; border-radius: 10px; object-fit: cover; background: rgba(150,150,150,0.1); }
+.ca-cc-preview-img.empty { border: 1px dashed rgba(150,150,150,0.3); background: transparent; }
+
+.ca-avatar-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 15px 20px; padding-bottom: 100px;}
+.ca-avatar-item { width: 100%; aspect-ratio: 1/1; border-radius: 14px; object-fit: cover; box-shadow: 0 4px 10px rgba(0,0,0,0.05); cursor: pointer; }
+.ca-avatar-tabs { display: flex; padding: 10px 20px; gap: 15px; border-bottom: 1px solid rgba(150,150,150,0.08); }
+.ca-avatar-tab { font-size: 14px; font-weight: 600; color: var(--text-sub); padding-bottom: 6px; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; }
+.ca-avatar-tab.active { color: var(--text-main); border-bottom-color: var(--text-main); }

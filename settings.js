@@ -12,12 +12,20 @@ window.useSettingsLogic = function(state) {
         if (state.apiConfig.stream === undefined) state.apiConfig.stream = true;
         if (state.apiConfig.temperature === undefined || Number.isNaN(Number(state.apiConfig.temperature))) state.apiConfig.temperature = 0.85;
         state.apiConfig.temperature = Math.max(0, Math.min(2, Number(state.apiConfig.temperature)));
+        
+        if (state.apiConfig.summaryBaseUrl === undefined) state.apiConfig.summaryBaseUrl = '';
+        if (state.apiConfig.summaryApiKey === undefined) state.apiConfig.summaryApiKey = '';
+        if (state.apiConfig.summaryModel === undefined) state.apiConfig.summaryModel = '';
+        if (!Array.isArray(state.apiConfig.summaryModels)) state.apiConfig.summaryModels = [];
+        if (state.apiConfig.summaryTemperature === undefined || Number.isNaN(Number(state.apiConfig.summaryTemperature))) state.apiConfig.summaryTemperature = 0.5;
+        state.apiConfig.summaryTemperature = Math.max(0, Math.min(2, Number(state.apiConfig.summaryTemperature)));
     };
 
-    const fetchApiModels = async () => {
+    const fetchApiModels = async (target = 'main') => {
         ensureApiShape();
-        let baseUrl = String(state.apiConfig.baseUrl || '').trim();
-        const apiKey = String(state.apiConfig.apiKey || '').trim();
+        const isMain = target === 'main';
+        let baseUrl = String(isMain ? state.apiConfig.baseUrl : state.apiConfig.summaryBaseUrl || '').trim();
+        const apiKey = String(isMain ? state.apiConfig.apiKey : state.apiConfig.summaryApiKey || '').trim();
 
         if (!baseUrl || !apiKey) {
             alert('请先填写完整的 API URL 和 秘钥');
@@ -31,47 +39,49 @@ window.useSettingsLogic = function(state) {
         try {
             const response = await fetch(endpoint, {
                 method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${apiKey}`,
-                    'Content-Type': 'application/json'
-                }
+                headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' }
             });
 
             if (!response.ok) throw new Error(`HTTP 错误！状态码: ${response.status}`);
             const data = await response.json();
 
             if (data && data.data && Array.isArray(data.data)) {
-                state.apiConfig.models = data.data.map(m => m.id).filter(Boolean);
-                if (state.apiConfig.models.length > 0) {
-                    if (!state.apiConfig.activeModel || !state.apiConfig.models.includes(state.apiConfig.activeModel)) {
-                        state.apiConfig.activeModel = state.apiConfig.models[0];
+                const models = data.data.map(m => m.id).filter(Boolean);
+                if (isMain) {
+                    state.apiConfig.models = models;
+                    if (models.length > 0 && (!state.apiConfig.activeModel || !models.includes(state.apiConfig.activeModel))) {
+                        state.apiConfig.activeModel = models[0];
                     }
-                    alert(`成功获取到 ${state.apiConfig.models.length} 个模型！`);
                 } else {
-                    alert('接口请求成功，但模型列表为空。');
+                    state.apiConfig.summaryModels = models;
+                    if (models.length > 0 && (!state.apiConfig.summaryModel || !models.includes(state.apiConfig.summaryModel))) {
+                        state.apiConfig.summaryModel = models[0];
+                    }
                 }
+                alert(`成功获取到 ${models.length} 个模型！`);
             } else {
                 alert('获取失败：接口返回格式不符合标准。');
             }
         } catch (error) {
             console.error('API 测试请求报错:', error);
-            alert(`获取模型失败！\n\n可能原因：\n1. API 链接或秘钥错误\n2. 渠道不支持浏览器跨域\n\n系统报错：${error.message}`);
+            alert(`获取模型失败！\n\n系统报错：${error.message}`);
         }
     };
 
-    const saveApiPreset = () => {
+    const saveApiPreset = (target = 'main') => {
         ensureApiShape();
-        const name = prompt('给这个 API 预设起个名字：');
+        const isMain = target === 'main';
+        const name = prompt(`给这个${isMain ? '主' : '总结'} API 预设起个名字：`);
         if (!name || !name.trim()) return;
         const preset = {
             id: 'preset_' + Date.now(),
             name: name.trim(),
-            baseUrl: state.apiConfig.baseUrl || '',
-            apiKey: state.apiConfig.apiKey || '',
-            activeModel: state.apiConfig.activeModel || '',
-            models: Array.isArray(state.apiConfig.models) ? [...state.apiConfig.models] : [],
+            baseUrl: isMain ? state.apiConfig.baseUrl : state.apiConfig.summaryBaseUrl,
+            apiKey: isMain ? state.apiConfig.apiKey : state.apiConfig.summaryApiKey,
+            activeModel: isMain ? state.apiConfig.activeModel : state.apiConfig.summaryModel,
+            models: Array.isArray(isMain ? state.apiConfig.models : state.apiConfig.summaryModels) ? [...(isMain ? state.apiConfig.models : state.apiConfig.summaryModels)] : [],
             stream: state.apiConfig.stream !== false,
-            temperature: Math.max(0, Math.min(2, Number(state.apiConfig.temperature || 0.85)))
+            temperature: Math.max(0, Math.min(2, Number(isMain ? state.apiConfig.temperature : state.apiConfig.summaryTemperature)))
         };
         const same = state.apiConfig.presets.find(p => p.name === preset.name);
         if (same) {
@@ -83,16 +93,25 @@ window.useSettingsLogic = function(state) {
         alert('API 预设已保存');
     };
 
-    const applyApiPreset = (preset) => {
+    const applyApiPreset = (preset, target = 'main') => {
         if (!preset) return;
         ensureApiShape();
-        state.apiConfig.baseUrl = preset.baseUrl || '';
-        state.apiConfig.apiKey = preset.apiKey || '';
-        state.apiConfig.activeModel = preset.activeModel || '';
-        state.apiConfig.models = Array.isArray(preset.models) ? [...preset.models] : [];
-        state.apiConfig.stream = preset.stream !== false;
-        state.apiConfig.temperature = Math.max(0, Math.min(2, Number(preset.temperature ?? 0.85)));
-        alert(`已填入预设：${preset.name}`);
+        if (target === 'main') {
+            state.apiConfig.baseUrl = preset.baseUrl || '';
+            state.apiConfig.apiKey = preset.apiKey || '';
+            state.apiConfig.activeModel = preset.activeModel || '';
+            state.apiConfig.models = Array.isArray(preset.models) ? [...preset.models] : [];
+            state.apiConfig.stream = preset.stream !== false;
+            state.apiConfig.temperature = Math.max(0, Math.min(2, Number(preset.temperature ?? 0.85)));
+            alert(`已填入主 API 预设：${preset.name}`);
+        } else {
+            state.apiConfig.summaryBaseUrl = preset.baseUrl || '';
+            state.apiConfig.summaryApiKey = preset.apiKey || '';
+            state.apiConfig.summaryModel = preset.activeModel || '';
+            state.apiConfig.summaryModels = Array.isArray(preset.models) ? [...preset.models] : [];
+            state.apiConfig.summaryTemperature = Math.max(0, Math.min(2, Number(preset.temperature ?? 0.5)));
+            alert(`已填入总结 API 预设：${preset.name}`);
+        }
     };
 
     const deleteApiPreset = (presetId) => {

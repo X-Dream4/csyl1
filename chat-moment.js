@@ -103,9 +103,9 @@ window.useChatMomentLogic = function(state, chatMethods) {
         return momentsList.sort((a, b) => b.timestamp - a.timestamp);
     });
 
-    // 区分出置顶动态，用于上方的横滑列表
-    const pinnedMoments = computed(() => allMoments.value.filter(m => m.pinned));
-    const feedMoments = computed(() => allMoments.value.filter(m => !m.pinned));
+    // 区分出置顶动态，用于上方的横滑列表（限定：只显示当前登录账号自己置顶的动态）
+    const pinnedMoments = computed(() => allMoments.value.filter(m => m.pinned && m.authorId === chatState.currentUser?.id));
+    const feedMoments = computed(() => allMoments.value.filter(m => !m.pinned || m.authorId !== chatState.currentUser?.id));
 
     const momentState = reactive({
         showPublish: false, text: '', imageType: 'real', image: '', fakeImageText: '', visibility: 'all', visibleTargets: [], showVisibilitySelect: false, showTargetSelect: false,

@@ -304,27 +304,19 @@ const normalizeGeneratedFields = (char, rawData) => {
             fallbackLocalGenerate(c); return;
         }
 
-const systemPrompt = [
-    `你是角色 ${c.name || '未知角色'}。你需要根据你自己的设定，生成符合你身份的账号密码信息。`,
-    '除 email、lockPwdQA_Q、lockPwdQA_A、chatName 外，其余字段只能使用英文字母和数字。',
-    'chatName 是你在聊天软件中的网名/昵称，必须和你的人设性格相符，可以使用中英文和特殊符号。',
-    '手机锁屏样式只能选择一种：num / pattern / qa。',
-    '如果选择 pattern，你必须返回一个可绘制的 3x3 图案轨迹字符串，例如 04876 这种，不要带分隔符。',
-    '返回格式必须严格为 JSON：',
-    '{',
-    '  "chatName": "10字以内的聊天网名昵称",',
-    '  "chatAcc": "8到18位英文数字的聊天账号",',
-    '  "chatPwd": "8位英文数字的聊天密码",',
-    '  "phoneLockType": "num 或 pattern 或 qa",',
-    '  "lockPwdNum": "当 phoneLockType=num 时填写，4或6位纯数字，否则留空",',
-    '  "lockPwdPat": "当 phoneLockType=pattern 时填写可绘制图案轨迹，否则留空",',
-    '  "lockPwdQA_Q": "当 phoneLockType=qa 时填写，否则留空",',
-    '  "lockPwdQA_A": "当 phoneLockType=qa 时填写，否则留空"',
-    '}'
-].join('\n');
+        const systemPrompt = `你是角色 ${c.name || '未知角色'}。你需要根据你自己的设定，生成符合你身份的账号密码信息。
+请不要输出多余解释，直接按照以下格式逐行输出（严格照抄冒号及格式，不要输出 JSON）：
+Chat昵称：[10字以内的聊天网名昵称，必须符合你的人设]
+Chat账号：[8到18位纯英文数字的聊天账号]
+Chat密码：[8位纯英文数字的聊天密码]
+数字锁屏密码：[设置4或6位纯数字密码]
+图案锁屏密码：[设置一串0-8的数字例如04876作为手势轨迹]
+密保问题：[设置一个密保问题]
+密保答案：[设置对应的密保答案]
+手机锁屏样式：[从 num、pattern、qa 中选择一个，作为你当前主要使用的锁屏样式]`;
 
-        const userPrompt = `角色名：${c.name || ''}\n角色设定：${c.persona || ''}\n请返回JSON。`;
-        alert(`正在调用模型 [${apiConf.activeModel}] 生成...`);
+        const userPrompt = `角色名：${c.name || ''}\n角色设定：${c.persona || ''}\n请直接按要求格式逐行输出。`;
+        alert(`正在调用模型 [${apiConf.activeModel}] 生成... (已切换为极速文本模式)`);
 
         try {
             let url = String(apiConf.baseUrl || '').trim();
@@ -339,11 +331,24 @@ const systemPrompt = [
             if (!response.ok) throw new Error(`API 请求失败`);
             const resData = await response.json();
             let content = resData?.choices?.[0]?.message?.content || '';
-            content = String(content).replace(/^```json/i, '').replace(/^```/i, '').replace(/```$/i, '').trim();
-            const aiData = JSON.parse(content);
+            
+            // 极速解析文本格式
+            const aiData = {};
+            const lines = content.split('\n').map(l => l.trim()).filter(Boolean);
+            lines.forEach(line => {
+                if (line.includes('Chat昵称：')) aiData.chatName = line.split('：')[1].trim();
+                else if (line.includes('Chat账号：')) aiData.chatAcc = line.split('：')[1].trim();
+                else if (line.includes('Chat密码：')) aiData.chatPwd = line.split('：')[1].trim();
+                else if (line.includes('手机锁屏样式：')) aiData.phoneLockType = line.split('：')[1].trim();
+                else if (line.includes('数字锁屏密码：')) aiData.lockPwdNum = line.split('：')[1].trim();
+                else if (line.includes('图案锁屏密码：')) aiData.lockPwdPat = line.split('：')[1].trim();
+                else if (line.includes('密保问题：')) aiData.lockPwdQA_Q = line.split('：')[1].trim();
+                else if (line.includes('密保答案：')) aiData.lockPwdQA_A = line.split('：')[1].trim();
+            });
+
             const fixed = normalizeGeneratedFields(c, aiData);
             Object.assign(c, fixed);
-            alert('✅ API 生成成功，已自动填入。');
+            alert('API 生成成功，已自动填入。');
         } catch (error) {
             console.error(error);
             alert(`API 调用失败，已改用本地生成。\n${error.message}`);
@@ -359,6 +364,105 @@ const systemPrompt = [
         else contactsDb.value.characters = (contactsDb.value.characters || []).filter(c => c.id !== id);
         if (contactsDb.value.relationships) contactsDb.value.relationships = contactsDb.value.relationships.filter(r => r.sourceId !== id && r.targetId !== id);
         activeChar.value = null;
+    };
+
+    // AI 生成关系羁绊评价
+    const callApiToSetRelations = async () => {
+        if (!activeChar.value || activeChar.value.isMe) return;
+        const edges = canvasEdges.value;
+        if (!edges.length) return alert('该角色还没有连线羁绊角色！');
+
+        const apiConf = state.apiConfig || {};
+        if (!apiConf.baseUrl || !apiConf.apiKey || !apiConf.activeModel) return alert('请先配置 API 信息。');
+
+        const othersInfo = edges.map(e => {
+            const otherId = e.sourceId === activeChar.value.id ? e.targetId : e.sourceId;
+            const other = getOtherChars(activeChar.value).find(c => c.id === otherId);
+            return other ? `${other.name}(${other.persona.slice(0, 30)})` : '';
+        }).filter(Boolean).join('；');
+
+        const sysPrompt = `你是角色 ${activeChar.value.name}。设定：${activeChar.value.persona}。
+请根据你的人设，用简短的词语（如：宿敌/暗恋/挚友/利用对象）评价你对以下角色的看法。
+请严格按照格式逐行输出，不要加任何废话：
+角色名：你的看法`;
+
+        alert(`正在让 ${activeChar.value.name} 思考对大家的看法...`);
+        try {
+            let url = String(apiConf.baseUrl).trim();
+            if (url.endsWith('/')) url = url.slice(0, -1);
+            if (!url.endsWith('/v1')) url += '/v1';
+
+            const res = await fetch(url + '/chat/completions', {
+                method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConf.apiKey}` },
+                body: JSON.stringify({ model: apiConf.activeModel, messages: [{ role: 'system', content: sysPrompt }, { role: 'user', content: `请评价这些角色：${othersInfo}` }] })
+            });
+            const data = await res.json();
+            const text = data?.choices?.[0]?.message?.content || '';
+            
+            const lines = text.split('\n').filter(Boolean);
+            lines.forEach(line => {
+                const parts = line.split('：');
+                if (parts.length >= 2) {
+                    const name = parts[0].trim();
+                    const view = parts[1].trim();
+                    const targetChar = getOtherChars(activeChar.value).find(c => c.name === name || c.chatName === name);
+                    if (targetChar) {
+                        const edge = contactsDb.value.relationships.find(r => (r.sourceId === activeChar.value.id && r.targetId === targetChar.id) || (r.sourceId === targetChar.id && r.targetId === activeChar.value.id));
+                        if (edge) {
+                            if (edge.sourceId === activeChar.value.id) edge.sourceView = view;
+                            else edge.targetView = view;
+                        }
+                    }
+                }
+            });
+            alert('羁绊看法已更新！');
+        } catch (e) { alert('API调用失败: ' + e.message); }
+    };
+
+    // 为我的设定获取没加好友的羁绊
+    const unfriendedBondedNpcs = computed(() => {
+        if (!activeChar.value || !activeChar.value.isMe) return [];
+        const myChatAcc = state.chatData.accounts[activeChar.value.id];
+        const myFriends = myChatAcc ? myChatAcc.friends : [];
+        return canvasEdges.value.map(e => {
+            const otherId = e.sourceId === activeChar.value.id ? e.targetId : e.sourceId;
+            return getOtherChars(activeChar.value).find(c => c.id === otherId);
+        }).filter(c => c && !myFriends.includes(c.id));
+    });
+
+    const pendingRequestIds = ref([]);
+    const sendFriendRequestsFromNPCs = async () => {
+        if (!pendingRequestIds.value.length) return alert('请先勾选角色');
+        const apiConf = state.apiConfig || {};
+        if (!apiConf.baseUrl || !apiConf.apiKey || !apiConf.activeModel) return alert('请先配置 API 信息。');
+        
+        let url = String(apiConf.baseUrl).trim();
+        if (url.endsWith('/')) url = url.slice(0, -1);
+        if (!url.endsWith('/v1')) url += '/v1';
+
+        alert('正在通知角色发送好友请求，请稍候...');
+        for (let npcId of pendingRequestIds.value) {
+            const npc = getOtherChars(activeChar.value).find(c => c.id === npcId);
+            if (!npc) continue;
+            
+            const sysPrompt = `你是角色 ${npc.name}。设定：${npc.persona}。你要向 ${activeChar.value.name} 发送一条加好友的验证消息。请符合你的人设语气，简短有力（不超过20字）。直接输出你想说的一句话，不要输出引号。`;
+            try {
+                const res = await fetch(url + '/chat/completions', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConf.apiKey}` },
+                    body: JSON.stringify({ model: apiConf.activeModel, messages: [{ role: 'system', content: sysPrompt }] })
+                });
+                const data = await res.json();
+                const text = (data?.choices?.[0]?.message?.content || `你好，我是${npc.name}`).replace(/"/g, '').trim();
+                
+                if (!state.chatData.friendRequests) state.chatData.friendRequests = [];
+                // 查重，避免重复发送
+                if (!state.chatData.friendRequests.find(r => r.fromId === npcId && r.toId === activeChar.value.id && r.status === 'pending')) {
+                    state.chatData.friendRequests.push({ id: 'req_' + Date.now() + Math.random(), fromId: npcId, toId: activeChar.value.id, text, status: 'pending', time: Date.now() });
+                }
+            } catch (e) { console.error('发送请求失败', e); }
+        }
+        pendingRequestIds.value = [];
+        alert('选中的角色已向你发送好友申请！请去 Chat APP 的【联系人】里查看【新的朋友】。');
     };
 
     const canvasNodes = computed(() => {
@@ -474,6 +578,7 @@ const systemPrompt = [
     const endDrag = () => { draggingNodeId = null; isPanning = false; };
 
     return {
+        callApiToSetRelations, unfriendedBondedNpcs, pendingRequestIds, sendFriendRequestsFromNPCs,
         contactsTab, modals, charForm, wbForm, worlds, wbCategories, groupedChars, groupedWbs, contactsDb,
         openAddWorld, openAddWbCat, openAddChar, triggerAvatarUpload, saveChar, openAddWb, saveWb,
         activeChar, pwdVisibility, openCharDetail, callApiToGenerate, deleteActiveChar,

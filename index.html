@@ -55,12 +55,42 @@
             <input class="s-input" type="range" min="0" max="2" step="0.05" v-model="state.apiConfig.temperature" style="padding:0; height:auto; box-shadow:none; border:none; background:transparent;">
         </div>
 
-        <button class="s-btn s-btn-primary" @click="fetchApiModels"><i data-lucide="zap" style="width:16px;"></i> 获取模型</button>
-        <button class="s-btn" @click="saveApiPreset"><i data-lucide="bookmark-plus" style="width:16px;"></i> 保存为 API 预设</button>
+        <div style="display:flex; gap:10px;">
+            <button class="s-btn s-btn-primary" style="flex:1;" @click="fetchApiModels('main')"><i data-lucide="zap" style="width:16px;"></i> 获取主模型</button>
+            <button class="s-btn" style="flex:1; background:var(--bg-color);" @click="saveApiPreset('main')"><i data-lucide="bookmark-plus" style="width:16px;"></i> 存为预设</button>
+        </div>
     </div>
 
     <div class="s-card">
-        <div class="s-card-title">API 预设库</div>
+        <div class="s-card-title">总结专用 API (用于生成记忆)</div>
+        <div class="s-input-group">
+            <label>API URL 连接地址</label>
+            <input class="s-input" v-model="state.apiConfig.summaryBaseUrl" placeholder="如 https://api.openai.com">
+        </div>
+        <div class="s-input-group">
+            <label>API 密钥 (Token/Key)</label>
+            <input class="s-input" type="password" v-model="state.apiConfig.summaryApiKey">
+        </div>
+        <div class="s-input-group">
+            <label>总结模型选择</label>
+            <select class="s-select" v-model="state.apiConfig.summaryModel">
+                <option value="">请先获取模型列表</option>
+                <option v-for="m in state.apiConfig.summaryModels" :key="m" :value="m">{{ m }}</option>
+            </select>
+        </div>
+        <div class="s-input-group">
+            <label>总结 AI 温度：{{ Number(state.apiConfig.summaryTemperature || 0.5).toFixed(2) }}</label>
+            <input class="s-input" type="range" min="0" max="2" step="0.05" v-model="state.apiConfig.summaryTemperature" style="padding:0; height:auto; box-shadow:none; border:none; background:transparent;">
+        </div>
+
+        <div style="display:flex; gap:10px;">
+            <button class="s-btn s-btn-primary" style="flex:1;" @click="fetchApiModels('summary')"><i data-lucide="zap" style="width:16px;"></i> 获取模型</button>
+            <button class="s-btn" style="flex:1; background:var(--bg-color);" @click="saveApiPreset('summary')"><i data-lucide="bookmark-plus" style="width:16px;"></i> 存为预设</button>
+        </div>
+    </div>
+
+    <div class="s-card">
+        <div class="s-card-title">API 预设库 (共用)</div>
         <div v-if="!state.apiConfig.presets || state.apiConfig.presets.length===0" class="c-empty">暂无已保存预设</div>
         <div class="s-preset-list" v-else>
             <div class="s-preset-item" v-for="preset in state.apiConfig.presets" :key="preset.id">
@@ -68,9 +98,10 @@
                     <div class="s-preset-name">{{ preset.name }}</div>
                     <div class="s-preset-sub">{{ preset.baseUrl }} · {{ preset.activeModel || '未选模型' }}</div>
                 </div>
-                <div class="s-preset-actions">
-                    <button class="s-mini-btn" @click="applyApiPreset(preset)">填入</button>
-                    <button class="s-mini-btn danger" @click="deleteApiPreset(preset.id)">删除</button>
+                <div class="s-preset-actions" style="display:flex; gap:6px;">
+                    <button class="s-mini-btn" style="padding:6px 8px; font-size:10px;" @click="applyApiPreset(preset, 'main')">填主</button>
+                    <button class="s-mini-btn" style="padding:6px 8px; font-size:10px;" @click="applyApiPreset(preset, 'summary')">填总</button>
+                    <button class="s-mini-btn danger" style="padding:6px 8px; font-size:10px;" @click="deleteApiPreset(preset.id)">删</button>
                 </div>
             </div>
         </div>
@@ -143,7 +174,11 @@
     </div>
 </div>
 
-<div class="c-card" style="padding:10px;"><div class="c-card-header" style="padding: 10px 10px 5px;"><span class="c-card-title">人物羁绊</span></div><div class="c-rel-canvas" ref="canvasRef" @mousedown="startPan" @touchstart="startPan" @mousemove="onCanvasMove" @touchmove.prevent="onCanvasMove" @mouseup="endDrag" @touchend="endDrag" @mouseleave="endDrag">
+<div class="c-card" style="padding:10px;"><div class="c-card-header" style="padding: 10px 10px 5px;">
+    <span class="c-card-title">人物羁绊</span>
+    <div class="c-api-btn" v-if="!activeChar.isMe" @click="callApiToSetRelations">让{{ activeChar.name }}设置看法</div>
+</div>
+<div class="c-rel-canvas" ref="canvasRef" @mousedown="startPan" @touchstart="startPan" @mousemove="onCanvasMove" @touchmove.prevent="onCanvasMove" @mouseup="endDrag" @touchend="endDrag" @mouseleave="endDrag">
     <div class="c-rel-canvas-inner" :style="{ transform: `translate(${canvasPan.x}px, ${canvasPan.y}px)`, position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }">
         <svg style="position:absolute; top:-2000px; left:-2000px; width:4000px; height:4000px; pointer-events:none; overflow:visible;">
             <g transform="translate(2000, 2000)">
@@ -160,7 +195,19 @@
         </div>
     </div>
 </div>
-<button class="c-add-rel-btn" @click="modals.relSelect = true">+ 加入羁绊角色</button><div style="font-size:10px; color:var(--text-sub); text-align:center;">长按头像可拖拽 · 点击两头像可连线 · 点击虚线可编辑</div></div><button class="c-btn-delete-ins" @click="deleteActiveChar"><i data-lucide="trash-2" style="width:16px;"></i> 删除此设定</button></div></div><div class="c-floating-bar" v-show="!activeChar"><div class="c-tab-btn" :class="{active: contactsTab === 'chars'}" @click="contactsTab = 'chars'"><i data-lucide="users"></i></div><div class="c-tab-btn" :class="{active: contactsTab === 'worldbooks'}" @click="contactsTab = 'worldbooks'"><i data-lucide="book-open"></i></div></div>
+<button class="c-add-rel-btn" @click="modals.relSelect = true">+ 加入羁绊角色</button><div style="font-size:10px; color:var(--text-sub); text-align:center; margin-bottom: 10px;">长按头像可拖拽 · 点击两头像可连线 · 点击虚线可编辑</div>
+
+<div v-if="activeChar.isMe && unfriendedBondedNpcs.length > 0" style="background: rgba(150,150,150,0.05); padding: 12px; border-radius: 12px; margin-top: 10px; border: var(--glass-border);">
+    <div style="font-size:12px; font-weight:700; color:var(--text-main); margin-bottom: 8px;">以下羁绊角色还不是你的 Chat 好友：</div>
+    <div style="display:flex; flex-wrap:wrap; gap:8px;">
+        <label v-for="npc in unfriendedBondedNpcs" :key="npc.id" style="display:flex; align-items:center; gap:4px; font-size:12px; color:var(--text-sub);">
+            <input type="checkbox" :value="npc.id" v-model="pendingRequestIds"> {{ npc.name }}
+        </label>
+    </div>
+    <button class="c-add-rel-btn" style="background:var(--text-main); color:var(--bg-color);" @click="sendFriendRequestsFromNPCs">呼唤选中的角色加我好友</button>
+</div>
+</div>
+<button class="c-btn-delete-ins" @click="deleteActiveChar"><i data-lucide="trash-2" style="width:16px;"></i> 删除此设定</button></div></div><div class="c-floating-bar" v-show="!activeChar"><div class="c-tab-btn" :class="{active: contactsTab === 'chars'}" @click="contactsTab = 'chars'"><i data-lucide="users"></i></div><div class="c-tab-btn" :class="{active: contactsTab === 'worldbooks'}" @click="contactsTab = 'worldbooks'"><i data-lucide="book-open"></i></div></div>
         <div class="c-modal-centered" v-if="modals.char" @click.self="modals.char = false"><div class="c-modal-centered-content"><h4 style="text-align:center; font-size:16px; color:var(--text-main); font-weight:700;">{{ charForm.isMe ? '新建我的设定' : '新建人物' }}</h4><div class="c-avatar-upload" @click="triggerAvatarUpload(charForm)"><img v-if="charForm.avatar" :src="charForm.avatar"><i v-else data-lucide="camera" style="width:24px; height:24px;"></i></div><div class="c-form-item"><label>所属世界分类</label><select class="c-select" v-model="charForm.worldId"><option v-for="w in contactsDb.worlds" :key="w.id" :value="w.id">{{ w.name }}</option></select></div><div class="c-form-item"><label>真名</label><input class="c-input" v-model="charForm.name" placeholder="输入真名..."></div><div class="c-form-item"><label>人物设定 / 记忆</label><textarea class="c-textarea" v-model="charForm.persona" placeholder="描述该人物的外貌、性格、过往经历等..."></textarea></div><div style="display:flex; gap:10px; margin-top:5px;"><button class="c-add-rel-btn" style="flex:1; margin:0; background:var(--widget-bg); color:var(--text-main);" @click="modals.char = false">取消</button><button class="c-add-rel-btn" style="flex:1; margin:0; background:var(--text-main); color:var(--bg-color);" @click="saveChar">保存</button></div></div></div>
         <div class="c-modal-centered" v-if="modals.wb" @click.self="modals.wb = false"><div class="c-modal-centered-content"><h4 style="text-align:center; font-size:16px; color:var(--text-main); font-weight:700;">新建世界书</h4><div class="c-form-item"><label>所属世界书分类</label><select class="c-select" v-model="wbForm.categoryId"><option v-for="c in contactsDb.wbCategories" :key="c.id" :value="c.id">{{ c.name }}</option></select></div><div class="c-form-item"><label>触发关键词 (可选)</label><input class="c-input" v-model="wbForm.keywords" placeholder="例如：魔法, 学院, 规则..."></div><div class="c-form-item"><label>设定内容</label><textarea class="c-textarea" v-model="wbForm.content" placeholder="输入关于世界背景、物品或特定事件的详细设定..."></textarea></div><div style="display:flex; gap:10px; margin-top:5px;"><button class="c-add-rel-btn" style="flex:1; margin:0; background:var(--widget-bg); color:var(--text-main);" @click="modals.wb = false">取消</button><button class="c-add-rel-btn" style="flex:1; margin:0; background:var(--text-main); color:var(--bg-color);" @click="saveWb">保存</button></div></div></div>
         <div class="c-modal-centered" v-if="modals.relSelect" @click.self="modals.relSelect = false"><div class="c-modal-centered-content"><h4 style="text-align:center; font-size:16px; color:var(--text-main); font-weight:700;">选择羁绊角色</h4><div style="max-height: 300px; overflow-y: auto;"><div v-if="availableRelChars.length===0" class="c-empty">无其他角色可添加</div><div class="c-char-item" v-for="c in availableRelChars" :key="c.id" @click="confirmAddRel(c.id)"><img :src="c.avatar || defaultImg" class="c-char-avatar" style="width:40px; height:40px;"><div class="c-char-info"><div class="c-char-name">{{ c.name }}</div></div></div></div></div></div>
@@ -193,7 +240,7 @@
                 <div class="ca-search-bar"><i data-lucide="search" style="width:16px;"></i><input placeholder="搜索消息、联系人或分类..." v-model="chatState.searchQuery"></div>
                 <div class="ca-list">
                     <div v-if="myConversations?.length === 0" class="c-empty" style="margin-top:40px;">暂无聊天记录，快去添加好友吧</div>
-                    <div class="ca-list-item" v-for="conv in myConversations" :key="conv.id" @click="openConversation(conv)">
+                    <div class="ca-list-item" v-for="conv in myConversations" :key="conv.id" @click="openConversation(conv)" @contextmenu.prevent="openConvMenu(conv)">
                         <img :src="conv.avatar || defaultImg" class="ca-item-avatar">
                         <div class="ca-item-info">
                             <div class="ca-item-top"><span class="ca-item-name">{{ conv.name }}</span><span class="ca-item-time">{{ conv.time }}</span></div>
@@ -203,10 +250,115 @@
                 </div>
             </div>
 
-            <div v-show="chatState.activeTab === 'channel'" class="ca-content" @click="chatState.showMoreMenu = false; chatState.showStatusMenu = false"><div class="c-empty" style="margin-top:40px;">频道功能开发中...</div></div>
-            
+            <!-- 头像频道页 -->
+            <div v-show="chatState.activeTab === 'channel'" class="ca-content" @click="chatState.showMoreMenu = false; chatState.showStatusMenu = false">
+                <div class="ca-channel-card" @click="chatState.showAvatarChannel = true">
+                    <div class="ca-cc-top">
+                        <div class="ca-cc-avatar-box" style="overflow:hidden;">
+                            <img v-if="chatDb.avatarChannelCover" :src="chatDb.avatarChannelCover" style="width:100%; height:100%; object-fit:cover;">
+                            <i v-else data-lucide="image" style="color:#fff;"></i>
+                        </div>
+                        <div class="ca-cc-info">
+                            <div class="ca-cc-name">头像收集处</div>
+                            <div class="ca-cc-members">{{ (chatDb.avatarLibrary || []).length }} 位成员</div>
+                        </div>
+                        <div class="ca-cc-enter">进入</div>
+                    </div>
+                    <div class="ca-cc-bottom">
+                        <img v-for="(img, idx) in (chatDb.avatarLibrary || []).slice(0,4)" :key="idx" :src="img" class="ca-cc-preview-img">
+                        <div v-for="i in Math.max(0, 4 - (chatDb.avatarLibrary || []).length)" :key="'empty'+i" class="ca-cc-preview-img empty"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 头像频道全屏页 -->
+            <div class="ca-fp-page" v-if="chatState.showAvatarChannel" style="z-index: 110;">
+                <div class="ca-fp-header" style="background:var(--widget-bg-solid); border-bottom:1px solid rgba(150,150,150,0.1);">
+                    <div class="ca-fp-back" @click="chatState.showAvatarChannel = false"><i data-lucide="chevron-left" style="width:20px;"></i></div>
+                    <div style="font-weight:700; color:var(--text-main); font-size:16px;">头像收集处</div>
+                    <div style="width:36px;"></div>
+                </div>
+                
+                <div class="ca-fp-body" style="padding:0;">
+                    <div class="ca-avatar-grid">
+                        <img v-for="(img, idx) in (chatDb.avatarLibrary || [])" :key="idx" :src="img" class="ca-avatar-item" @contextmenu.prevent="openAvatarItemMenu(idx)">
+                    </div>
+                    <div v-if="!(chatDb.avatarLibrary || []).length" class="c-empty" style="margin-top:40px;">图库空空如也，点击右下角添加头像</div>
+                    <div style="text-align:center; font-size:11px; color:var(--text-sub); margin-bottom:30px;">长按图片可将其设为频道头像或删除</div>
+                </div>
+                
+                <div class="ca-moment-fab" style="bottom:30px; z-index: 115;" @click="chatState.showAvatarAddMenu = true"><i data-lucide="plus"></i></div>
+            </div>
+
+            <!-- 点击加号的选择菜单 -->
+            <div class="c-modal-centered" v-if="chatState.showAvatarAddMenu" @click.self="chatState.showAvatarAddMenu = false" style="z-index: 150;">
+                <div class="c-modal-centered-content" style="padding: 0; overflow: hidden; max-width: 260px;">
+                    <div class="ca-visibility-item" style="justify-content: center; padding: 20px;" @click="triggerLocalAvatarUpload(); chatState.showAvatarAddMenu = false;">
+                        <div class="ca-vis-title">本地上传图片 (支持多选)</div>
+                    </div>
+                    <div class="ca-visibility-item" style="justify-content: center; padding: 20px;" @click="chatState.showAvatarUrlModal = true; chatState.showAvatarAddMenu = false;">
+                        <div class="ca-vis-title">通过网络 URL 导入</div>
+                    </div>
+                    <div class="ca-visibility-item" style="justify-content: center; border-top: 6px solid rgba(150,150,150,0.1); padding: 15px;" @click="chatState.showAvatarAddMenu = false">
+                        <div class="ca-vis-title" style="color: var(--text-sub);">取消</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 头像URL输入弹窗 -->
+            <div class="c-modal-centered" v-if="chatState.showAvatarUrlModal" @click.self="chatState.showAvatarUrlModal = false" style="z-index: 200;">
+                <div class="c-modal-centered-content">
+                    <h4 style="text-align:center; font-size:16px; color:var(--text-main); font-weight:700;">导入网络头像</h4>
+                    <div class="c-form-item">
+                        <textarea class="c-textarea" v-model="chatState.avatarUrlInput" placeholder="输入图片 URL，支持多行，每行一个 URL..." style="min-height: 120px;"></textarea>
+                    </div>
+                    <div style="display:flex; gap:10px; margin-top:5px;">
+                        <button class="c-add-rel-btn" style="flex:1; margin:0; background:var(--widget-bg); color:var(--text-main);" @click="chatState.showAvatarUrlModal = false">取消</button>
+                        <button class="c-add-rel-btn" style="flex:1; margin:0; background:var(--text-main); color:var(--bg-color);" @click="submitUrlAvatars">确认导入</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 长按单张头像的操作菜单 -->
+            <div class="c-modal-centered" v-if="chatState.showAvatarItemMenu" @click.self="chatState.showAvatarItemMenu = false" style="z-index: 150;">
+                <div class="c-modal-centered-content" style="padding: 0; overflow: hidden; max-width: 260px;">
+                    <div class="ca-visibility-item" style="justify-content: center; padding: 20px;" @click="setAvatarChannelCover">
+                        <div class="ca-vis-title">设为频道头像</div>
+                    </div>
+                    <div class="ca-visibility-item" style="justify-content: center; padding: 20px; color: #ff4d4f;" @click="deleteAvatarFromLib">
+                        <div class="ca-vis-title" style="color:#ff4d4f;">删除该头像</div>
+                    </div>
+                    <div class="ca-visibility-item" style="justify-content: center; border-top: 6px solid rgba(150,150,150,0.1); padding: 15px;" @click="chatState.showAvatarItemMenu = false">
+                        <div class="ca-vis-title" style="color: var(--text-sub);">取消</div>
+                    </div>
+                </div>
+            </div>
+            <!-- 长按会话列表的删除菜单 -->
+            <div class="c-modal-centered" v-if="chatState.showConvMenu" @click.self="chatState.showConvMenu = false" style="z-index: 150;">
+                <div class="c-modal-centered-content" style="padding: 0; overflow: hidden; max-width: 260px;">
+                    <div class="ca-visibility-item" style="justify-content: center; padding: 20px; color: #ff4d4f;" @click="deleteConvAndContact">
+                        <div class="ca-vis-title" style="color:#ff4d4f;">删除该聊天及联系人</div>
+                    </div>
+                    <div class="ca-visibility-item" style="justify-content: center; border-top: 6px solid rgba(150,150,150,0.1); padding: 15px;" @click="chatState.showConvMenu = false">
+                        <div class="ca-vis-title" style="color: var(--text-sub);">取消</div>
+                    </div>
+                </div>
+            </div>
+
             <div v-show="chatState.activeTab === 'contact'" class="ca-content" @click="chatState.showMoreMenu = false; chatState.showStatusMenu = false">
                 <div class="ca-search-bar"><i data-lucide="search" style="width:16px;"></i><input placeholder="搜索联系人..." v-model="chatState.searchQuery"></div>
+                
+                <div class="ca-new-friend-entry" @click="chatState.modals.newFriends = true">
+                    <div class="ca-nfe-left">
+                        <div class="ca-nfe-icon"><i data-lucide="user-plus"></i></div>
+                        新的朋友
+                    </div>
+                    <div class="ca-nfe-right">
+                        <div class="ca-red-dot" v-if="hasPendingRequests"></div>
+                        <i data-lucide="chevron-right" style="color:var(--text-sub);"></i>
+                    </div>
+                </div>
+
                 <div class="c-group-title">我的好友 ({{ myFriends?.length || 0 }})</div>
                 <div class="ca-list">
                     <div v-if="myFriends?.length === 0" class="c-empty">您的好友列表空空如也</div>
@@ -223,8 +375,6 @@
             
             <!-- 全新的动态/朋友圈 Tab -->
             <div v-show="chatState.activeTab === 'moment'" class="ca-moment-container" @click="chatState.showMoreMenu = false; chatState.showStatusMenu = false">
-                
-                <!-- 头部（包含背景图和头像） -->
                 <div class="ca-moment-hero" :style="{ backgroundImage: currentProfile?.bg ? `url(${currentProfile.bg})` : 'none' }" @click="triggerMySettingsBgUpload">
                     <div class="ca-moment-user">
                         <img :src="chatState.currentUser?.avatar || defaultImg" class="ca-moment-avatar">
@@ -232,7 +382,6 @@
                     </div>
                 </div>
                 
-                <!-- 置顶动态栏 -->
                 <div class="ca-moment-pinned-bar" v-if="pinnedMoments.length > 0">
                     <div class="ca-moment-pinned-item" v-for="pm in pinnedMoments" :key="'pin_'+pm.id" @click="momentState.viewPinnedMomentId = pm.id">
                         <i data-lucide="pin" class="ca-moment-pinned-item-pin" style="width:14px;"></i>
@@ -242,7 +391,6 @@
                     </div>
                 </div>
 
-                <!-- 动态列表 -->
                 <div class="ca-moment-list">
                     <div v-if="allMoments.length === 0" class="c-empty" style="margin-top: 20px;">暂无动态，点击右下角按钮发布第一条动态吧！</div>
                     
@@ -270,12 +418,8 @@
                                     <svg v-if="moment.likes && moment.likes.includes(chatState.currentUser.id)" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="#808080" stroke="#808080" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
                                     <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
                                 </div>
-                                <div class="ca-moment-action-btn" @click="openCommentModal(moment)">
-                                    <i data-lucide="message-circle"></i>
-                                </div>
-                                <div class="ca-moment-action-btn" @click="openForwardModal(moment)">
-                                    <i data-lucide="share"></i>
-                                </div>
+                                <div class="ca-moment-action-btn" @click="openCommentModal(moment)"><i data-lucide="message-circle"></i></div>
+                                <div class="ca-moment-action-btn" @click="openForwardModal(moment)"><i data-lucide="share"></i></div>
                             </div>
 
                             <div class="ca-moment-interactions" v-if="(moment.likes && moment.likes.length > 0) || (moment.comments && moment.comments.length > 0)">
@@ -296,7 +440,6 @@
                 
                 <div class="ca-moment-fab" @click="openPublishModal"><i data-lucide="plus"></i></div>
 
-                <!-- 查看置顶动态的弹窗 -->
                 <div class="c-modal-centered" v-if="activePinnedMoment" @click.self="momentState.viewPinnedMomentId = null">
                     <div class="c-modal-centered-content" style="padding: 20px 15px; max-height: 80vh; overflow-y: auto; width: 90%;">
                         <div class="ca-moment-item" style="border:none; padding-bottom:0;">
@@ -313,82 +456,37 @@
                                 <div v-else-if="activePinnedMoment.imageType === 'fake' && activePinnedMoment.fakeImageText" class="ca-moment-fake-img" @click.stop="openMomentPhotoViewer(activePinnedMoment)">
                                     <i data-lucide="image" style="color: #999; opacity: 0.6; width: 36px; height: 36px;"></i>
                                 </div>
-                                <div class="ca-moment-item-actions-bar">
-                                    <div class="ca-moment-action-btn" @click="toggleLike(activePinnedMoment)">
-                                        <svg v-if="activePinnedMoment.likes && activePinnedMoment.likes.includes(chatState.currentUser.id)" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="#808080" stroke="#808080" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
-                                        <svg v-else xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
-                                    </div>
-                                    <div class="ca-moment-action-btn" @click="openCommentModal(activePinnedMoment)">
-                                        <i data-lucide="message-circle"></i>
-                                    </div>
-                                </div>
-                                <div class="ca-moment-interactions" v-if="(activePinnedMoment.likes && activePinnedMoment.likes.length > 0) || (activePinnedMoment.comments && activePinnedMoment.comments.length > 0)">
-                                    <div class="ca-moment-likes" v-if="activePinnedMoment.likes && activePinnedMoment.likes.length > 0">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="#808080" stroke="#808080" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
-                                        {{ getLikeNames(activePinnedMoment.likes) }}
-                                    </div>
-                                    <div class="ca-moment-comments" v-if="activePinnedMoment.comments && activePinnedMoment.comments.length > 0">
-                                        <div class="ca-moment-comment-item" v-for="cmt in activePinnedMoment.comments" :key="cmt.id">
-                                            <span class="ca-moment-comment-name">{{ cmt.authorName }}:</span>
-                                            <span class="ca-moment-comment-text">{{ cmt.content }}</span>
-                                        </div>
-                                    </div>
-                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- 更多操作弹窗 -->
                 <div class="c-modal-centered" v-if="momentState.showMoreMenu" @click.self="momentState.showMoreMenu = false">
                     <div class="c-modal-centered-content" style="padding: 0; overflow: hidden; max-width: 260px;">
-                        <div class="ca-visibility-item" style="justify-content: center; padding: 20px;" @click="favoriteMoment(momentState.activeMoment)">
-                            <div class="ca-vis-title">收藏动态</div>
-                        </div>
-                        <div class="ca-visibility-item" style="justify-content: center; padding: 20px;" v-if="momentState.activeMoment?.authorId === chatState.currentUser?.id" @click="pinMoment(momentState.activeMoment)">
-                            <div class="ca-vis-title">{{ momentState.activeMoment?.pinned ? '取消置顶' : '置顶动态' }}</div>
-                        </div>
-                        <div class="ca-visibility-item" style="justify-content: center; padding: 20px;" @click="openEditMomentModal(momentState.activeMoment)">
-                            <div class="ca-vis-title">编辑动态</div>
-                        </div>
-                        <div class="ca-visibility-item" style="justify-content: center; padding: 20px; color: #ff4d4f;" @click="deleteMoment(momentState.activeMoment)">
-                            <div class="ca-vis-title">删除动态</div>
-                        </div>
-                        <div class="ca-visibility-item" style="justify-content: center; border-top: 6px solid rgba(150,150,150,0.1); padding: 15px;" @click="momentState.showMoreMenu = false">
-                            <div class="ca-vis-title" style="color: var(--text-sub);">取消</div>
-                        </div>
+                        <div class="ca-visibility-item" style="justify-content: center; padding: 20px;" @click="favoriteMoment(momentState.activeMoment)"><div class="ca-vis-title">收藏动态</div></div>
+                        <div class="ca-visibility-item" style="justify-content: center; padding: 20px;" v-if="momentState.activeMoment?.authorId === chatState.currentUser?.id" @click="pinMoment(momentState.activeMoment)"><div class="ca-vis-title">{{ momentState.activeMoment?.pinned ? '取消置顶' : '置顶动态' }}</div></div>
+                        <div class="ca-visibility-item" style="justify-content: center; padding: 20px;" @click="openEditMomentModal(momentState.activeMoment)"><div class="ca-vis-title">编辑动态</div></div>
+                        <div class="ca-visibility-item" style="justify-content: center; padding: 20px; color: #ff4d4f;" @click="deleteMoment(momentState.activeMoment)"><div class="ca-vis-title">删除动态</div></div>
+                        <div class="ca-visibility-item" style="justify-content: center; border-top: 6px solid rgba(150,150,150,0.1); padding: 15px;" @click="momentState.showMoreMenu = false"><div class="ca-vis-title" style="color: var(--text-sub);">取消</div></div>
                     </div>
                 </div>
 
-                <!-- 居中编辑动态弹窗 -->
                 <div class="c-modal-centered" v-if="momentState.showEditModal" @click.self="momentState.showEditModal = false">
                     <div class="c-modal-centered-content">
                         <h4 style="text-align:center; font-size:16px; color:var(--text-main); font-weight:700;">编辑动态</h4>
-                        <div class="c-form-item">
-                            <textarea class="c-textarea" v-model="momentState.editText" style="min-height: 120px;"></textarea>
-                        </div>
-                        <div style="display:flex; gap:10px; margin-top:5px;">
-                            <button class="c-add-rel-btn" style="flex:1; margin:0; background:var(--widget-bg); color:var(--text-main);" @click="momentState.showEditModal = false">取消</button>
-                            <button class="c-add-rel-btn" style="flex:1; margin:0; background:var(--text-main); color:var(--bg-color);" @click="saveEditMoment">保存</button>
-                        </div>
+                        <div class="c-form-item"><textarea class="c-textarea" v-model="momentState.editText" style="min-height: 120px;"></textarea></div>
+                        <div style="display:flex; gap:10px; margin-top:5px;"><button class="c-add-rel-btn" style="flex:1; margin:0; background:var(--widget-bg); color:var(--text-main);" @click="momentState.showEditModal = false">取消</button><button class="c-add-rel-btn" style="flex:1; margin:0; background:var(--text-main); color:var(--bg-color);" @click="saveEditMoment">保存</button></div>
                     </div>
                 </div>
 
-                <!-- 评论弹窗 -->
                 <div class="c-modal-centered" v-if="momentState.showCommentModal" @click.self="momentState.showCommentModal = false">
                     <div class="c-modal-centered-content">
                         <h4 style="text-align:center; font-size:16px; color:var(--text-main); font-weight:700;">发表评论</h4>
-                        <div class="c-form-item">
-                            <textarea class="c-textarea" v-model="momentState.commentText" placeholder="写下你的评论..." style="min-height: 80px;"></textarea>
-                        </div>
-                        <div style="display:flex; gap:10px; margin-top:5px;">
-                            <button class="c-add-rel-btn" style="flex:1; margin:0; background:var(--widget-bg); color:var(--text-main);" @click="momentState.showCommentModal = false">取消</button>
-                            <button class="c-add-rel-btn" style="flex:1; margin:0; background:var(--text-main); color:var(--bg-color);" @click="submitComment">发送</button>
-                        </div>
+                        <div class="c-form-item"><textarea class="c-textarea" v-model="momentState.commentText" placeholder="写下你的评论..." style="min-height: 80px;"></textarea></div>
+                        <div style="display:flex; gap:10px; margin-top:5px;"><button class="c-add-rel-btn" style="flex:1; margin:0; background:var(--widget-bg); color:var(--text-main);" @click="momentState.showCommentModal = false">取消</button><button class="c-add-rel-btn" style="flex:1; margin:0; background:var(--text-main); color:var(--bg-color);" @click="submitComment">发送</button></div>
                     </div>
                 </div>
 
-                <!-- 转发选人弹窗 -->
                 <div class="c-modal-centered" v-if="momentState.showForwardModal" @click.self="momentState.showForwardModal = false">
                     <div class="c-modal-centered-content" style="padding:0; overflow:hidden;">
                         <div style="padding:15px; text-align:center; font-weight:700; border-bottom:1px solid rgba(150,150,150,0.1);">选择转发给谁</div>
@@ -399,33 +497,20 @@
                                 <div class="c-char-info"><div class="c-char-name">{{ conv.name }}</div></div>
                             </div>
                         </div>
-                        <div style="padding:10px; border-top:1px solid rgba(150,150,150,0.1);">
-                            <button class="c-add-rel-btn" style="margin:0; background:var(--widget-bg); color:var(--text-main);" @click="momentState.showForwardModal = false">取消</button>
-                        </div>
+                        <div style="padding:10px; border-top:1px solid rgba(150,150,150,0.1);"><button class="c-add-rel-btn" style="margin:0; background:var(--widget-bg); color:var(--text-main);" @click="momentState.showForwardModal = false">取消</button></div>
                     </div>
                 </div>
 
-                <!-- 发动态界面 (全屏) -->
                 <div class="ca-moment-publish-page" v-if="momentState.showPublish">
-                    <div class="ca-mp-header">
-                        <div style="width:24px;"></div>
-                        <div style="font-weight:700; font-size:16px; color:var(--text-main); text-align:center;">发布动态</div>
-                        <div style="width:24px;"></div>
-                    </div>
+                    <div class="ca-mp-header"><div style="width:24px;"></div><div style="font-weight:700; font-size:16px; color:var(--text-main); text-align:center;">发布动态</div><div style="width:24px;"></div></div>
                     <div class="ca-mp-body">
-                        <!-- 正文 -->
                         <textarea class="ca-mp-textarea" v-model="momentState.text" placeholder="分享此刻的心情..."></textarea>
-                        
-                        <!-- 图片选择区域 -->
                         <div>
                             <div class="ca-mp-img-switch">
                                 <div class="ca-mp-img-tab" :class="{active: momentState.imageType === 'fake'}" @click="momentState.imageType = 'fake'">发文字假图片</div>
                                 <div class="ca-mp-img-tab" :class="{active: momentState.imageType === 'real'}" @click="momentState.imageType = 'real'">上传真图片</div>
                             </div>
-                            
-                            <div v-if="momentState.imageType === 'fake'">
-                                <textarea class="ca-mp-fake-input" v-model="momentState.fakeImageText" placeholder="用一句话描述这张照片，AI将根据描述感知你发了图片..."></textarea>
-                            </div>
+                            <div v-if="momentState.imageType === 'fake'"><textarea class="ca-mp-fake-input" v-model="momentState.fakeImageText" placeholder="用一句话描述这张照片，AI将根据描述感知你发了图片..."></textarea></div>
                             <div v-else>
                                 <div class="c-avatar-upload" @click="triggerMomentImage" style="width: 100px; height: 100px; border-radius: 16px; margin: 0;">
                                     <img v-if="momentState.image" :src="momentState.image" style="border-radius: 16px; width: 100%; height: 100%; object-fit: cover;">
@@ -433,427 +518,81 @@
                                 </div>
                             </div>
                         </div>
-
-                        <!-- 权限设置栏 -->
-                        <div class="ca-mp-setting-row" @click="momentState.showVisibilitySelect = true">
-                            <div class="ca-mp-setting-left">
-                                <i data-lucide="users" style="width:18px;"></i>
-                                谁可以看
-                            </div>
-                            <div class="ca-mp-setting-right">
-                                {{ visibilityLabel }}
-                                <i data-lucide="chevron-right" style="width:16px;"></i>
-                            </div>
-                        </div>
+                        <div class="ca-mp-setting-row" @click="momentState.showVisibilitySelect = true"><div class="ca-mp-setting-left"><i data-lucide="users" style="width:18px;"></i>谁可以看</div><div class="ca-mp-setting-right">{{ visibilityLabel }} <i data-lucide="chevron-right" style="width:16px;"></i></div></div>
                     </div>
-                    
-                    <div class="ca-mp-footer">
-                        <button class="ca-mp-btn ca-mp-btn-cancel" @click="momentState.showPublish = false">取消</button>
-                        <button class="ca-mp-btn ca-mp-btn-submit" @click="publishMoment">发布</button>
-                    </div>
+                    <div class="ca-mp-footer"><button class="ca-mp-btn ca-mp-btn-cancel" @click="momentState.showPublish = false">取消</button><button class="ca-mp-btn ca-mp-btn-submit" @click="publishMoment">发布</button></div>
+                    <div class="c-modal-centered" v-if="momentState.showVisibilitySelect" @click.self="momentState.showVisibilitySelect = false"><div class="c-modal-centered-content" style="padding:0; overflow:hidden;"><div style="padding:15px; text-align:center; font-weight:700; border-bottom:1px solid rgba(150,150,150,0.1);">设置可见范围</div><div style="max-height:300px; overflow-y:auto;"><div class="ca-visibility-item" @click="momentState.visibility = 'all'; momentState.showVisibilitySelect = false;"><div><div class="ca-vis-title">公开</div><div class="ca-vis-sub">所有人可见</div></div><i data-lucide="check" style="color:var(--text-main);" v-if="momentState.visibility === 'all'"></i></div><div class="ca-visibility-item" @click="momentState.visibility = 'self'; momentState.showVisibilitySelect = false;"><div><div class="ca-vis-title">私密</div><div class="ca-vis-sub">仅自己可见</div></div><i data-lucide="check" style="color:var(--text-main);" v-if="momentState.visibility === 'self'"></i></div><div class="ca-visibility-item" @click="momentState.visibility = 'include'; momentState.showTargetSelect = true;"><div><div class="ca-vis-title">部分可见</div><div class="ca-vis-sub">选中的朋友或分类可见</div></div><i data-lucide="chevron-right" style="color:var(--text-sub);"></i></div><div class="ca-visibility-item" @click="momentState.visibility = 'exclude'; momentState.showTargetSelect = true;"><div><div class="ca-vis-title">不给谁看</div><div class="ca-vis-sub">选中的朋友或分类不可见</div></div><i data-lucide="chevron-right" style="color:var(--text-sub);"></i></div></div></div></div>
+                    <div class="c-modal-centered" v-if="momentState.showTargetSelect" @click.self="momentState.showTargetSelect = false; momentState.showVisibilitySelect = false"><div class="c-modal-centered-content" style="padding:0; overflow:hidden;"><div style="padding:15px; display:flex; justify-content:space-between; border-bottom:1px solid rgba(150,150,150,0.1);"><span style="color:var(--text-sub); cursor:pointer;" @click="momentState.showTargetSelect = false">返回</span><span style="font-weight:700;">选择联系人/分类</span><span style="color:#1890ff; cursor:pointer;" @click="momentState.showTargetSelect = false; momentState.showVisibilitySelect = false">完成</span></div><div style="max-height:400px; overflow-y:auto; padding:10px;"><div style="font-size:12px; color:var(--text-sub); margin-bottom:5px; margin-top:10px;">分类</div><div class="c-char-item" style="padding:10px;" v-for="cat in contactOptions.categories" :key="cat.id" @click="toggleTarget(cat.id)"><i :data-lucide="momentState.visibleTargets.includes(cat.id) ? 'check-circle-2' : 'circle'" :style="{ color: momentState.visibleTargets.includes(cat.id) ? 'var(--text-main)' : 'var(--text-sub)' }"></i><div class="c-char-info"><div class="c-char-name">{{ cat.name }}</div></div></div><div style="font-size:12px; color:var(--text-sub); margin-bottom:5px; margin-top:15px;">好友</div><div class="c-char-item" style="padding:10px;" v-for="f in contactOptions.friends" :key="f.id" @click="toggleTarget(f.id)"><i :data-lucide="momentState.visibleTargets.includes(f.id) ? 'check-circle-2' : 'circle'" :style="{ color: momentState.visibleTargets.includes(f.id) ? 'var(--text-main)' : 'var(--text-sub)' }"></i><img :src="f.avatar || defaultImg" style="width:36px; height:36px; border-radius:50%; margin-left:10px;"><div class="c-char-info"><div class="c-char-name">{{ f.name }}</div></div></div></div></div></div>
+                </div>
+            </div>
 
-                    <!-- 权限选择器侧滑/弹出面板 -->
-                    <div class="c-modal-centered" v-if="momentState.showVisibilitySelect" @click.self="momentState.showVisibilitySelect = false">
-                        <div class="c-modal-centered-content" style="padding:0; overflow:hidden;">
-                            <div style="padding:15px; text-align:center; font-weight:700; border-bottom:1px solid rgba(150,150,150,0.1);">设置可见范围</div>
-                            <div style="max-height:300px; overflow-y:auto;">
-                                <div class="ca-visibility-item" @click="momentState.visibility = 'all'; momentState.showVisibilitySelect = false;">
-                                    <div>
-                                        <div class="ca-vis-title">公开</div>
-                                        <div class="ca-vis-sub">所有人可见</div>
+            <div class="ca-bottom-bar"><div class="ca-tab-btn" :class="{active: chatState.activeTab === 'msg'}" @click="chatState.activeTab = 'msg'"><i data-lucide="message-circle"></i><span>消息</span></div><div class="ca-tab-btn" :class="{active: chatState.activeTab === 'channel'}" @click="chatState.activeTab = 'channel'; nextTick(()=>window.lucide.createIcons())"><i data-lucide="hash"></i><span>频道</span></div><div class="ca-tab-btn" :class="{active: chatState.activeTab === 'contact'}" @click="chatState.activeTab = 'contact'"><i data-lucide="users"></i><span>联系人</span></div><div class="ca-tab-btn" :class="{active: chatState.activeTab === 'moment'}" @click="chatState.activeTab = 'moment'"><i data-lucide="compass"></i><span>动态</span></div></div>
+        </div>
+
+        <!-- 详细聊天界面 -->
+        <div class="ca-detail-wrap" v-if="chatState.isDetailOpen" :style="{ backgroundImage: activeConvSettings.beautify.bg ? `url(${activeConvSettings.beautify.bg})` : 'none' }">
+            <component :is="'style'" v-if="activeConvSettings.beautify.customCss">{{ activeConvSettings.beautify.customCss }}</component>
+            <div class="ca-detail-header"><img :src="activeConv?.avatar || defaultImg" class="ca-detail-back-avatar" @click="closeConversation"><div class="ca-detail-center"><div class="ca-detail-name"><span v-if="chatState.isTyping" class="ca-detail-name-typing">{{ chatState.typingText }}</span><span v-else class="ca-detail-name-text">{{ activeConv?.name }}</span></div><div class="ca-detail-status"><span class="ca-detail-status-dot" :style="{ background: activeConv?.statusColor || '#52c41a' }"></span><span class="ca-detail-status-text">{{ activeConv?.status || '在线' }}</span></div></div><div class="ca-detail-star-btn" @click="chatState.isDetailSettingsOpen = true; chatState.detailSettingsTab = 'chat';"><i data-lucide="star" fill="currentColor"></i></div></div>
+            <div class="ca-detail-messages" @click="chatState.showBottomMenu = false">
+                <div v-if="hasMoreMessages" @click.stop="loadMoreMessages" style="text-align:center; padding:10px 0 15px; cursor:pointer;"><span style="font-size:12px; color:#1890ff; background:rgba(24,144,255,0.08); padding:6px 14px; border-radius:12px; font-weight:600;">查看历史消息</span></div>
+                <template v-for="(msg, index) in activeMessages" :key="msg.id">
+                    <div v-if="shouldShowTimeGap(msg, index, activeMessages)" class="ca-sys-tip" style="background:transparent; margin: 6px auto 12px; font-weight: 600; color: var(--text-sub);">{{ formatTimeGap(msg) }}</div>
+                    <div v-if="msg.type === 'sys'" class="ca-sys-tip">{{ msg.text }}</div>
+                    <div v-else-if="msg.recalled" class="ca-sys-tip ca-recalled-tip" @click="chatState.recalledMsgView = msg">{{ msg.senderId === chatState.currentUser.id ? '你' : (activeConv?.name || '对方') }}撤回了一条消息</div>
+                    <div v-else style="display:flex; flex-direction:column; gap:4px; width:100%; transition:transform 0.2s;" :style="{ transform: chatState.isMultiSelectMode ? 'translateX(10px)' : 'none' }">
+                        <div style="display:flex; align-items:flex-end; gap:10px; width:100%;">
+                            <div v-if="chatState.isMultiSelectMode" @click="toggleSelectMsg(msg)" style="cursor:pointer; flex-shrink:0; padding:10px 0;"><svg v-if="chatState.selectedMsgIds.includes(msg.id)" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="var(--text-main)" stroke="var(--bg-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" stroke="var(--text-main)"/><path d="m9 12 2 2 4-4" stroke-width="3"/></svg><svg v-else xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-sub)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg></div>
+                            <div class="ca-msg-row" :class="{me: msg.senderId === chatState.currentUser.id}" :style="{ opacity: msg.senderId === chatState.currentUser.id ? activeConvSettings.beautify.meOpacity : activeConvSettings.beautify.opOpacity, flex: 1 }">
+                                <img v-if="activeConvSettings.beautify.showAvatar" :src="msg.senderId === chatState.currentUser.id ? chatState.currentUser.avatar : activeConv?.avatar" class="ca-msg-avatar">
+                                <div style="display:flex; flex-direction:column; gap:4px; max-width:72%;" :style="{ alignItems: msg.senderId === chatState.currentUser.id ? 'flex-end' : 'flex-start' }">
+                                    <span v-if="activeConvSettings.beautify.showName" style="font-size:10px; color:var(--text-sub);">{{ msg.senderId === chatState.currentUser.id ? (currentProfile?.nickname || chatState.currentUser.name) : activeConv?.name }}</span>
+                                    <span v-if="activeConvSettings.beautify.showTime && activeConvSettings.beautify.timePos === 'top'" style="font-size:9px; color:var(--text-sub);">{{ msg.time }}</span>
+                                    <div style="display:flex; align-items:center; gap:6px;" :style="{ flexDirection: msg.senderId === chatState.currentUser.id ? 'row-reverse' : 'row' }">
+                                        <div class="ca-msg-bubble" :style="{ background: (isEmojiMsg(msg.text) || isPhotoMsg(msg.text) || msg.momentShare) ? 'transparent' : (msg.senderId === chatState.currentUser.id ? activeConvSettings.beautify.meBg : activeConvSettings.beautify.opBg), color: msg.senderId === chatState.currentUser.id ? activeConvSettings.beautify.meText : activeConvSettings.beautify.opText, borderRadius: (msg.senderId === chatState.currentUser.id ? activeConvSettings.beautify.meRadius : activeConvSettings.beautify.opRadius) + 'px', maxWidth: '100%', padding: (isEmojiMsg(msg.text) || isPhotoMsg(msg.text) || msg.momentShare) ? '0' : '', boxShadow: (isEmojiMsg(msg.text) || isPhotoMsg(msg.text) || msg.momentShare) ? 'none' : '' }" @click="isVoiceMsg(msg.text) ? toggleVoiceText(msg) : toggleSelectMsg(msg, $event)" @mousedown="onMessagePressStart(msg, $event)" @mouseup="onMessagePressEnd" @mouseleave="onMessagePressEnd" @touchstart="onMessagePressStart(msg, $event)" @touchmove="onMessagePressMove" @touchend="onMessagePressEnd" @touchcancel="onMessagePressEnd" @contextmenu.prevent="onMessagePressStart(msg, $event)">
+                                            <template v-if="isVoiceMsg(msg.text)"><div class="ca-voice-bar" :style="{ width: Math.max(60, Math.min(200, 60 + getVoiceDuration(msg.text) * 2)) + 'px', flexDirection: msg.senderId === chatState.currentUser.id ? 'row-reverse' : 'row' }"><div class="ca-voice-wave" :style="{ flexDirection: msg.senderId === chatState.currentUser.id ? 'row-reverse' : 'row' }"><span v-for="(h, idx) in getVoiceWaves(msg.text)" :key="idx" class="wave-bar" :style="{ height: h + 'px' }"></span></div><span style="font-size:13px; font-weight:600;">{{ getVoiceDuration(msg.text) }}''</span></div></template>
+                                            <template v-else-if="isEmojiMsg(msg.text)"><div class="ca-msg-emoji"><img :src="getEmojiUrl(msg.text) || defaultImg"><span>{{ getEmojiName(msg.text) }}</span></div></template>
+                                            <template v-else-if="isPhotoMsg(msg.text)"><div class="ca-msg-photo" @click.stop="openPhotoViewer(msg)"><div class="ca-msg-photo-img-wrap"><i data-lucide="image" class="ca-msg-photo-icon"></i></div><div class="ca-msg-photo-tag">PHOTO</div></div></template>
+                                            <template v-else-if="msg.momentShare"><div class="ca-msg-moment-share"><div class="ca-ms-header"><img :src="msg.momentShare.authorAvatar || defaultImg"><div class="ca-ms-info"><span class="ca-ms-name">{{ msg.momentShare.authorName }}</span><span class="ca-ms-time">{{ msg.momentShare.time }}</span></div></div><div class="ca-ms-text" v-if="msg.momentShare.text">{{ msg.momentShare.text }}</div><img class="ca-ms-img" v-if="msg.momentShare.imageType === 'real' && msg.momentShare.image" :src="msg.momentShare.image"><div class="ca-ms-fake-img" v-else-if="msg.momentShare.imageType === 'fake' && msg.momentShare.fakeImageText"><i data-lucide="image" style="color: #999; width: 24px; height: 24px;"></i><div class="ca-ms-fake-text">{{ msg.momentShare.fakeImageText }}</div></div></div></template>
+                                            <template v-else><div class="ca-msg-quote" v-if="msg.quote"><div class="ca-msg-quote-name">{{ msg.quote.senderName }}</div><div class="ca-msg-quote-text">{{ msg.quote.text }}</div></div>{{ msg.text }}<div class="ca-msg-trans" v-if="msg.translation && msg.showTrans">{{ msg.translation }}</div></template>
+                                        </div>
+                                        <span v-if="activeConvSettings.beautify.showTime && activeConvSettings.beautify.timePos === 'right'" style="font-size:9px; color:var(--text-sub); flex-shrink:0;">{{ msg.time }}</span>
                                     </div>
-                                    <i data-lucide="check" style="color:var(--text-main);" v-if="momentState.visibility === 'all'"></i>
-                                </div>
-                                <div class="ca-visibility-item" @click="momentState.visibility = 'self'; momentState.showVisibilitySelect = false;">
-                                    <div>
-                                        <div class="ca-vis-title">私密</div>
-                                        <div class="ca-vis-sub">仅自己可见</div>
-                                    </div>
-                                    <i data-lucide="check" style="color:var(--text-main);" v-if="momentState.visibility === 'self'"></i>
-                                </div>
-                                <div class="ca-visibility-item" @click="momentState.visibility = 'include'; momentState.showTargetSelect = true;">
-                                    <div>
-                                        <div class="ca-vis-title">部分可见</div>
-                                        <div class="ca-vis-sub">选中的朋友或分类可见</div>
-                                    </div>
-                                    <i data-lucide="chevron-right" style="color:var(--text-sub);"></i>
-                                </div>
-                                <div class="ca-visibility-item" @click="momentState.visibility = 'exclude'; momentState.showTargetSelect = true;">
-                                    <div>
-                                        <div class="ca-vis-title">不给谁看</div>
-                                        <div class="ca-vis-sub">选中的朋友或分类不可见</div>
-                                    </div>
-                                    <i data-lucide="chevron-right" style="color:var(--text-sub);"></i>
+                                    <span v-if="activeConvSettings.beautify.showTime && activeConvSettings.beautify.timePos === 'bottom'" style="font-size:9px; color:var(--text-sub);">{{ msg.time }}</span>
                                 </div>
                             </div>
                         </div>
+                        <div class="ca-voice-text-ext" v-if="isVoiceMsg(msg.text) && msg.showVoiceText" :style="{ alignSelf: msg.senderId === chatState.currentUser.id ? 'flex-end' : 'flex-start', marginLeft: msg.senderId === chatState.currentUser.id ? '0' : (activeConvSettings.beautify.showAvatar ? '48px' : '0'), marginRight: msg.senderId === chatState.currentUser.id ? (activeConvSettings.beautify.showAvatar ? '48px' : '0') : '0', maxWidth: '72%', background: msg.senderId === chatState.currentUser.id ? activeConvSettings.beautify.meBg : activeConvSettings.beautify.opBg, color: msg.senderId === chatState.currentUser.id ? activeConvSettings.beautify.meText : activeConvSettings.beautify.opText }">{{ getVoiceText(msg.text) }}</div>
                     </div>
-
-                    <!-- 人员/分类 选择器面板 -->
-                    <div class="c-modal-centered" v-if="momentState.showTargetSelect" @click.self="momentState.showTargetSelect = false; momentState.showVisibilitySelect = false">
-                        <div class="c-modal-centered-content" style="padding:0; overflow:hidden;">
-                            <div style="padding:15px; display:flex; justify-content:space-between; border-bottom:1px solid rgba(150,150,150,0.1);">
-                                <span style="color:var(--text-sub); cursor:pointer;" @click="momentState.showTargetSelect = false">返回</span>
-                                <span style="font-weight:700;">选择联系人/分类</span>
-                                <span style="color:#1890ff; cursor:pointer;" @click="momentState.showTargetSelect = false; momentState.showVisibilitySelect = false">完成</span>
-                            </div>
-                            <div style="max-height:400px; overflow-y:auto; padding:10px;">
-                                <div style="font-size:12px; color:var(--text-sub); margin-bottom:5px; margin-top:10px;">分类</div>
-                                <div class="c-char-item" style="padding:10px;" v-for="cat in contactOptions.categories" :key="cat.id" @click="toggleTarget(cat.id)">
-                                    <i :data-lucide="momentState.visibleTargets.includes(cat.id) ? 'check-circle-2' : 'circle'" :style="{ color: momentState.visibleTargets.includes(cat.id) ? 'var(--text-main)' : 'var(--text-sub)' }"></i>
-                                    <div class="c-char-info"><div class="c-char-name">{{ cat.name }}</div></div>
-                                </div>
-                                <div style="font-size:12px; color:var(--text-sub); margin-bottom:5px; margin-top:15px;">好友</div>
-                                <div class="c-char-item" style="padding:10px;" v-for="f in contactOptions.friends" :key="f.id" @click="toggleTarget(f.id)">
-                                    <i :data-lucide="momentState.visibleTargets.includes(f.id) ? 'check-circle-2' : 'circle'" :style="{ color: momentState.visibleTargets.includes(f.id) ? 'var(--text-main)' : 'var(--text-sub)' }"></i>
-                                    <img :src="f.avatar || defaultImg" style="width:36px; height:36px; border-radius:50%; margin-left:10px;">
-                                    <div class="c-char-info"><div class="c-char-name">{{ f.name }}</div></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                </template>
             </div>
-<!-- ======= 替换结束 ======= -->
-
-            <div class="ca-bottom-bar"><div class="ca-tab-btn" :class="{active: chatState.activeTab === 'msg'}" @click="chatState.activeTab = 'msg'"><i data-lucide="message-circle"></i><span>消息</span></div><div class="ca-tab-btn" :class="{active: chatState.activeTab === 'channel'}" @click="chatState.activeTab = 'channel'"><i data-lucide="hash"></i><span>频道</span></div><div class="ca-tab-btn" :class="{active: chatState.activeTab === 'contact'}" @click="chatState.activeTab = 'contact'"><i data-lucide="users"></i><span>联系人</span></div><div class="ca-tab-btn" :class="{active: chatState.activeTab === 'moment'}" @click="chatState.activeTab = 'moment'"><i data-lucide="compass"></i><span>动态</span></div></div>
-
-<!-- 详细聊天界面 (新增) -->
-<div class="ca-detail-wrap" v-if="chatState.isDetailOpen" :style="{ backgroundImage: activeConvSettings.beautify.bg ? `url(${activeConvSettings.beautify.bg})` : 'none' }">
-    <component :is="'style'" v-if="activeConvSettings.beautify.customCss">{{ activeConvSettings.beautify.customCss }}</component>
-
-    <div class="ca-detail-header">
-        <img :src="activeConv?.avatar || defaultImg" class="ca-detail-back-avatar" @click="closeConversation">
-        <div class="ca-detail-center">
-            <div class="ca-detail-name">
-                <span v-if="chatState.isTyping" class="ca-detail-name-typing">{{ chatState.typingText }}</span>
-                <span v-else class="ca-detail-name-text">{{ activeConv?.name }}</span>
-            </div>
-            <div class="ca-detail-status">
-                <span class="ca-detail-status-dot" :style="{ background: activeConv?.statusColor || '#52c41a' }"></span>
-                <span class="ca-detail-status-text">{{ activeConv?.status || '在线' }}</span>
-            </div>
-        </div>
-        <div class="ca-detail-star-btn" @click="chatState.isDetailSettingsOpen = true; chatState.detailSettingsTab = 'chat';"><i data-lucide="star" fill="currentColor"></i></div>
-    </div>
-
-    <div class="ca-detail-messages" @click="chatState.showBottomMenu = false">
-        <template v-for="msg in activeMessages" :key="msg.id">
-            <div v-if="msg.type === 'sys'" class="ca-sys-tip">{{ msg.text }}</div>
-            <div v-else-if="msg.recalled" class="ca-sys-tip ca-recalled-tip" @click="chatState.recalledMsgView = msg">
-                {{ msg.senderId === chatState.currentUser.id ? '你' : (activeConv?.name || '对方') }}撤回了一条消息
-            </div>
-            <div v-else style="display:flex; flex-direction:column; gap:4px; width:100%; transition:transform 0.2s;" :style="{ transform: chatState.isMultiSelectMode ? 'translateX(10px)' : 'none' }">
-                <div style="display:flex; align-items:flex-end; gap:10px; width:100%;">
-                    <div v-if="chatState.isMultiSelectMode" @click="toggleSelectMsg(msg)" style="cursor:pointer; flex-shrink:0; padding:10px 0;">
-                        <svg v-if="chatState.selectedMsgIds.includes(msg.id)" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="var(--text-main)" stroke="var(--bg-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" stroke="var(--text-main)"/><path d="m9 12 2 2 4-4" stroke-width="3"/></svg>
-                        <svg v-else xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-sub)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>
-                    </div>
-                    <div class="ca-msg-row" :class="{me: msg.senderId === chatState.currentUser.id}" :style="{ opacity: msg.senderId === chatState.currentUser.id ? activeConvSettings.beautify.meOpacity : activeConvSettings.beautify.opOpacity, flex: 1 }">
-                        <img v-if="activeConvSettings.beautify.showAvatar" :src="msg.senderId === chatState.currentUser.id ? chatState.currentUser.avatar : activeConv?.avatar" class="ca-msg-avatar">
-                        <div style="display:flex; flex-direction:column; gap:4px; max-width:72%;" :style="{ alignItems: msg.senderId === chatState.currentUser.id ? 'flex-end' : 'flex-start' }">
-                            <span v-if="activeConvSettings.beautify.showName" style="font-size:10px; color:var(--text-sub);">{{ msg.senderId === chatState.currentUser.id ? (currentProfile?.nickname || chatState.currentUser.name) : activeConv?.name }}</span>
-                            <span v-if="activeConvSettings.beautify.showTime && activeConvSettings.beautify.timePos === 'top'" style="font-size:9px; color:var(--text-sub);">{{ msg.time }}</span>
-                            <div style="display:flex; align-items:center; gap:6px;" :style="{ flexDirection: msg.senderId === chatState.currentUser.id ? 'row-reverse' : 'row' }">
-                                <div class="ca-msg-bubble"
-                                     :style="{ background: (isEmojiMsg(msg.text) || isPhotoMsg(msg.text) || msg.momentShare) ? 'transparent' : (msg.senderId === chatState.currentUser.id ? activeConvSettings.beautify.meBg : activeConvSettings.beautify.opBg), color: msg.senderId === chatState.currentUser.id ? activeConvSettings.beautify.meText : activeConvSettings.beautify.opText, borderRadius: (msg.senderId === chatState.currentUser.id ? activeConvSettings.beautify.meRadius : activeConvSettings.beautify.opRadius) + 'px', maxWidth: '100%', padding: (isEmojiMsg(msg.text) || isPhotoMsg(msg.text) || msg.momentShare) ? '0' : '', boxShadow: (isEmojiMsg(msg.text) || isPhotoMsg(msg.text) || msg.momentShare) ? 'none' : '', backdropFilter: (isEmojiMsg(msg.text) || isPhotoMsg(msg.text) || msg.momentShare) ? 'none' : '', webkitBackdropFilter: (isEmojiMsg(msg.text) || isPhotoMsg(msg.text) || msg.momentShare) ? 'none' : '' }"
-                                     @click="isVoiceMsg(msg.text) ? toggleVoiceText(msg) : toggleSelectMsg(msg, $event)"
-                                     @mousedown="onMessagePressStart(msg, $event)"
-                                     @mouseup="onMessagePressEnd"
-                                     @mouseleave="onMessagePressEnd"
-                                     @touchstart="onMessagePressStart(msg, $event)"
-                                     @touchmove="onMessagePressMove"
-                                     @touchend="onMessagePressEnd"
-                                     @touchcancel="onMessagePressEnd"
-                                     @contextmenu.prevent="onMessagePressStart(msg, $event)">
-                                    <template v-if="isVoiceMsg(msg.text)">
-                                        <div class="ca-voice-bar" :style="{ width: Math.max(60, Math.min(200, 60 + getVoiceDuration(msg.text) * 2)) + 'px', flexDirection: msg.senderId === chatState.currentUser.id ? 'row-reverse' : 'row' }">
-                                            <div class="ca-voice-wave" :style="{ flexDirection: msg.senderId === chatState.currentUser.id ? 'row-reverse' : 'row' }">
-                                                <span v-for="(h, idx) in getVoiceWaves(msg.text)" :key="idx" class="wave-bar" :style="{ height: h + 'px' }"></span>
-                                            </div>
-                                            <span style="font-size:13px; font-weight:600;">{{ getVoiceDuration(msg.text) }}''</span>
-                                        </div>
-                                    </template>
-                                    <template v-else-if="isEmojiMsg(msg.text)">
-                                        <div class="ca-msg-emoji">
-                                            <img :src="getEmojiUrl(msg.text) || defaultImg">
-                                            <span>{{ getEmojiName(msg.text) }}</span>
-                                        </div>
-                                    </template>
-                                    <template v-else-if="isPhotoMsg(msg.text)">
-                                        <div class="ca-msg-photo" @click.stop="openPhotoViewer(msg)">
-                                            <div class="ca-msg-photo-img-wrap">
-                                                <i data-lucide="image" class="ca-msg-photo-icon"></i>
-                                            </div>
-                                            <div class="ca-msg-photo-tag">PHOTO</div>
-                                        </div>
-                                    </template>
-                                    <template v-else-if="msg.momentShare">
-                                        <div class="ca-msg-moment-share">
-                                            <div class="ca-ms-header">
-                                                <img :src="msg.momentShare.authorAvatar || defaultImg">
-                                                <div class="ca-ms-info">
-                                                    <span class="ca-ms-name">{{ msg.momentShare.authorName }}</span>
-                                                    <span class="ca-ms-time">{{ msg.momentShare.time }}</span>
-                                                </div>
-                                            </div>
-                                            <div class="ca-ms-text" v-if="msg.momentShare.text">{{ msg.momentShare.text }}</div>
-                                            <img class="ca-ms-img" v-if="msg.momentShare.imageType === 'real' && msg.momentShare.image" :src="msg.momentShare.image">
-                                            <div class="ca-ms-fake-img" v-else-if="msg.momentShare.imageType === 'fake' && msg.momentShare.fakeImageText">
-                                                <i data-lucide="image" style="color: #999; width: 24px; height: 24px;"></i>
-                                                <div class="ca-ms-fake-text">{{ msg.momentShare.fakeImageText }}</div>
-                                            </div>
-                                        </div>
-                                    </template>
-                                    <template v-else>
-                                        <div class="ca-msg-quote" v-if="msg.quote">
-                                            <div class="ca-msg-quote-name">{{ msg.quote.senderName }}</div>
-                                            <div class="ca-msg-quote-text">{{ msg.quote.text }}</div>
-                                        </div>
-                                        {{ msg.text }}
-                                        <div class="ca-msg-trans" v-if="msg.translation && msg.showTrans">{{ msg.translation }}</div>
-                                    </template>
-                                </div>
-                                <span v-if="activeConvSettings.beautify.showTime && activeConvSettings.beautify.timePos === 'right'" style="font-size:9px; color:var(--text-sub); flex-shrink:0;">{{ msg.time }}</span>
-                            </div>
-                            <span v-if="activeConvSettings.beautify.showTime && activeConvSettings.beautify.timePos === 'bottom'" style="font-size:9px; color:var(--text-sub);">{{ msg.time }}</span>
-                        </div>
-                    </div>
-                </div>
-                <!-- 语音文字延伸气泡，用智能外边距规避掉头像的位置，独占行并悬挂于下方 -->
-                <div class="ca-voice-text-ext" v-if="isVoiceMsg(msg.text) && msg.showVoiceText"
-                     :style="{ 
-                         alignSelf: msg.senderId === chatState.currentUser.id ? 'flex-end' : 'flex-start',
-                         marginLeft: msg.senderId === chatState.currentUser.id ? '0' : (activeConvSettings.beautify.showAvatar ? '48px' : '0'),
-                         marginRight: msg.senderId === chatState.currentUser.id ? (activeConvSettings.beautify.showAvatar ? '48px' : '0') : '0',
-                         maxWidth: '72%',
-                         background: msg.senderId === chatState.currentUser.id ? activeConvSettings.beautify.meBg : activeConvSettings.beautify.opBg, 
-                         color: msg.senderId === chatState.currentUser.id ? activeConvSettings.beautify.meText : activeConvSettings.beautify.opText 
-                     }">
-                    {{ getVoiceText(msg.text) }}
-                </div>
-            </div>
-        </template>
-    </div>
-
-    <!-- 胶囊气泡菜单 -->
-    <div class="ca-msg-menu-mask" v-if="chatState.messageMenuOpen" @click="closeMessageMenu" @contextmenu.prevent="closeMessageMenu">
-        <div class="ca-msg-capsule-menu" :style="{ top: chatState.menuY + 'px', left: chatState.menuX + 'px' }" @click.stop>
-            <div class="ca-msg-capsule-item" @click="quoteMessage">引用</div>
-            <div class="ca-msg-capsule-item" @click="favoriteMessage">收藏</div>
-            <div class="ca-msg-capsule-item" v-if="chatState.messageMenuMsg?.senderId === chatState.currentUser?.id" @click="recallMessage">撤回</div>
-            <div class="ca-msg-capsule-item" @click="editMessageModal">编辑</div>
-            <div class="ca-msg-capsule-item" @click="enterMultiSelect">多选</div>
-            <div class="ca-msg-capsule-item" style="color:#1890ff;" @click="openRawEditModal">调整</div>
-            <div class="ca-msg-capsule-item text-danger" @click="deleteMessage">删除</div>
-        </div>
-    </div>
-
-    <!-- 居中编辑消息弹窗 -->
-    <div class="c-modal-centered" v-if="chatState.editMsgModalOpen" @click.self="chatState.editMsgModalOpen = false">
-        <div class="c-modal-centered-content">
-            <h4 style="text-align:center; font-size:16px; color:var(--text-main); font-weight:700;">编辑消息</h4>
-            <div class="c-form-item">
-                <textarea class="c-textarea" v-model="chatState.editMsgText" style="min-height: 120px;"></textarea>
-            </div>
-            <div style="display:flex; gap:10px; margin-top:5px;">
-                <button class="c-add-rel-btn" style="flex:1; margin:0; background:var(--widget-bg); color:var(--text-main);" @click="chatState.editMsgModalOpen = false">取消</button>
-                <button class="c-add-rel-btn" style="flex:1; margin:0; background:var(--text-main); color:var(--bg-color);" @click="saveEditMessage">保存</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 居中 Raw 调整弹窗 -->
-    <div class="c-modal-centered" v-if="chatState.rawEditModalOpen" @click.self="chatState.rawEditModalOpen = false">
-        <div class="c-modal-centered-content" style="max-width: 360px;">
-            <h4 style="text-align:center; font-size:16px; color:var(--text-main); font-weight:700;">调整 Raw 原始代码</h4>
-            <div style="font-size:11px; color:var(--text-sub); text-align:center; margin-top:-8px; margin-bottom: 4px;">编辑保存后将触发内部解析器重新渲染及执行指令</div>
-            <div class="c-form-item">
-                <textarea class="c-textarea" v-model="chatState.rawEditText" style="min-height: 220px; font-family: monospace; font-size: 13px; line-height: 1.5; white-space: pre-wrap; border-radius: 12px; padding: 12px; background: rgba(150,150,150,0.05);"></textarea>
-            </div>
-            <div style="display:flex; gap:10px; margin-top:5px;">
-                <button class="c-add-rel-btn" style="flex:1; margin:0; background:var(--widget-bg); color:var(--text-main);" @click="chatState.rawEditModalOpen = false">取消</button>
-                <button class="c-add-rel-btn" style="flex:1; margin:0; background:var(--text-main); color:var(--bg-color);" @click="saveRawEdit">保存并解析</button>
-            </div>
-        </div>
-    </div>
-
-    <div class="ca-detail-bottom-area">
-        <div class="ca-detail-compose-bar" v-if="quoteSourceMessage && !chatState.isMultiSelectMode">
-            <div class="ca-detail-compose-card">
-                <div class="ca-detail-compose-top">
-                    <span class="ca-detail-compose-title">引用消息</span>
-                    <span class="ca-detail-compose-close" @click="cancelQuoteMessage">取消</span>
-                </div>
-                <div class="ca-detail-compose-name">{{ quoteSourceMessage.senderId === chatState.currentUser.id ? '我' : (activeConv?.name || '对方') }}</div>
-                <div class="ca-detail-compose-text">{{ quoteSourceMessage.text }}</div>
-            </div>
-        </div>
-
-        <!-- 多选模式下的底部栏 -->
-        <div v-if="chatState.isMultiSelectMode" class="ca-detail-footer" style="justify-content: space-between; padding: 14px 24px; background: var(--widget-bg-solid); border-top: 1px solid rgba(150,150,150,0.1); box-shadow: 0 -4px 15px rgba(0,0,0,0.03);">
-            <span @click="cancelMultiSelect" style="font-size:15px; color:var(--text-sub); font-weight:600; cursor:pointer;">取消</span>
-            <span style="font-size:15px; color:var(--text-main); font-weight:700;">已选 {{ chatState.selectedMsgIds.length }} 条</span>
-            <span @click="deleteSelectedMsgs" :style="{ color: chatState.selectedMsgIds.length > 0 ? '#ff4d4f' : 'var(--text-sub)', fontSize:'15px', fontWeight:'600', cursor:'pointer' }"><i data-lucide="trash-2" style="width:18px; vertical-align:middle; margin-bottom:2px;"></i> 删除</span>
-        </div>
-
-        <!-- 正常的底部输入栏 -->
-        <div v-else class="ca-detail-footer">
-            <div class="ca-detail-star-square" @click="toggleBottomMenu"><i data-lucide="star" fill="currentColor"></i></div>
-            <div class="ca-detail-input-wrap"><input class="ca-detail-input" v-model="chatState.detailInput" @keyup.enter="sendMessage" @focus="chatState.showBottomMenu = false" placeholder="发送消息..."></div>
-            <button class="ca-detail-send-btn" @click="triggerApiReply()">发送</button>
-        </div>
-
-        <div class="ca-detail-menu-panel" :class="{open: chatState.showBottomMenu}">
             
-            <div class="ca-menu-slider" v-if="chatState.bottomMenuType === 'main'">
-                <div class="ca-menu-page">
-                    <div class="ca-menu-item" @click="chatState.voiceModalOpen = true; chatState.showBottomMenu = false"><div class="ca-menu-icon"><i data-lucide="mic"></i></div><div class="ca-menu-text">语音</div></div>
-                    <div class="ca-menu-item" @click="openEmojiPanel"><div class="ca-menu-icon"><i data-lucide="smile"></i></div><div class="ca-menu-text">表情包</div></div>
-                    <div class="ca-menu-item" @click="chatState.cameraModalOpen = true; chatState.showBottomMenu = false"><div class="ca-menu-icon"><i data-lucide="camera"></i></div><div class="ca-menu-text">拍摄</div></div>
-                    <div class="ca-menu-item" @click="alert('图片功能开发中')"><div class="ca-menu-icon"><i data-lucide="image"></i></div><div class="ca-menu-text">图片</div></div>
-                    <div class="ca-menu-item" @click="alert('红包功能开发中')"><div class="ca-menu-icon"><i data-lucide="gift"></i></div><div class="ca-menu-text">红包</div></div>
-                    <div class="ca-menu-item" @click="alert('转账功能开发中')"><div class="ca-menu-icon"><i data-lucide="credit-card"></i></div><div class="ca-menu-text">转账</div></div>
-                    <div class="ca-menu-item" @click="alert('通话功能开发中')"><div class="ca-menu-icon"><i data-lucide="phone"></i></div><div class="ca-menu-text">通话</div></div>
-                    <div class="ca-menu-item" @click="alert('礼物功能开发中')"><div class="ca-menu-icon"><i data-lucide="box"></i></div><div class="ca-menu-text">礼物</div></div>
-                </div>
-                <div class="ca-menu-page">
-                    <div class="ca-menu-item" @click="alert('位置功能开发中')"><div class="ca-menu-icon"><i data-lucide="map-pin"></i></div><div class="ca-menu-text">位置</div></div>
-                    <div class="ca-menu-item" @click="alert('收藏功能开发中')"><div class="ca-menu-icon"><i data-lucide="star"></i></div><div class="ca-menu-text">收藏</div></div>
-                    <div class="ca-menu-item" @click="alert('名片功能开发中')"><div class="ca-menu-icon"><i data-lucide="user"></i></div><div class="ca-menu-text">名片</div></div>
-                    <div class="ca-menu-item" @click="alert('文件功能开发中')"><div class="ca-menu-icon"><i data-lucide="file"></i></div><div class="ca-menu-text">文件</div></div>
-                    <div class="ca-menu-item" @click="alert('音乐功能开发中')"><div class="ca-menu-icon"><i data-lucide="music"></i></div><div class="ca-menu-text">音乐</div></div>
+            <div class="ca-msg-menu-mask" v-if="chatState.messageMenuOpen" @click="closeMessageMenu" @contextmenu.prevent="closeMessageMenu"><div class="ca-msg-capsule-menu" :style="{ top: chatState.menuY + 'px', left: chatState.menuX + 'px' }" @click.stop><div class="ca-msg-capsule-item" @click="quoteMessage">引用</div><div class="ca-msg-capsule-item" @click="favoriteMessage">收藏</div><div class="ca-msg-capsule-item" v-if="chatState.messageMenuMsg?.senderId === chatState.currentUser?.id" @click="recallMessage">撤回</div><div class="ca-msg-capsule-item" @click="editMessageModal">编辑</div><div class="ca-msg-capsule-item" @click="enterMultiSelect">多选</div><div class="ca-msg-capsule-item" style="color:#1890ff;" @click="openRawEditModal">调整</div><div class="ca-msg-capsule-item text-danger" @click="deleteMessage">删除</div></div></div>
+            <div class="ca-detail-bottom-area">
+                <div class="ca-detail-compose-bar" v-if="quoteSourceMessage && !chatState.isMultiSelectMode"><div class="ca-detail-compose-card"><div class="ca-detail-compose-top"><span class="ca-detail-compose-title">引用消息</span><span class="ca-detail-compose-close" @click="cancelQuoteMessage">取消</span></div><div class="ca-detail-compose-name">{{ quoteSourceMessage.senderId === chatState.currentUser.id ? '我' : (activeConv?.name || '对方') }}</div><div class="ca-detail-compose-text">{{ quoteSourceMessage.text }}</div></div></div>
+                <div v-if="chatState.isMultiSelectMode" class="ca-detail-footer" style="justify-content: space-between; padding: 14px 24px; background: var(--widget-bg-solid); border-top: 1px solid rgba(150,150,150,0.1); box-shadow: 0 -4px 15px rgba(0,0,0,0.03);"><span @click="cancelMultiSelect" style="font-size:15px; color:var(--text-sub); font-weight:600; cursor:pointer;">取消</span><span style="font-size:15px; color:var(--text-main); font-weight:700;">已选 {{ chatState.selectedMsgIds.length }} 条</span><span @click="deleteSelectedMsgs" :style="{ color: chatState.selectedMsgIds.length > 0 ? '#ff4d4f' : 'var(--text-sub)', fontSize:'15px', fontWeight:'600', cursor:'pointer' }"><i data-lucide="trash-2" style="width:18px; vertical-align:middle; margin-bottom:2px;"></i> 删除</span></div>
+                <div v-else class="ca-detail-footer"><div class="ca-detail-star-square" @click="toggleBottomMenu"><i data-lucide="star" fill="currentColor"></i></div><div class="ca-detail-input-wrap"><input class="ca-detail-input" v-model="chatState.detailInput" @keyup.enter="sendMessage" @focus="chatState.showBottomMenu = false" placeholder="发送消息..."></div><button class="ca-detail-send-btn" @click="triggerApiReply()">发送</button></div>
+                <div class="ca-detail-menu-panel" :class="{open: chatState.showBottomMenu}">
+                    <div class="ca-menu-slider" v-if="chatState.bottomMenuType === 'main'"><div class="ca-menu-page"><div class="ca-menu-item" @click="chatState.voiceModalOpen = true; chatState.showBottomMenu = false"><div class="ca-menu-icon"><i data-lucide="mic"></i></div><div class="ca-menu-text">语音</div></div><div class="ca-menu-item" @click="openEmojiPanel"><div class="ca-menu-icon"><i data-lucide="smile"></i></div><div class="ca-menu-text">表情包</div></div><div class="ca-menu-item" @click="chatState.cameraModalOpen = true; chatState.showBottomMenu = false"><div class="ca-menu-icon"><i data-lucide="camera"></i></div><div class="ca-menu-text">拍摄</div></div><div class="ca-menu-item" @click="alert('图片功能开发中')"><div class="ca-menu-icon"><i data-lucide="image"></i></div><div class="ca-menu-text">图片</div></div><div class="ca-menu-item" @click="alert('红包功能开发中')"><div class="ca-menu-icon"><i data-lucide="gift"></i></div><div class="ca-menu-text">红包</div></div><div class="ca-menu-item" @click="alert('转账功能开发中')"><div class="ca-menu-icon"><i data-lucide="credit-card"></i></div><div class="ca-menu-text">转账</div></div><div class="ca-menu-item" @click="alert('通话功能开发中')"><div class="ca-menu-icon"><i data-lucide="phone"></i></div><div class="ca-menu-text">通话</div></div><div class="ca-menu-item" @click="alert('礼物功能开发中')"><div class="ca-menu-icon"><i data-lucide="box"></i></div><div class="ca-menu-text">礼物</div></div></div><div class="ca-menu-page"><div class="ca-menu-item" @click="alert('位置功能开发中')"><div class="ca-menu-icon"><i data-lucide="map-pin"></i></div><div class="ca-menu-text">位置</div></div><div class="ca-menu-item" @click="alert('收藏功能开发中')"><div class="ca-menu-icon"><i data-lucide="star"></i></div><div class="ca-menu-text">收藏</div></div><div class="ca-menu-item" @click="alert('名片功能开发中')"><div class="ca-menu-icon"><i data-lucide="user"></i></div><div class="ca-menu-text">名片</div></div><div class="ca-menu-item" @click="alert('文件功能开发中')"><div class="ca-menu-icon"><i data-lucide="file"></i></div><div class="ca-menu-text">文件</div></div><div class="ca-menu-item" @click="alert('音乐功能开发中')"><div class="ca-menu-icon"><i data-lucide="music"></i></div><div class="ca-menu-text">音乐</div></div></div></div>
+                    <div class="ca-emoji-panel" v-else-if="chatState.bottomMenuType === 'emoji'"><div class="ca-emoji-tabs"><div class="ca-emoji-setting-btn" @click="switchBottomMenu('main')"><i data-lucide="chevron-down" style="width:20px;"></i></div><div class="ca-emoji-setting-btn" @click="switchBottomMenu('emojiSettings')"><i data-lucide="settings" style="width:18px;"></i></div><div class="ca-emoji-tab-btn" :class="{active: chatState.activeEmojiCat === cat.id, 'role-allowed': cat.allowRole}" v-for="cat in (chatDb.emojiCats || [])" :key="cat.id" @click="chatState.activeEmojiCat = cat.id" @contextmenu.prevent="toggleEmojiCatRole(cat)" @touchstart="onEmojiCatTouchStart(cat)" @touchend="onEmojiCatTouchEnd" @touchcancel="onEmojiCatTouchEnd">{{ cat.name }}</div><div v-if="!(chatDb.emojiCats || []).length" style="font-size:12px; color:var(--text-sub); padding-left:10px;">暂无分类，请点击左侧设置添加</div></div><div class="ca-emoji-list" v-if="activeEmojiList.length > 0"><div class="ca-emoji-item" v-for="em in activeEmojiList" :key="em.id" @click="sendEmoji(em)"><img :src="em.url"><span>{{ em.name }}</span></div></div><div v-else style="padding:40px; text-align:center; color:var(--text-sub); font-size:12px;">该分类下暂无表情包</div></div>
+                    <div class="ca-emoji-panel" v-else-if="chatState.bottomMenuType === 'emojiSettings'"><div class="ca-emoji-tabs"><div class="ca-emoji-setting-btn" @click="switchBottomMenu('emoji')"><i data-lucide="chevron-left" style="width:20px;"></i></div><div style="font-size:14px; font-weight:700; color:var(--text-main); margin-left:8px;">表情包管理</div></div><div class="ca-emoji-settings"><div class="ca-emoji-sec"><div class="ca-emoji-sec-title">新建分类</div><div style="display:flex; gap:8px;"><input class="c-input" style="padding:10px 14px;" v-model="emojiForm.newCatName" placeholder="输入分类名称"><button class="c-api-btn" style="background:var(--text-main); color:var(--bg-color); border:none; padding:0 20px;" @click="addEmojiCat">新建</button></div></div><div class="ca-emoji-sec"><div class="ca-emoji-sec-title">导入单个表情包</div><select class="c-select" style="padding:10px 14px;" v-model="emojiForm.singleCat"><option value="">选择分类</option><option v-for="cat in (chatDb.emojiCats || [])" :key="cat.id" :value="cat.id">{{ cat.name }}</option></select><input class="c-input" style="padding:10px 14px;" v-model="emojiForm.singleName" placeholder="表情包名称"><div style="display:flex; gap:8px;"><input class="c-input" style="padding:10px 14px;" v-model="emojiForm.singleUrl" placeholder="图片 URL"><button class="c-api-btn" style="background:var(--widget-bg); border:1px solid rgba(150,150,150,0.2);" @click="triggerUpload('tempEmojiUpload')">本地</button></div><button class="c-add-rel-btn" style="margin-top:0; background:var(--text-main); color:var(--bg-color);" @click="addSingleEmoji">保存表情包</button></div><div class="ca-emoji-sec"><div class="ca-emoji-sec-title">批量导入 (URL)</div><select class="c-select" style="padding:10px 14px;" v-model="emojiForm.batchCat"><option value="">选择分类</option><option v-for="cat in (chatDb.emojiCats || [])" :key="cat.id" :value="cat.id">{{ cat.name }}</option></select><textarea class="c-textarea" style="min-height:100px; padding:12px 14px; font-size:12px;" v-model="emojiForm.batchText" placeholder="格式：\n开心:https://...\n难过:https://..."></textarea><button class="c-add-rel-btn" style="margin-top:0; background:var(--text-main); color:var(--bg-color);" @click="addBatchEmoji">批量导入</button></div></div></div>
                 </div>
             </div>
-
-            <!-- 表情包展示面板 -->
-            <div class="ca-emoji-panel" v-else-if="chatState.bottomMenuType === 'emoji'">
-                <div class="ca-emoji-tabs">
-                    <div class="ca-emoji-setting-btn" @click="switchBottomMenu('main')"><i data-lucide="chevron-down" style="width:20px;"></i></div>
-                    <div class="ca-emoji-setting-btn" @click="switchBottomMenu('emojiSettings')"><i data-lucide="settings" style="width:18px;"></i></div>
-                    <div class="ca-emoji-tab-btn" :class="{active: chatState.activeEmojiCat === cat.id, 'role-allowed': cat.allowRole}" v-for="cat in (chatDb.emojiCats || [])" :key="cat.id" @click="chatState.activeEmojiCat = cat.id" @contextmenu.prevent="toggleEmojiCatRole(cat)" @touchstart="onEmojiCatTouchStart(cat)" @touchend="onEmojiCatTouchEnd" @touchcancel="onEmojiCatTouchEnd">{{ cat.name }}</div>
-                    <div v-if="!(chatDb.emojiCats || []).length" style="font-size:12px; color:var(--text-sub); padding-left:10px;">暂无分类，请点击左侧设置添加</div>
-                </div>
-                <div class="ca-emoji-list" v-if="activeEmojiList.length > 0">
-                    <div class="ca-emoji-item" v-for="em in activeEmojiList" :key="em.id" @click="sendEmoji(em)">
-                        <img :src="em.url">
-                        <span>{{ em.name }}</span>
-                    </div>
-                </div>
-                <div v-else style="padding:40px; text-align:center; color:var(--text-sub); font-size:12px;">该分类下暂无表情包</div>
-            </div>
-
-            <!-- 表情包设置面板 -->
-            <div class="ca-emoji-panel" v-else-if="chatState.bottomMenuType === 'emojiSettings'">
-                <div class="ca-emoji-tabs">
-                    <div class="ca-emoji-setting-btn" @click="switchBottomMenu('emoji')"><i data-lucide="chevron-left" style="width:20px;"></i></div>
-                    <div style="font-size:14px; font-weight:700; color:var(--text-main); margin-left:8px;">表情包管理</div>
-                </div>
-                <div class="ca-emoji-settings">
-                    <div class="ca-emoji-sec">
-                        <div class="ca-emoji-sec-title">新建分类</div>
-                        <div style="display:flex; gap:8px;">
-                            <input class="c-input" style="padding:10px 14px;" v-model="emojiForm.newCatName" placeholder="输入分类名称">
-                            <button class="c-api-btn" style="background:var(--text-main); color:var(--bg-color); border:none; padding:0 20px;" @click="addEmojiCat">新建</button>
-                        </div>
-                    </div>
-                    <div class="ca-emoji-sec">
-                        <div class="ca-emoji-sec-title">导入单个表情包</div>
-                        <select class="c-select" style="padding:10px 14px;" v-model="emojiForm.singleCat">
-                            <option value="">选择分类</option>
-                            <option v-for="cat in (chatDb.emojiCats || [])" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
-                        </select>
-                        <input class="c-input" style="padding:10px 14px;" v-model="emojiForm.singleName" placeholder="表情包名称">
-                        <div style="display:flex; gap:8px;">
-                            <input class="c-input" style="padding:10px 14px;" v-model="emojiForm.singleUrl" placeholder="图片 URL">
-                            <button class="c-api-btn" style="background:var(--widget-bg); border:1px solid rgba(150,150,150,0.2);" @click="triggerUpload('tempEmojiUpload')">本地</button>
-                        </div>
-                        <button class="c-add-rel-btn" style="margin-top:0; background:var(--text-main); color:var(--bg-color);" @click="addSingleEmoji">保存表情包</button>
-                    </div>
-                    <div class="ca-emoji-sec">
-                        <div class="ca-emoji-sec-title">批量导入 (URL)</div>
-                        <select class="c-select" style="padding:10px 14px;" v-model="emojiForm.batchCat">
-                            <option value="">选择分类</option>
-                            <option v-for="cat in (chatDb.emojiCats || [])" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
-                        </select>
-                        <textarea class="c-textarea" style="min-height:100px; padding:12px 14px; font-size:12px;" v-model="emojiForm.batchText" placeholder="格式：\n开心:https://...\n难过:https://..."></textarea>
-                        <button class="c-add-rel-btn" style="margin-top:0; background:var(--text-main); color:var(--bg-color);" @click="addBatchEmoji">批量导入</button>
-                    </div>
-                </div>
-            </div>
-
         </div>
-    </div>
-</div>
 
-<!-- 语音输入弹窗 -->
-<div class="c-modal-centered" v-if="chatState.voiceModalOpen" @click.self="chatState.voiceModalOpen = false">
-    <div class="c-modal-centered-content">
-        <h4 style="text-align:center; font-size:16px; color:var(--text-main); font-weight:700;">发送语音</h4>
-        <div class="c-form-item">
-            <textarea class="c-textarea" v-model="chatState.voiceText" placeholder="在此输入文字，将伪装成一段语音气泡发送给对方..." style="min-height: 100px;"></textarea>
-        </div>
-        <div style="display:flex; gap:10px; margin-top:5px;">
-            <button class="c-add-rel-btn" style="flex:1; margin:0; background:var(--widget-bg); color:var(--text-main);" @click="chatState.voiceModalOpen = false">取消</button>
-            <button class="c-add-rel-btn" style="flex:1; margin:0; background:var(--text-main); color:var(--bg-color);" @click="sendVoiceMessage">发送</button>
-        </div>
-    </div>
-</div>
+        <div class="c-modal-centered" v-if="chatState.editMsgModalOpen" @click.self="chatState.editMsgModalOpen = false"><div class="c-modal-centered-content"><h4 style="text-align:center; font-size:16px; color:var(--text-main); font-weight:700;">编辑消息</h4><div class="c-form-item"><textarea class="c-textarea" v-model="chatState.editMsgText" style="min-height: 120px;"></textarea></div><div style="display:flex; gap:10px; margin-top:5px;"><button class="c-add-rel-btn" style="flex:1; margin:0; background:var(--widget-bg); color:var(--text-main);" @click="chatState.editMsgModalOpen = false">取消</button><button class="c-add-rel-btn" style="flex:1; margin:0; background:var(--text-main); color:var(--bg-color);" @click="saveEditMessage">保存</button></div></div></div>
+        <div class="c-modal-centered" v-if="chatState.rawEditModalOpen" @click.self="chatState.rawEditModalOpen = false"><div class="c-modal-centered-content" style="max-width: 360px;"><h4 style="text-align:center; font-size:16px; color:var(--text-main); font-weight:700;">调整 Raw 原始代码</h4><div style="font-size:11px; color:var(--text-sub); text-align:center; margin-top:-8px; margin-bottom: 4px;">编辑保存后将触发内部解析器重新渲染及执行指令</div><div class="c-form-item"><textarea class="c-textarea" v-model="chatState.rawEditText" style="min-height: 220px; font-family: monospace; font-size: 13px; line-height: 1.5; white-space: pre-wrap; border-radius: 12px; padding: 12px; background: rgba(150,150,150,0.05);"></textarea></div><div style="display:flex; gap:10px; margin-top:5px;"><button class="c-add-rel-btn" style="flex:1; margin:0; background:var(--widget-bg); color:var(--text-main);" @click="chatState.rawEditModalOpen = false">取消</button><button class="c-add-rel-btn" style="flex:1; margin:0; background:var(--text-main); color:var(--bg-color);" @click="saveRawEdit">保存并解析</button></div></div></div>
+        <div class="c-modal-centered" v-if="chatState.voiceModalOpen" @click.self="chatState.voiceModalOpen = false"><div class="c-modal-centered-content"><h4 style="text-align:center; font-size:16px; color:var(--text-main); font-weight:700;">发送语音</h4><div class="c-form-item"><textarea class="c-textarea" v-model="chatState.voiceText" placeholder="在此输入文字，将伪装成一段语音气泡发送给对方..." style="min-height: 100px;"></textarea></div><div style="display:flex; gap:10px; margin-top:5px;"><button class="c-add-rel-btn" style="flex:1; margin:0; background:var(--widget-bg); color:var(--text-main);" @click="chatState.voiceModalOpen = false">取消</button><button class="c-add-rel-btn" style="flex:1; margin:0; background:var(--text-main); color:var(--bg-color);" @click="sendVoiceMessage">发送</button></div></div></div>
+        <div class="c-modal-centered" v-if="chatState.cameraModalOpen" @click.self="chatState.cameraModalOpen = false"><div class="c-modal-centered-content"><h4 style="text-align:center; font-size:16px; color:var(--text-main); font-weight:700;">拍摄照片</h4><div class="ca-fake-camera-view"><i data-lucide="camera" style="width:32px; height:32px; opacity:0.3;"></i></div><div class="c-form-item"><textarea class="c-textarea" v-model="chatState.cameraText" placeholder="给这张照片添加一段描述..." style="min-height: 80px;"></textarea></div><div style="display:flex; gap:10px; margin-top:5px;"><button class="c-add-rel-btn" style="flex:1; margin:0; background:var(--widget-bg); color:var(--text-main);" @click="chatState.cameraModalOpen = false">取消</button><button class="c-add-rel-btn" style="flex:1; margin:0; background:var(--text-main); color:var(--bg-color);" @click="sendPhotoMessage">发送</button></div></div></div>
+        <div class="c-modal-centered" v-if="chatState.photoViewerOpen" @click.self="chatState.photoViewerOpen = false"><div class="c-modal-centered-content" style="max-width: 340px; padding: 0; overflow: hidden; background: #000; border: none;"><img :src="chatState.photoViewerImg" style="width: 100%; display: block; object-fit: cover;"><div style="padding: 16px; color: #fff; font-size: 13px; line-height: 1.5; background: rgba(0,0,0,0.8);">{{ chatState.photoViewerText }}</div></div></div>
+        <div class="c-modal-centered" v-if="chatState.recalledMsgView" @click.self="chatState.recalledMsgView = null"><div class="c-modal-centered-content" style="max-width:320px;"><h4 style="text-align:center; font-size:14px; color:var(--text-sub); margin-bottom:12px; font-weight:700;">被撤回的文字</h4><div style="font-size:14px; line-height:1.6; color:var(--text-main); word-break:break-all; max-height: 200px; overflow-y: auto;">{{ chatState.recalledMsgView.text }}</div></div></div>
 
-<!-- 拍摄假照片弹窗 -->
-<div class="c-modal-centered" v-if="chatState.cameraModalOpen" @click.self="chatState.cameraModalOpen = false">
-    <div class="c-modal-centered-content">
-        <h4 style="text-align:center; font-size:16px; color:var(--text-main); font-weight:700;">拍摄照片</h4>
-        <div class="ca-fake-camera-view"><i data-lucide="camera" style="width:32px; height:32px; opacity:0.3;"></i></div>
-        <div class="c-form-item">
-            <textarea class="c-textarea" v-model="chatState.cameraText" placeholder="给这张照片添加一段描述..." style="min-height: 80px;"></textarea>
-        </div>
-        <div style="display:flex; gap:10px; margin-top:5px;">
-            <button class="c-add-rel-btn" style="flex:1; margin:0; background:var(--widget-bg); color:var(--text-main);" @click="chatState.cameraModalOpen = false">取消</button>
-            <button class="c-add-rel-btn" style="flex:1; margin:0; background:var(--text-main); color:var(--bg-color);" @click="sendPhotoMessage">发送</button>
-        </div>
-    </div>
-</div>
-
-<!-- 照片查看器弹窗 -->
-<div class="c-modal-centered" v-if="chatState.photoViewerOpen" @click.self="chatState.photoViewerOpen = false">
-    <div class="c-modal-centered-content" style="max-width: 340px; padding: 0; overflow: hidden; background: #000; border: none;">
-        <img :src="chatState.photoViewerImg" style="width: 100%; display: block; object-fit: cover;">
-        <div style="padding: 16px; color: #fff; font-size: 13px; line-height: 1.5; background: rgba(0,0,0,0.8);">
-            {{ chatState.photoViewerText }}
-        </div>
-    </div>
-</div>
-
-<!-- 查看撤回消息弹窗 -->
-<div class="c-modal-centered" v-if="chatState.recalledMsgView" @click.self="chatState.recalledMsgView = null">
-    <div class="c-modal-centered-content" style="max-width:320px;">
-        <h4 style="text-align:center; font-size:14px; color:var(--text-sub); margin-bottom:12px; font-weight:700;">被撤回的文字</h4>
-        <div style="font-size:14px; line-height:1.6; color:var(--text-main); word-break:break-all; max-height: 200px; overflow-y: auto;">
-            {{ chatState.recalledMsgView.text }}
-        </div>
-    </div>
-</div>
-
-<!-- 详细聊天界面设置面板 -->
-<div class="ca-ds-wrap" v-if="chatState.isDetailSettingsOpen">
-    <div class="ca-ds-topbar">
-        <div class="ca-ds-back" @click="chatState.isDetailSettingsOpen = false"><i data-lucide="chevron-left"></i></div>
-        <div class="ca-ds-top-title">聊天设置</div>
-        <div class="ca-ds-right"></div>
-    </div>
-
-    <div class="ca-ds-tabs-container">
-        <div class="ca-ds-tab" :class="{active: chatState.detailSettingsTab === 'chat'}" @click="chatState.detailSettingsTab = 'chat'">聊天设置</div>
-        <div class="ca-ds-tab" :class="{active: chatState.detailSettingsTab === 'beautify'}" @click="chatState.detailSettingsTab = 'beautify'">美化设置</div>
-        <div class="ca-ds-tab" :class="{active: chatState.detailSettingsTab === 'feature'}" @click="chatState.detailSettingsTab = 'feature'">功能设置</div>
-        <div class="ca-ds-tab" :class="{active: chatState.detailSettingsTab === 'other'}" @click="chatState.detailSettingsTab = 'other'">其他设置</div>
-    </div>
-    
-    <div class="ca-ds-content">
-        <div v-show="chatState.detailSettingsTab === 'chat'" class="ca-ds-page">
-<div class="c-card">
+        <!-- 详细聊天界面设置面板 -->
+        <div class="ca-ds-wrap" v-if="chatState.isDetailSettingsOpen"><div class="ca-ds-topbar"><div class="ca-ds-back" @click="chatState.isDetailSettingsOpen = false"><i data-lucide="chevron-left"></i></div><div class="ca-ds-top-title">聊天设置</div><div class="ca-ds-right"></div></div><div class="ca-ds-tabs-container"><div class="ca-ds-tab" :class="{active: chatState.detailSettingsTab === 'chat'}" @click="chatState.detailSettingsTab = 'chat'">聊天设置</div><div class="ca-ds-tab" :class="{active: chatState.detailSettingsTab === 'beautify'}" @click="chatState.detailSettingsTab = 'beautify'">美化设置</div><div class="ca-ds-tab" :class="{active: chatState.detailSettingsTab === 'feature'}" @click="chatState.detailSettingsTab = 'feature'">功能设置</div><div class="ca-ds-tab" :class="{active: chatState.detailSettingsTab === 'other'}" @click="chatState.detailSettingsTab = 'other'">其他设置</div></div><div class="ca-ds-content"><div v-show="chatState.detailSettingsTab === 'chat'" class="ca-ds-page"><div class="c-card">
     <div class="c-card-title">对方账号资料</div>
+    <div style="display:flex; flex-direction:column; align-items:center; margin-bottom:10px;">
+        <img :src="activeTargetPersona.avatar || defaultImg" style="width:64px; height:64px; border-radius:50%; object-fit:cover; cursor:pointer; border:2px solid var(--widget-bg-solid); box-shadow:0 4px 10px rgba(0,0,0,0.1);" @click="triggerTargetAvatarUpload">
+        <span style="font-size:10px; color:var(--text-sub); margin-top:6px;">点击更换对方头像</span>
+    </div>
     <div class="c-form-item"><label>备注名</label><input class="c-input" v-model="activeConvSettings.remarkName" placeholder="这是我给对方写的备注"></div>
     <div class="c-form-item"><label>Chat 昵称</label><input class="c-input" v-model="activeTargetPersona.chatName"></div>
     <div class="c-form-item"><label>真名</label><input class="c-input" v-model="activeTargetPersona.name"></div>
@@ -862,278 +601,27 @@
 </div>
 <div class="c-card">
     <div class="c-card-title">我的账号资料</div>
+    <div style="display:flex; flex-direction:column; align-items:center; margin-bottom:10px;">
+        <img :src="chatState.currentUser.avatar || defaultImg" style="width:64px; height:64px; border-radius:50%; object-fit:cover; cursor:pointer; border:2px solid var(--widget-bg-solid); box-shadow:0 4px 10px rgba(0,0,0,0.1);" @click="triggerMyAvatarUploadInDetail">
+        <span style="font-size:10px; color:var(--text-sub); margin-top:6px;">点击更换我的头像</span>
+    </div>
     <div class="c-form-item"><label>Chat 昵称</label><input class="c-input" v-model="chatState.currentUser.chatName"></div>
     <div class="c-form-item"><label>真名</label><input class="c-input" v-model="chatState.currentUser.name"></div>
     <div class="c-form-item"><label>人物设定</label><textarea class="c-textarea" v-model="chatState.currentUser.persona"></textarea></div>
 </div>
-            <div class="c-card">
-                <div class="c-row" style="justify-content:space-between; width:100%;"><span class="c-card-title">情侣头像</span><input type="checkbox" v-model="activeConvSettings.coupleAvatar"></div>
-                <textarea v-if="activeConvSettings.coupleAvatar" class="c-textarea" v-model="activeConvSettings.coupleAvatarDesc" placeholder="描述你们的情侣头像，让角色知道"></textarea>
-            </div>
-
-            <div class="c-card">
-                <div class="c-card-title">选择世界书注入</div>
-                <div style="display:flex; flex-wrap:wrap; gap:8px;">
-                    <label v-for="wb in state.contactsData.worldbooks" :key="wb.id" style="display:flex; align-items:center; gap:4px; font-size:12px; color:var(--text-sub);">
-                        <input type="checkbox" :value="wb.id" v-model="activeConvSettings.worldbooks"> {{ wb.keywords || '未命名设定' }}
-                    </label>
-                    <div v-if="!state.contactsData.worldbooks || state.contactsData.worldbooks.length === 0" style="font-size:12px; color:var(--text-sub);">暂无世界书，请去人脉 APP 添加</div>
-                </div>
-            </div>
-
-            <div class="c-card">
-                <div class="c-card-title">角色时间感知</div>
-                <select class="c-select" v-model="activeConvSettings.timeMode">
-                    <option value="auto">无强制时间</option>
-                    <option value="real">真实时间</option>
-                    <option value="virtual">虚拟时间</option>
-                </select>
-                <div class="c-form-item" v-if="activeConvSettings.timeMode === 'real'">
-                    <label>时区</label>
-                    <select class="c-select" v-model="activeConvSettings.realTimeZone">
-                        <option v-for="tz in timeZoneOptions" :key="tz" :value="tz">{{ tz }}</option>
-                    </select>
-                </div>
-                <div class="c-form-item" v-if="activeConvSettings.timeMode === 'virtual'">
-                    <label>虚拟时间</label>
-                    <input class="c-input" v-model="activeConvSettings.virtualTime" placeholder="例如：3024年 23:45 冬夜">
-                </div>
-            </div>
-
-            <div class="c-card">
-                <div class="c-row" style="justify-content:space-between; width:100%;"><span class="c-card-title">外语模式</span><input type="checkbox" v-model="activeConvSettings.foreignMode"></div>
-                <div class="c-form-item" v-if="activeConvSettings.foreignMode">
-                    <label>角色使用语言</label>
-                    <input class="c-input" v-model="activeConvSettings.foreignLang" placeholder="例如 English / 한국어 / 日本語">
-                </div>
-            </div>
-   
-            <div class="c-card">
-                <div class="c-row" style="justify-content:space-between; width:100%;">
-                    <span class="c-card-title">角色可自动修改自身资料</span>
-                    <input type="checkbox" v-model="activeConvSettings.allowRoleAutoEdit">
-                </div>
-                <div style="font-size:11px; color:var(--text-sub); line-height:1.7;">
-                    开启后，角色在聊天过程中如果觉得合理，可以悄悄修改自己的状态、签名、公开资料、人脉资料与手机锁屏样式。
-                </div>
-            </div>
-
-            <div class="c-card">
-                <div class="c-card-title">API 对话参数（全局同步）</div>
-                <div class="c-row" style="justify-content:space-between; width:100%;">
-                    <span>流式传输</span>
-                    <input type="checkbox" v-model="state.apiConfig.stream">
-                </div>
-                <div class="c-form-item">
-                    <label>AI 温度：{{ Number(state.apiConfig.temperature || 0.85).toFixed(2) }}</label>
-                    <input type="range" min="0" max="2" step="0.05" v-model="state.apiConfig.temperature" style="width:100%; accent-color:var(--text-main);">
-                </div>
-            </div>
-
-            <div class="c-card">
-                <div class="c-card-title">上下文记忆（当前对话）</div>
-                <div class="c-form-item">
-                    <label>注入历史聊天消息数</label>
-                    <input class="c-input" type="number" min="0" max="200" step="1" v-model="activeConvSettings.injectHistoryCount" placeholder="例如 20">
-                </div>
-                <div class="c-form-item">
-                    <label>核心记忆注入条数</label>
-                    <input class="c-input" type="number" min="0" max="200" step="1" v-model="activeConvSettings.injectMemoryCount" placeholder="例如 30">
-                </div>
-                <div style="font-size:11px; color:var(--text-sub); line-height:1.7;">
-                    填 0 表示不注入；只对当前聊天生效。
-                </div>
-            </div>
-
-        </div>
-
-        <div v-show="chatState.detailSettingsTab === 'beautify'" class="ca-ds-page">
-            <input type="file" id="ca-bg-upload-input" class="hidden-file-input" accept="image/*" @change="handleBgUpload">
-            <div class="c-card">
-                <div class="c-card-title">聊天壁纸</div>
-                <div style="display:flex; gap:8px;">
-                    <button class="c-btn-delete-ins" style="flex:1; background:var(--widget-bg-solid); color:var(--text-main);" @click="triggerBgUpload">本地上传</button>
-                    <button class="c-btn-delete-ins" style="flex:1; background:var(--widget-bg-solid); color:var(--text-main);" @click="() => { const url = prompt('输入壁纸 URL'); if(url!==null) activeConvSettings.beautify.bg = url; }">网络URL</button>
-                    <button class="c-btn-delete-ins" style="flex:1;" @click="activeConvSettings.beautify.bg = ''">重置</button>
-                </div>
-            </div>
-
-            <div class="ca-preview-box" :style="{ backgroundImage: activeConvSettings.beautify.bg ? `url(${activeConvSettings.beautify.bg})` : 'none' }">
-                <div class="ca-msg-row" :style="{ opacity: activeConvSettings.beautify.opOpacity }">
-                    <img v-if="activeConvSettings.beautify.showAvatar" :src="activeTargetPersona.avatar || defaultImg" class="ca-msg-avatar">
-                    <div style="display:flex; flex-direction:column; gap:4px;">
-                        <span v-if="activeConvSettings.beautify.showName" style="font-size:10px; color:var(--text-sub);">{{ activeConvSettings.remarkName || activeTargetPersona.name }}</span>
-                        <span v-if="activeConvSettings.beautify.showTime && activeConvSettings.beautify.timePos === 'top'" style="font-size:9px; color:var(--text-sub);">10:00</span>
-                        <div style="display:flex; align-items:center; gap:6px;">
-                            <div class="ca-msg-bubble" :style="{ background: activeConvSettings.beautify.opBg, color: activeConvSettings.beautify.opText, borderRadius: activeConvSettings.beautify.opRadius + 'px' }">你好，这是对方消息预览。</div>
-                            <span v-if="activeConvSettings.beautify.showTime && activeConvSettings.beautify.timePos === 'right'" style="font-size:9px; color:var(--text-sub);">10:00</span>
-                        </div>
-                        <span v-if="activeConvSettings.beautify.showTime && activeConvSettings.beautify.timePos === 'bottom'" style="font-size:9px; color:var(--text-sub);">10:00</span>
-                    </div>
-                </div>
-
-                <div class="ca-msg-row me" :style="{ opacity: activeConvSettings.beautify.meOpacity }">
-                    <img v-if="activeConvSettings.beautify.showAvatar" :src="chatState.currentUser.avatar || defaultImg" class="ca-msg-avatar">
-                    <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
-                        <span v-if="activeConvSettings.beautify.showName" style="font-size:10px; color:var(--text-sub);">{{ currentProfile.nickname }}</span>
-                        <span v-if="activeConvSettings.beautify.showTime && activeConvSettings.beautify.timePos === 'top'" style="font-size:9px; color:var(--text-sub);">10:01</span>
-                        <div style="display:flex; align-items:center; gap:6px; flex-direction:row-reverse;">
-                            <div class="ca-msg-bubble" :style="{ background: activeConvSettings.beautify.meBg, color: activeConvSettings.beautify.meText, borderRadius: activeConvSettings.beautify.meRadius + 'px' }">你好，这是我的消息预览。</div>
-                            <span v-if="activeConvSettings.beautify.showTime && activeConvSettings.beautify.timePos === 'right'" style="font-size:9px; color:var(--text-sub);">10:01</span>
-                        </div>
-                        <span v-if="activeConvSettings.beautify.showTime && activeConvSettings.beautify.timePos === 'bottom'" style="font-size:9px; color:var(--text-sub);">10:01</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="c-card">
-                <div class="c-card-title">界面开关</div>
-                <div class="c-row" style="justify-content:space-between; width:100%;"><label>显示头像</label><input type="checkbox" v-model="activeConvSettings.beautify.showAvatar"></div>
-                <div class="c-row" style="justify-content:space-between; width:100%;"><label>显示 Chat 昵称</label><input type="checkbox" v-model="activeConvSettings.beautify.showName"></div>
-                <div class="c-row" style="justify-content:space-between; width:100%;"><label>显示时间戳</label><input type="checkbox" v-model="activeConvSettings.beautify.showTime"></div>
-                <div class="c-form-item" v-if="activeConvSettings.beautify.showTime">
-                    <label>时间位置</label>
-                    <select class="c-select" v-model="activeConvSettings.beautify.timePos">
-                        <option value="top">头像上方/消息上方</option>
-                        <option value="bottom">头像下方/消息下方</option>
-                        <option value="right">气泡旁边</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="c-card">
-                <div class="c-card-title">对方消息气泡</div>
-                <div class="c-row"><span class="c-label">背景色</span><input type="color" v-model="activeConvSettings.beautify.opBg"></div>
-                <div class="c-row"><span class="c-label">文字色</span><input type="color" v-model="activeConvSettings.beautify.opText"></div>
-                <div class="c-row"><span class="c-label">圆角</span><input type="range" v-model="activeConvSettings.beautify.opRadius" min="0" max="32" step="1"></div>
-                <div class="c-row"><span class="c-label">透明度</span><input type="range" v-model="activeConvSettings.beautify.opOpacity" min="0.1" max="1" step="0.05"></div>
-            </div>
-
-            <div class="c-card">
-                <div class="c-card-title">我的消息气泡</div>
-                <div class="c-row"><span class="c-label">背景色</span><input type="color" v-model="activeConvSettings.beautify.meBg"></div>
-                <div class="c-row"><span class="c-label">文字色</span><input type="color" v-model="activeConvSettings.beautify.meText"></div>
-                <div class="c-row"><span class="c-label">圆角</span><input type="range" v-model="activeConvSettings.beautify.meRadius" min="0" max="32" step="1"></div>
-                <div class="c-row"><span class="c-label">透明度</span><input type="range" v-model="activeConvSettings.beautify.meOpacity" min="0.1" max="1" step="0.05"></div>
-            </div>
-
-            <div class="c-card">
-                <div class="c-row" style="justify-content:space-between; width:100%;"><span class="c-card-title">CSS 自定义</span></div>
-                <textarea class="c-textarea" v-model="activeConvSettings.beautify.customCss" placeholder="输入 css 覆盖当前聊天界面样式"></textarea>
-            </div>
-        </div>
-
-        <div v-show="chatState.detailSettingsTab === 'feature'" class="ca-ds-page">
-            <div class="c-card"><div class="c-card-title">功能设置</div><div class="c-empty">后续继续扩展</div></div>
-        </div>
-
-        <div v-show="chatState.detailSettingsTab === 'other'" class="ca-ds-page">
-            <div class="c-card"><div class="c-card-title">其他设置</div><div class="c-empty">后续继续扩展</div></div>
-        </div>
-    </div>
+<div class="c-card"><div class="c-row" style="justify-content:space-between; width:100%;"><span class="c-card-title">情侣头像</span><input type="checkbox" v-model="activeConvSettings.coupleAvatar"></div><textarea v-if="activeConvSettings.coupleAvatar" class="c-textarea" v-model="activeConvSettings.coupleAvatarDesc" placeholder="描述你们的情侣头像，让角色知道"></textarea></div><div class="c-card"><div class="c-card-title">选择世界书注入</div><div style="display:flex; flex-wrap:wrap; gap:8px;"><label v-for="wb in state.contactsData.worldbooks" :key="wb.id" style="display:flex; align-items:center; gap:4px; font-size:12px; color:var(--text-sub);"><input type="checkbox" :value="wb.id" v-model="activeConvSettings.worldbooks"> {{ wb.keywords || '未命名设定' }}</label><div v-if="!state.contactsData.worldbooks || state.contactsData.worldbooks.length === 0" style="font-size:12px; color:var(--text-sub);">暂无世界书，请去人脉 APP 添加</div></div></div><div class="c-card"><div class="c-card-title">角色时间感知</div><select class="c-select" v-model="activeConvSettings.timeMode"><option value="auto">无强制时间</option><option value="real">真实时间</option><option value="virtual">虚拟时间</option></select><div class="c-form-item" v-if="activeConvSettings.timeMode === 'real'"><label>时区</label><select class="c-select" v-model="activeConvSettings.realTimeZone"><option v-for="tz in timeZoneOptions" :key="tz" :value="tz">{{ tz }}</option></select></div><div class="c-form-item" v-if="activeConvSettings.timeMode === 'virtual'"><label>虚拟时间</label><input class="c-input" v-model="activeConvSettings.virtualTime" placeholder="例如：3024年 23:45 冬夜"></div></div><div class="c-card"><div class="c-row" style="justify-content:space-between; width:100%;"><span class="c-card-title">外语模式</span><input type="checkbox" v-model="activeConvSettings.foreignMode"></div><div class="c-form-item" v-if="activeConvSettings.foreignMode"><label>角色使用语言</label><input class="c-input" v-model="activeConvSettings.foreignLang" placeholder="例如 English / 한국어 / 日本語"></div></div><div class="c-card"><div class="c-row" style="justify-content:space-between; width:100%;"><span class="c-card-title">角色可自动修改自身资料</span><input type="checkbox" v-model="activeConvSettings.allowRoleAutoEdit"></div><div style="font-size:11px; color:var(--text-sub); line-height:1.7;">开启后，角色在聊天过程中如果觉得合理，可以悄悄修改自己的状态、签名、公开资料、人脉资料与手机锁屏样式。</div></div><div class="c-card"><div class="c-card-title">API 对话参数（全局同步）</div><div class="c-row" style="justify-content:space-between; width:100%;"><span>流式传输</span><input type="checkbox" v-model="state.apiConfig.stream"></div><div class="c-form-item"><label>AI 温度：{{ Number(state.apiConfig.temperature || 0.85).toFixed(2) }}</label><input type="range" min="0" max="2" step="0.05" v-model="state.apiConfig.temperature" style="width:100%; accent-color:var(--text-main);"></div></div><div class="c-card"><div class="c-card-title">上下文记忆（当前对话）</div><div class="c-form-item"><label>注入历史聊天消息数</label><input class="c-input" type="number" min="0" max="200" step="1" v-model="activeConvSettings.injectHistoryCount" placeholder="例如 20"></div><div class="c-form-item"><label>核心记忆注入条数</label><input class="c-input" type="number" min="0" max="200" step="1" v-model="activeConvSettings.injectMemoryCount" placeholder="例如 30"></div><div style="font-size:11px; color:var(--text-sub); line-height:1.7;">填 0 表示不注入；只对当前聊天生效。</div></div>
+<button class="c-btn-delete-ins" style="margin: 15px 0 30px;" @click="deleteCurrentContact" v-if="activeTargetPersona?.id !== 'system'"><i data-lucide="trash-2" style="width:16px;"></i> 删除联系人及聊天记录</button>
 </div>
-
-            <!-- 我的设置全屏页 -->
-            <div class="ca-settings-page" v-if="chatState.showSettings">
-            <div class="ca-settings-header"><div class="ca-settings-back" @click="chatState.settingsPage === 'home' ? closeMySettings() : openSettingsPage('home')"><i data-lucide="chevron-left" style="width:20px;"></i><span>{{ chatState.settingsPage === 'home' ? '返回' : '我的设置' }}</span></div><div class="ca-settings-title">{{ chatState.settingsPage === 'home' ? '我的设置' : chatState.settingsPage === 'profile' ? '资料编辑' : chatState.settingsPage === 'favorites' ? '收藏' : '钱包' }}</div><div class="ca-settings-header-right"></div></div><div class="ca-settings-body" v-if="chatState.settingsPage === 'home'"><div class="ca-settings-hero" @click="triggerMySettingsBgUpload" :style="{ backgroundImage: currentProfile?.bg ? `url(${currentProfile.bg})` : (chatState.currentUser?.avatar ? `url(${chatState.currentUser.avatar})` : 'none') }"></div><div class="ca-account-card-wrap"><div class="ca-account-card"><div class="ca-account-main"><img :src="chatState.currentUser?.avatar || defaultImg" class="ca-account-avatar" @click="triggerMyAvatarUpload"><div class="ca-account-text"><div class="ca-account-name-row"><input class="ca-account-name-input" v-model="currentProfile.nickname"><div class="ca-switch-btn" @click.stop="toggleSwitchMenu">切换账号</div></div><input class="ca-account-sign-input" v-model="currentProfile.signature" placeholder="写一句个性签名吧"></div><div class="ca-switch-menu" v-if="chatState.showSwitchMenu"><div class="ca-switch-item" v-for="acc in accountSwitchList" :key="acc.id" @click="switchAccount(acc.id)"><img :src="acc.avatar || defaultImg" class="ca-switch-avatar"><div class="ca-switch-info"><div class="ca-switch-name">{{ acc.name }}</div><div class="ca-switch-id">{{ acc.chatAcc }}</div></div></div></div></div></div></div><div class="ca-settings-list"><div class="ca-setting-item" @click="openSettingsPage('profile')"><div class="ca-setting-item-left"><span class="ca-setting-item-title">资料编辑</span><span class="ca-setting-item-sub">修改 Chat 资料与对外展示设置</span></div><i data-lucide="chevron-right" style="width:18px; color:var(--text-sub);"></i></div><div class="ca-setting-item" @click="openSettingsPage('favorites')"><div class="ca-setting-item-left"><span class="ca-setting-item-title">收藏</span><span class="ca-setting-item-sub">查看收藏的消息等内容</span></div><i data-lucide="chevron-right" style="width:18px; color:var(--text-sub);"></i></div><div class="ca-setting-item" @click="openSettingsPage('wallet')"><div class="ca-setting-item-left"><span class="ca-setting-item-title">钱包</span><span class="ca-setting-item-sub">查看 Chat 钱包余额</span></div><i data-lucide="chevron-right" style="width:18px; color:var(--text-sub);"></i></div></div></div><div class="ca-subpage" v-else-if="chatState.settingsPage === 'profile'"><div class="ca-card"><div class="ca-card-title">账号资料</div><div class="ca-form-item"><label>Chat ID</label><input class="ca-form-input" v-model="chatState.currentUser.chatAcc" placeholder="输入 Chat ID"></div><div class="ca-form-item"><label>Chat 昵称</label><input class="ca-form-input" v-model="chatState.currentUser.chatName" placeholder="输入 Chat 昵称"></div><div class="ca-form-item"><label>真名</label><input class="ca-form-input" v-model="chatState.currentUser.name" placeholder="输入真名"></div><div class="ca-form-item"><label>个性签名</label><textarea class="ca-form-textarea" v-model="currentProfile.signature" placeholder="输入个性签名"></textarea></div><div class="ca-form-item"><label>性别</label><input class="ca-form-input" v-model="currentProfile.gender" placeholder="输入性别"></div><div class="ca-form-item"><label>生日</label><input class="ca-form-input" v-model="currentProfile.birthday" placeholder="例如 2000-01-01"></div><div class="ca-form-item"><label>电话号</label><input class="ca-form-input" v-model="chatState.currentUser.phone" placeholder="输入电话号"></div><div class="ca-form-item"><label>邮箱</label><input class="ca-form-input" v-model="chatState.currentUser.email" placeholder="输入邮箱"></div><div class="ca-form-item"><label>我的设定</label><textarea class="ca-form-textarea" v-model="chatState.currentUser.persona" placeholder="输入我的人物设定..."></textarea></div><div style="text-align:center; font-size:11px; color:var(--text-sub); line-height:1.6; margin-top:2px;">其他 Chat 用户可知晓你已填写的资料</div><button class="ca-save-btn" @click="saveProfileEdit">保存修改</button></div></div>
-<div class="ca-subpage" v-else-if="chatState.settingsPage === 'favorites'"><div class="ca-card"><div class="ca-card-title">收藏内容</div><div v-if="myFavorites.length === 0" class="ca-empty-box">暂无收藏的消息或内容</div><div class="ca-list" v-else><div class="ca-list-item" v-for="(fav, index) in myFavorites" :key="index"><div class="ca-item-info"><div class="ca-item-name">{{ fav.title || '收藏内容' }}</div><div class="ca-item-msg">{{ fav.content || '' }}</div></div></div></div></div></div><div class="ca-subpage" v-else-if="chatState.settingsPage === 'wallet'"><div class="ca-card"><div class="ca-card-title">Chat 钱包</div><div class="ca-wallet-balance">¥ {{ Number(myWallet.balance || 0).toFixed(2) }}</div><div class="ca-wallet-sub">当前钱包余额</div></div></div></div>
-        </div>
-            <!-- 联系人资料卡页 -->
-            <div class="ca-fp-page" v-if="chatState.friendProfileOpen && activeFriendProfile">
-                <div class="ca-fp-header">
-                    <div class="ca-fp-back" @click="closeFriendProfile"><i data-lucide="chevron-left" style="width:20px;"></i></div>
-                    <div></div>
-                </div>
-
-                <div class="ca-fp-body">
-<div class="ca-fp-hero" @click="triggerFriendProfileBgUpload" :style="{ backgroundImage: activeFriendProfile.profileBg ? `url(${activeFriendProfile.profileBg})` : 'none' }"></div>
-                    <div class="ca-fp-profile-top">
-                        <img :src="activeFriendProfile.avatar || defaultImg" class="ca-fp-avatar">
-                        <div class="ca-fp-name">{{ activeFriendProfile.displayName }}</div>
-                        <div class="ca-fp-sub">{{ activeFriendProfile.signature || activeFriendProfile.persona || '这个人很神秘' }}</div>
-                    </div>
-
-                    <div class="ca-fp-section">
-                        <div class="ca-fp-section-title">MOMENTS</div>
-                        <div class="ca-fp-card ca-fp-moments-card">
-                            <template v-if="activeFriendMomentPreview && activeFriendMomentPreview.length">
-                                <div class="ca-fp-moment-item" v-for="(moment, index) in activeFriendMomentPreview" :key="moment.id || index" @click="openFriendMoments(activeFriendProfile.id)">
-                                    <div class="ca-fp-moment-text">{{ moment.text || '' }}</div>
-                                    <div class="ca-fp-moment-meta">{{ moment.time || '刚刚' }}</div>
-                                </div>
-                                <div class="ca-fp-moment-more" @click="openFriendMoments(activeFriendProfile.id)">查看全部动态</div>
-                            </template>
-                            <div v-else class="ca-fp-empty">TA 还没有发布动态</div>
-                        </div>
-                    </div>
-
-                    <div class="ca-fp-section">
-                        <div class="ca-fp-section-head">
-                            <div class="ca-fp-section-title">PUBLIC PROFILE</div>
-                            <button class="ca-fp-ai-btn" @click="generateActiveFriendPublicProfile">让{{ activeFriendProfile.displayName || activeFriendProfile.name || '角色' }}设置</button>
-                        </div>
-                        <div class="ca-fp-card ca-fp-public-card">
-                            <div class="ca-fp-info-row" v-if="activeFriendProfile.publicCard?.mbti">
-                                <div class="ca-fp-info-label">MBTI</div>
-                                <div class="ca-fp-info-value">{{ activeFriendProfile.publicCard.mbti }}</div>
-                            </div>
-                            <div class="ca-fp-info-row" v-if="activeFriendProfile.publicCard?.city">
-                                <div class="ca-fp-info-label">城市</div>
-                                <div class="ca-fp-info-value">{{ activeFriendProfile.publicCard.city }}</div>
-                            </div>
-                            <div class="ca-fp-info-row" v-if="activeFriendProfile.publicCard?.job">
-                                <div class="ca-fp-info-label">职业</div>
-                                <div class="ca-fp-info-value">{{ activeFriendProfile.publicCard.job }}</div>
-                            </div>
-                            <div class="ca-fp-info-row" v-if="activeFriendProfile.publicCard?.school">
-                                <div class="ca-fp-info-label">学校</div>
-                                <div class="ca-fp-info-value">{{ activeFriendProfile.publicCard.school }}</div>
-                            </div>
-                            <div class="ca-fp-info-row" v-if="activeFriendProfile.publicCard?.hobby">
-                                <div class="ca-fp-info-label">兴趣</div>
-                                <div class="ca-fp-info-value">{{ activeFriendProfile.publicCard.hobby }}</div>
-                            </div>
-                            <div class="ca-fp-info-row" v-if="activeFriendProfile.publicCard?.intro">
-                                <div class="ca-fp-info-label">简介</div>
-                                <div class="ca-fp-info-value">{{ activeFriendProfile.publicCard.intro }}</div>
-                            </div>
-                            <div class="ca-fp-info-row" v-if="!activeFriendProfile.publicCard?.mbti && !activeFriendProfile.publicCard?.city && !activeFriendProfile.publicCard?.job && !activeFriendProfile.publicCard?.school && !activeFriendProfile.publicCard?.hobby && !activeFriendProfile.publicCard?.intro">
-                                <div class="ca-fp-info-value" style="text-align:center; color:var(--text-sub);">TA 暂未公开更多资料</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 联系人动态页 -->
-            <div class="ca-fm-page" v-if="chatState.friendMomentsOpen && activeFriendProfile">
-                <div class="ca-fm-header">
-                    <div class="ca-fm-back" @click="closeFriendMoments()"><i data-lucide="chevron-left" style="width:20px;"></i></div>
-                    <div style="flex:1; text-align:center; color:var(--text-main); font-size:15px; font-weight:700;">{{ activeFriendProfile.displayName }} 的动态</div>
-                    <div style="width:36px;"></div>
-                </div>
-
-                <div class="ca-fm-body">
-                    <div v-if="!activeFriendMoments || activeFriendMoments.length === 0" class="ca-empty-box">TA 还没有发布动态</div>
-
-                    <div class="ca-fm-list" v-else>
-                        <div class="ca-fm-item" v-for="(moment, index) in activeFriendMoments" :key="moment.id || index">
-                            <div class="ca-fm-head">
-                                <img :src="activeFriendProfile.avatar || defaultImg" class="ca-fm-avatar">
-                                <div class="ca-fm-head-main">
-                                    <div class="ca-fm-name">{{ activeFriendProfile.displayName }}</div>
-                                    <div class="ca-fm-time">{{ moment.time || '刚刚' }}</div>
-                                </div>
-                            </div>
-                            <div class="ca-fm-text">{{ moment.text || '' }}</div>
-                            <img v-if="moment.image" :src="moment.image" class="ca-fm-media">
-                        </div>
-                    </div>
-                </div>
-            </div>
-
+<div v-show="chatState.detailSettingsTab === 'beautify'" class="ca-ds-page"><input type="file" id="ca-bg-upload-input" class="hidden-file-input" accept="image/*" @change="handleBgUpload"><div class="c-card"><div class="c-card-title">聊天壁纸</div><div style="display:flex; gap:8px;"><button class="c-btn-delete-ins" style="flex:1; background:var(--widget-bg-solid); color:var(--text-main);" @click="triggerBgUpload">本地上传</button><button class="c-btn-delete-ins" style="flex:1; background:var(--widget-bg-solid); color:var(--text-main);" @click="() => { const url = prompt('输入壁纸 URL'); if(url!==null) activeConvSettings.beautify.bg = url; }">网络URL</button><button class="c-btn-delete-ins" style="flex:1;" @click="activeConvSettings.beautify.bg = ''">重置</button></div></div><div class="ca-preview-box" :style="{ backgroundImage: activeConvSettings.beautify.bg ? `url(${activeConvSettings.beautify.bg})` : 'none' }"><div class="ca-msg-row" :style="{ opacity: activeConvSettings.beautify.opOpacity }"><img v-if="activeConvSettings.beautify.showAvatar" :src="activeTargetPersona.avatar || defaultImg" class="ca-msg-avatar"><div style="display:flex; flex-direction:column; gap:4px;"><span v-if="activeConvSettings.beautify.showName" style="font-size:10px; color:var(--text-sub);">{{ activeConvSettings.remarkName || activeTargetPersona.name }}</span><span v-if="activeConvSettings.beautify.showTime && activeConvSettings.beautify.timePos === 'top'" style="font-size:9px; color:var(--text-sub);">10:00</span><div style="display:flex; align-items:center; gap:6px;"><div class="ca-msg-bubble" :style="{ background: activeConvSettings.beautify.opBg, color: activeConvSettings.beautify.opText, borderRadius: activeConvSettings.beautify.opRadius + 'px' }">你好，这是对方消息预览。</div><span v-if="activeConvSettings.beautify.showTime && activeConvSettings.beautify.timePos === 'right'" style="font-size:9px; color:var(--text-sub);">10:00</span></div><span v-if="activeConvSettings.beautify.showTime && activeConvSettings.beautify.timePos === 'bottom'" style="font-size:9px; color:var(--text-sub);">10:00</span></div></div><div class="ca-msg-row me" :style="{ opacity: activeConvSettings.beautify.meOpacity }"><img v-if="activeConvSettings.beautify.showAvatar" :src="chatState.currentUser.avatar || defaultImg" class="ca-msg-avatar"><div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;"><span v-if="activeConvSettings.beautify.showName" style="font-size:10px; color:var(--text-sub);">{{ currentProfile.nickname }}</span><span v-if="activeConvSettings.beautify.showTime && activeConvSettings.beautify.timePos === 'top'" style="font-size:9px; color:var(--text-sub);">10:01</span><div style="display:flex; align-items:center; gap:6px; flex-direction:row-reverse;"><div class="ca-msg-bubble" :style="{ background: activeConvSettings.beautify.meBg, color: activeConvSettings.beautify.meText, borderRadius: activeConvSettings.beautify.meRadius + 'px' }">你好，这是我的消息预览。</div><span v-if="activeConvSettings.beautify.showTime && activeConvSettings.beautify.timePos === 'right'" style="font-size:9px; color:var(--text-sub);">10:01</span></div><span v-if="activeConvSettings.beautify.showTime && activeConvSettings.beautify.timePos === 'bottom'" style="font-size:9px; color:var(--text-sub);">10:01</span></div></div></div><div class="c-card"><div class="c-card-title">界面开关</div><div class="c-row" style="justify-content:space-between; width:100%;"><label>显示头像</label><input type="checkbox" v-model="activeConvSettings.beautify.showAvatar"></div><div class="c-row" style="justify-content:space-between; width:100%;"><label>显示 Chat 昵称</label><input type="checkbox" v-model="activeConvSettings.beautify.showName"></div><div class="c-row" style="justify-content:space-between; width:100%;"><label>显示时间戳</label><input type="checkbox" v-model="activeConvSettings.beautify.showTime"></div><div class="c-form-item" v-if="activeConvSettings.beautify.showTime"><label>时间位置</label><select class="c-select" v-model="activeConvSettings.beautify.timePos"><option value="top">头像上方/消息上方</option><option value="bottom">头像下方/消息下方</option><option value="right">气泡旁边</option></select></div></div><div class="c-card"><div class="c-card-title">对方消息气泡</div><div class="c-row"><span class="c-label">背景色</span><input type="color" v-model="activeConvSettings.beautify.opBg"></div><div class="c-row"><span class="c-label">文字色</span><input type="color" v-model="activeConvSettings.beautify.opText"></div><div class="c-row"><span class="c-label">圆角</span><input type="range" v-model="activeConvSettings.beautify.opRadius" min="0" max="32" step="1"></div><div class="c-row"><span class="c-label">透明度</span><input type="range" v-model="activeConvSettings.beautify.opOpacity" min="0.1" max="1" step="0.05"></div></div><div class="c-card"><div class="c-card-title">我的消息气泡</div><div class="c-row"><span class="c-label">背景色</span><input type="color" v-model="activeConvSettings.beautify.meBg"></div><div class="c-row"><span class="c-label">文字色</span><input type="color" v-model="activeConvSettings.beautify.meText"></div><div class="c-row"><span class="c-label">圆角</span><input type="range" v-model="activeConvSettings.beautify.meRadius" min="0" max="32" step="1"></div><div class="c-row"><span class="c-label">透明度</span><input type="range" v-model="activeConvSettings.beautify.meOpacity" min="0.1" max="1" step="0.05"></div></div><div class="c-card"><div class="c-row" style="justify-content:space-between; width:100%;"><span class="c-card-title">CSS 自定义</span></div><textarea class="c-textarea" v-model="activeConvSettings.beautify.customCss" placeholder="输入 css 覆盖当前聊天界面样式"></textarea></div></div><div v-show="chatState.detailSettingsTab === 'feature'" class="ca-ds-page"><div class="c-card"><div class="c-card-title">功能设置</div><div class="c-empty">后续继续扩展</div></div></div><div v-show="chatState.detailSettingsTab === 'other'" class="ca-ds-page"><div class="c-card"><div class="c-card-title">其他设置</div><div class="c-empty">后续继续扩展</div></div></div></div></div>
+        
+        <div class="ca-settings-page" v-if="chatState.showSettings"><div v-if="chatState.bgGenStatus !== 'idle'" class="ca-bg-capsule" :class="{ error: chatState.bgGenStatus === 'error', success: chatState.bgGenStatus === 'success' }" style="top: 30px;"><i v-if="chatState.bgGenStatus === 'loading'" data-lucide="loader-2" style="width:16px; animation: spin 1s linear infinite;"></i><i v-if="chatState.bgGenStatus === 'success'" data-lucide="check-circle" style="width:16px;"></i><i v-if="chatState.bgGenStatus === 'error'" data-lucide="x-circle" style="width:16px;"></i>{{ chatState.bgGenStatus === 'loading' ? '正在读取数据中…' : (chatState.bgGenStatus === 'success' ? '读取成功' : '读取失败') }}</div><div v-if="chatState.bgSummaryStatus !== 'idle'" class="ca-bg-capsule" :class="{ error: chatState.bgSummaryStatus === 'error', success: chatState.bgSummaryStatus === 'success' }" style="top: 75px;" @click="chatState.bgSummaryStatus === 'error' ? retrySummarizeNpcBackground() : null"><i v-if="chatState.bgSummaryStatus === 'loading'" data-lucide="loader-2" style="width:16px; animation: spin 1s linear infinite;"></i><i v-if="chatState.bgSummaryStatus === 'success'" data-lucide="check-circle" style="width:16px;"></i><i v-if="chatState.bgSummaryStatus === 'error'" data-lucide="refresh-cw" style="width:16px;"></i>{{ chatState.bgSummaryStatus === 'loading' ? '正在生成记忆总结…' : (chatState.bgSummaryStatus === 'success' ? '总结成功' : '总结失败，点击重试') }}</div><div class="ca-settings-header"><div class="ca-settings-back" :style="{ opacity: (chatState.bgGenStatus === 'loading' || chatState.bgSummaryStatus === 'loading') ? 0.3 : 1, pointerEvents: (chatState.bgGenStatus === 'loading' || chatState.bgSummaryStatus === 'loading') ? 'none' : 'auto' }" @click="chatState.settingsPage === 'home' ? closeMySettings() : openSettingsPage('home')"><i data-lucide="chevron-left" style="width:20px;"></i><span>{{ chatState.settingsPage === 'home' ? '返回' : '我的设置' }}</span></div>
+<div class="ca-settings-title">{{ chatState.settingsPage === 'home' ? '我的设置' : chatState.settingsPage === 'profile' ? '资料编辑' : chatState.settingsPage === 'favorites' ? '收藏' : '钱包' }}</div><div class="ca-settings-header-right"></div></div><div class="ca-settings-body" v-if="chatState.settingsPage === 'home'"><div class="ca-settings-hero" @click="triggerMySettingsBgUpload" :style="{ backgroundImage: currentProfile?.bg ? `url(${currentProfile.bg})` : (chatState.currentUser?.avatar ? `url(${chatState.currentUser.avatar})` : 'none') }"></div><div class="ca-account-card-wrap"><div class="ca-account-card"><div class="ca-account-main"><img :src="chatState.currentUser?.avatar || defaultImg" class="ca-account-avatar" @click="triggerMyAvatarUpload"><div class="ca-account-text"><div class="ca-account-name-row"><input class="ca-account-name-input" v-model="currentProfile.nickname"><div class="ca-switch-btn" @click.stop="toggleSwitchMenu">切换账号</div></div><input class="ca-account-sign-input" v-model="currentProfile.signature" placeholder="写一句个性签名吧"></div><div class="ca-switch-menu" v-if="chatState.showSwitchMenu"><div class="ca-switch-item" v-for="acc in accountSwitchList" :key="acc.id" @click="switchAccount(acc.id)"><img :src="acc.avatar || defaultImg" class="ca-switch-avatar"><div class="ca-switch-info"><div class="ca-switch-name">{{ acc.name }}</div><div class="ca-switch-id">{{ acc.chatAcc }}</div></div></div></div></div></div></div><div class="ca-settings-list"><div class="ca-setting-item" @click="openSettingsPage('profile')"><div class="ca-setting-item-left"><span class="ca-setting-item-title">资料编辑</span><span class="ca-setting-item-sub">修改 Chat 资料与对外展示设置</span></div><i data-lucide="chevron-right" style="width:18px; color:var(--text-sub);"></i></div><div class="ca-setting-item" @click="openSettingsPage('favorites')"><div class="ca-setting-item-left"><span class="ca-setting-item-title">收藏</span><span class="ca-setting-item-sub">查看收藏的消息等内容</span></div><i data-lucide="chevron-right" style="width:18px; color:var(--text-sub);"></i></div><div class="ca-setting-item" @click="openSettingsPage('wallet')"><div class="ca-setting-item-left"><span class="ca-setting-item-title">钱包</span><span class="ca-setting-item-sub">查看 Chat 钱包余额</span></div><i data-lucide="chevron-right" style="width:18px; color:var(--text-sub);"></i></div></div></div><div class="ca-subpage" v-else-if="chatState.settingsPage === 'profile'"><div class="ca-card"><div class="ca-card-title">账号资料</div><div class="ca-form-item"><label>Chat ID</label><input class="ca-form-input" v-model="chatState.currentUser.chatAcc" placeholder="输入 Chat ID"></div><div class="ca-form-item"><label>Chat 昵称</label><input class="ca-form-input" v-model="chatState.currentUser.chatName" placeholder="输入 Chat 昵称"></div><div class="ca-form-item"><label>真名</label><input class="ca-form-input" v-model="chatState.currentUser.name" placeholder="输入真名"></div><div class="ca-form-item"><label>个性签名</label><textarea class="ca-form-textarea" v-model="currentProfile.signature" placeholder="输入个性签名"></textarea></div><div class="ca-form-item"><label>性别</label><input class="ca-form-input" v-model="currentProfile.gender" placeholder="输入性别"></div><div class="ca-form-item"><label>生日</label><input class="ca-form-input" v-model="currentProfile.birthday" placeholder="例如 2000-01-01"></div><div class="ca-form-item"><label>电话号</label><input class="ca-form-input" v-model="chatState.currentUser.phone" placeholder="输入电话号"></div><div class="ca-form-item"><label>邮箱</label><input class="ca-form-input" v-model="chatState.currentUser.email" placeholder="输入邮箱"></div><div class="ca-form-item"><label>我的设定</label><textarea class="ca-form-textarea" v-model="chatState.currentUser.persona" placeholder="输入我的人物设定..."></textarea></div><div style="text-align:center; font-size:11px; color:var(--text-sub); line-height:1.6; margin-top:2px;">其他 Chat 用户可知晓你已填写的资料</div><button class="ca-save-btn" @click="saveProfileEdit">保存修改</button></div></div><div class="ca-subpage" v-else-if="chatState.settingsPage === 'favorites'"><div class="ca-card"><div class="ca-card-title">收藏内容</div><div v-if="myFavorites.length === 0" class="ca-empty-box">暂无收藏的消息或内容</div><div class="ca-list" v-else><div class="ca-list-item" v-for="(fav, index) in myFavorites" :key="index"><div class="ca-item-info"><div class="ca-item-name">{{ fav.title || '收藏内容' }}</div><div class="ca-item-msg">{{ fav.content || '' }}</div></div></div></div></div></div><div class="ca-subpage" v-else-if="chatState.settingsPage === 'wallet'"><div class="ca-card"><div class="ca-card-title">Chat 钱包</div><div class="ca-wallet-balance">¥ {{ Number(myWallet.balance || 0).toFixed(2) }}</div><div class="ca-wallet-sub">当前钱包余额</div></div></div></div>
+        
+        <div class="ca-fp-page" v-if="chatState.friendProfileOpen && activeFriendProfile"><div class="ca-fp-header"><div class="ca-fp-back" @click="closeFriendProfile"><i data-lucide="chevron-left" style="width:20px;"></i></div><div></div></div><div class="ca-fp-body"><div class="ca-fp-hero" @click="triggerFriendProfileBgUpload" :style="{ backgroundImage: activeFriendProfile.profileBg ? `url(${activeFriendProfile.profileBg})` : 'none' }"></div><div class="ca-fp-profile-top"><img :src="activeFriendProfile.avatar || defaultImg" class="ca-fp-avatar"><div class="ca-fp-name">{{ activeFriendProfile.displayName }}</div><div class="ca-fp-sub">{{ activeFriendProfile.signature || activeFriendProfile.persona || '这个人很神秘' }}</div></div><div class="ca-fp-section"><div class="ca-fp-section-title">MOMENTS</div><div class="ca-fp-card ca-fp-moments-card"><template v-if="activeFriendMomentPreview && activeFriendMomentPreview.length"><div class="ca-fp-moment-item" v-for="(moment, index) in activeFriendMomentPreview" :key="moment.id || index" @click="openFriendMoments(activeFriendProfile.id)"><div class="ca-fp-moment-text">{{ moment.text || '' }}</div><div class="ca-fp-moment-meta">{{ moment.time || '刚刚' }}</div></div><div class="ca-fp-moment-more" @click="openFriendMoments(activeFriendProfile.id)">查看全部动态</div></template><div v-else class="ca-fp-empty">TA 还没有发布动态</div></div></div><div class="ca-fp-section"><div class="ca-fp-section-head"><div class="ca-fp-section-title">PUBLIC PROFILE</div><button class="ca-fp-ai-btn" @click="generateActiveFriendPublicProfile">让{{ activeFriendProfile.displayName || activeFriendProfile.name || '角色' }}设置</button></div><div class="ca-fp-card ca-fp-public-card"><div class="ca-fp-info-row" v-if="activeFriendProfile.publicCard?.mbti"><div class="ca-fp-info-label">MBTI</div><div class="ca-fp-info-value">{{ activeFriendProfile.publicCard.mbti }}</div></div><div class="ca-fp-info-row" v-if="activeFriendProfile.publicCard?.city"><div class="ca-fp-info-label">城市</div><div class="ca-fp-info-value">{{ activeFriendProfile.publicCard.city }}</div></div><div class="ca-fp-info-row" v-if="activeFriendProfile.publicCard?.job"><div class="ca-fp-info-label">职业</div><div class="ca-fp-info-value">{{ activeFriendProfile.publicCard.job }}</div></div><div class="ca-fp-info-row" v-if="activeFriendProfile.publicCard?.school"><div class="ca-fp-info-label">学校</div><div class="ca-fp-info-value">{{ activeFriendProfile.publicCard.school }}</div></div><div class="ca-fp-info-row" v-if="activeFriendProfile.publicCard?.hobby"><div class="ca-fp-info-label">兴趣</div><div class="ca-fp-info-value">{{ activeFriendProfile.publicCard.hobby }}</div></div><div class="ca-fp-info-row" v-if="activeFriendProfile.publicCard?.intro"><div class="ca-fp-info-label">简介</div><div class="ca-fp-info-value">{{ activeFriendProfile.publicCard.intro }}</div></div><div class="ca-fp-info-row" v-if="!activeFriendProfile.publicCard?.mbti && !activeFriendProfile.publicCard?.city && !activeFriendProfile.publicCard?.job && !activeFriendProfile.publicCard?.school && !activeFriendProfile.publicCard?.hobby && !activeFriendProfile.publicCard?.intro"><div class="ca-fp-info-value" style="text-align:center; color:var(--text-sub);">TA 暂未公开更多资料</div></div></div></div></div></div>
+        <div class="ca-fm-page" v-if="chatState.friendMomentsOpen && activeFriendProfile"><div class="ca-fm-header"><div class="ca-fm-back" @click="closeFriendMoments()"><i data-lucide="chevron-left" style="width:20px;"></i></div><div style="flex:1; text-align:center; color:var(--text-main); font-size:15px; font-weight:700;">{{ activeFriendProfile.displayName }} 的动态</div><div style="width:36px;"></div></div><div class="ca-fm-body"><div v-if="!activeFriendMoments || activeFriendMoments.length === 0" class="ca-empty-box">TA 还没有发布动态</div><div class="ca-fm-list" v-else><div class="ca-fm-item" v-for="(moment, index) in activeFriendMoments" :key="moment.id || index"><div class="ca-fm-head"><img :src="activeFriendProfile.avatar || defaultImg" class="ca-fm-avatar"><div class="ca-fm-head-main"><div class="ca-fm-name">{{ activeFriendProfile.displayName }}</div><div class="ca-fm-time">{{ moment.time || '刚刚' }}</div></div></div><div class="ca-fm-text">{{ moment.text || '' }}</div><img v-if="moment.image" :src="moment.image" class="ca-fm-media"></div></div></div></div>
         <div class="c-modal-centered" v-if="chatState.modals.addFriend" @click.self="chatState.modals.addFriend = false"><div class="c-modal-centered-content"><h4 style="text-align:center; font-size:16px; color:var(--text-main); font-weight:700;">添加好友</h4><div class="c-form-item"><label>对方手机号 / Chat ID</label><input class="c-input" v-model="chatState.addFriendAcc" placeholder="请输入对方手机号或 Chat ID..."></div><div style="display:flex; gap:10px; margin-top:5px;"><button class="c-add-rel-btn" style="flex:1; margin:0; background:var(--widget-bg); color:var(--text-main);" @click="chatState.modals.addFriend = false">取消</button><button class="c-add-rel-btn" style="flex:1; margin:0; background:var(--text-main); color:var(--bg-color);" @click="confirmAddFriend">搜索并添加</button></div></div></div>
         <div class="c-modal-centered" v-if="chatState.modals.setCategory" @click.self="chatState.modals.setCategory = false"><div class="c-modal-centered-content"><h4 style="text-align:center; font-size:16px; color:var(--text-main); font-weight:700;">设置联系人分类</h4><div class="c-form-item"><label>选择分类</label><select class="c-select" v-model="chatState.selectedCategoryId"><option value="">(无分类)</option><option v-for="cat in chatDb.accounts[chatState.currentUser.id].categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option></select></div><div style="display:flex; gap:10px; margin-top:5px;"><button class="c-add-rel-btn" style="flex:1; margin:0; background:var(--widget-bg); color:var(--text-main);" @click="chatState.modals.setCategory = false">取消</button><button class="c-add-rel-btn" style="flex:1; margin:0; background:var(--text-main); color:var(--bg-color);" @click="saveContactCategory">确认修改</button></div></div></div>
+        <div class="c-modal-centered" v-if="chatState.modals.newFriends" @click.self="chatState.modals.newFriends = false"><div class="c-modal-centered-content" style="padding:0; overflow:hidden;"><div style="padding:15px; text-align:center; font-weight:700; border-bottom:1px solid rgba(150,150,150,0.1);">新的朋友</div><div style="max-height:400px; overflow-y:auto; padding:15px;"><div v-if="myFriendRequests.length === 0" class="c-empty">暂无好友申请</div><div class="ca-req-item" v-for="req in myFriendRequests" :key="req.id"><div class="ca-req-header"><div class="ca-req-user"><img :src="state.contactsData.characters?.find(c => c.id === req.fromId)?.avatar || state.contactsData.myPersonas?.find(c => c.id === req.fromId)?.avatar || defaultImg" class="ca-req-avatar"><span class="ca-req-name">{{ chatDb.accounts[req.fromId]?.profile?.nickname || state.contactsData.characters?.find(c => c.id === req.fromId)?.name || '未知用户' }}</span></div><div class="ca-req-status" v-if="req.status !== 'pending'">{{ req.status === 'accepted' ? '已添加' : '已拒绝' }}</div></div><div class="ca-req-text">“{{ req.text }}”</div><div class="ca-req-actions" v-if="req.status === 'pending'"><button class="ca-req-btn reject" @click="req.status = 'rejected'">拒绝</button><button class="ca-req-btn accept" @click="acceptFriendRequest(req)">同意</button></div></div></div></div></div>
     </div>
 
     <!-- Blog APP 视图 -->
@@ -1151,7 +639,7 @@
                     <i data-lucide="chevron-down" style="width:16px;"></i>
                 </div>
                 <div class="ca-dropdown" v-if="blogState.showAccountMenu" @click.self="blogState.showAccountMenu=false" style="right:20px; top:60px;">
-                    <div class="ca-dropdown-item" v-for="acc in availableAccounts" :key="acc.id" @click="switchAccount(acc.id)">
+                    <div class="ca-dropdown-item" v-for="acc in availableAccounts" :key="acc.id" @click="blogSwitchAccount(acc.id)">
                         <i :data-lucide="acc.type === 'personal' ? 'user' : 'heart'" style="width:16px;"></i> {{ acc.name }}
                     </div>
                 </div>
@@ -1191,7 +679,7 @@
                     <div class="bl-post-text">{{ post.text }}</div>
                     
                     <div class="bl-actions">
-                        <div class="bl-action-btn" :class="{liked: post.likes.includes('me')}" @click="toggleLike(post)">
+                        <div class="bl-action-btn" :class="{liked: post.likes.includes('me')}" @click="blogToggleLike(post)">
                             <i data-lucide="heart" :fill="post.likes.includes('me') ? '#ff4d4f' : 'none'"></i>
                             <span class="bl-action-text">{{ post.likes.length || '赞' }}</span>
                         </div>

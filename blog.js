@@ -74,7 +74,7 @@ window.useBlogLogic = function(state, contactsMethods, chatMethods) {
     });
 
     // 切换账号
-    const switchAccount = (id) => {
+    const blogSwitchAccount = (id) => {
         blogState.currentAccountId = id;
         blogState.showAccountMenu = false;
         refreshIcons();
@@ -108,7 +108,7 @@ window.useBlogLogic = function(state, contactsMethods, chatMethods) {
     };
 
     // 点赞
-    const toggleLike = (post) => {
+    const blogToggleLike = (post) => {
         const myId = 'me';
         const idx = post.likes.indexOf(myId);
         if (idx > -1) post.likes.splice(idx, 1);
@@ -183,9 +183,9 @@ window.useBlogLogic = function(state, contactsMethods, chatMethods) {
         availableAccounts,
         currentAccount,
         feedPosts,
-        switchAccount,
+        blogSwitchAccount,
         publishPost,
-        toggleLike,
+        blogToggleLike,
         sendComment,
         getPersona,
         createCoupleBlog,
