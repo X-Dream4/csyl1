@@ -63,7 +63,7 @@ createApp({
             if (saveTimeout) clearTimeout(saveTimeout);
             saveTimeout = setTimeout(() => {
                 localforage.setItem('ins_desktop_v8_state', JSON.parse(JSON.stringify(newState))); 
-            }, 2000); // 延迟 2000 毫秒 (2秒) 保存，极大降低性能负担
+            }, 8000); // 延迟 8000 毫秒 (8秒) 保存，极大降低频繁读写的内存损耗
         }, { deep: true });
 
         const updateClock = () => { const now = new Date(); currentDate.value = now; secDeg.value = now.getSeconds() * 6; minDeg.value = now.getMinutes() * 6 + now.getSeconds() * 0.1; hrDeg.value = (now.getHours() % 12) * 30 + now.getMinutes() * 0.5; requestAnimationFrame(updateClock); };
