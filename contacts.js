@@ -2,10 +2,10 @@ window.useContactsLogic = function(state) {
     const { ref, reactive, computed, watch, nextTick } = Vue;
 
     const contactsTab = ref('chars');
-    const modals = reactive({ char: false, world: false, wb: false, wbCat: false, relSelect: false, relEdit: false });
+    const modals = reactive({ char: false, world: false, wb: false, wbCat: false, relSelect: false, relEdit: false, npc: false });
 
     const charForm = reactive({ isMe: false, worldId: '', name: '', avatar: '', persona: '', phoneLockType: 'num' });
-    const wbForm = reactive({ categoryId: '', keywords: '', content: '' });
+    const wbForm = reactive({ id: '', categoryId: '', name: '', keywords: '', content: '' });
 
     const activeChar = ref(null);
 
@@ -13,7 +13,7 @@ window.useContactsLogic = function(state) {
 
     const canvasRef = ref(null);
     const selectedNodeId = ref(null);
-    const canvasPan = reactive({ x: 0, y: 0 }); // 新增画板移动坐标
+    const canvasPan = reactive({ x: 0, y: 0 }); 
     let isPanning = false;
     let panStart = { x: 0, y: 0 };
     
@@ -53,16 +53,16 @@ window.useContactsLogic = function(state) {
         }
     };
 
-const openAddChar = (isMe = false) => {
-    if (!worlds.value.length) return alert('请先新建一个世界分类！');
-    charForm.isMe = isMe;
-    charForm.worldId = worlds.value[0]?.id || '';
-    charForm.name = '';
-    charForm.avatar = '';
-    charForm.persona = '';
-    charForm.phoneLockType = 'num';
-    modals.char = true;
-};
+    const openAddChar = (isMe = false) => {
+        if (!worlds.value.length) return alert('请先新建一个世界分类！');
+        charForm.isMe = isMe;
+        charForm.worldId = worlds.value[0]?.id || '';
+        charForm.name = '';
+        charForm.avatar = '';
+        charForm.persona = '';
+        charForm.phoneLockType = 'num';
+        modals.char = true;
+    };
 
     const triggerAvatarUpload = (targetObj) => {
         const input = document.createElement('input');
@@ -82,13 +82,13 @@ const openAddChar = (isMe = false) => {
         if (!charForm.worldId) return alert('请选择所属的世界分类');
         if (!charForm.name.trim()) return alert('请输入姓名');
 
-const newChar = {
-    id: 'char_' + Date.now(), isMe: charForm.isMe, worldId: charForm.worldId,
-    name: charForm.name.trim(), chatName: charForm.name.trim(), avatar: charForm.avatar,
-    persona: charForm.persona.trim(), phone: '', email: '', chatAcc: '', chatPwd: '',
-    phoneLockType: charForm.phoneLockType || 'num',
-    lockPwdNum: '', lockPwdPat: '', lockPwdQA_Q: '', lockPwdQA_A: ''
-};
+        const newChar = {
+            id: 'char_' + Date.now(), isMe: charForm.isMe, worldId: charForm.worldId,
+            name: charForm.name.trim(), chatName: charForm.name.trim(), avatar: charForm.avatar,
+            persona: charForm.persona.trim(), phone: '', email: '', chatAcc: '', chatPwd: '',
+            phoneLockType: charForm.phoneLockType || 'num',
+            lockPwdNum: '', lockPwdPat: '', lockPwdQA_Q: '', lockPwdQA_A: ''
+        };
 
         if (charForm.isMe) {
             if (!contactsDb.value.myPersonas) contactsDb.value.myPersonas = [];
@@ -102,20 +102,51 @@ const newChar = {
 
     const openAddWb = () => {
         if (!wbCategories.value.length) return alert('请先新建世界书分类！');
+        wbForm.id = '';
         wbForm.categoryId = wbCategories.value[0]?.id || '';
+        wbForm.name = '';
         wbForm.keywords = '';
         wbForm.content = '';
         modals.wb = true;
     };
 
+    const openEditWb = (wb) => {
+        wbForm.id = wb.id;
+        wbForm.categoryId = wb.categoryId;
+        wbForm.name = wb.name || '';
+        wbForm.keywords = wb.keywords || '';
+        wbForm.content = wb.content || '';
+        modals.wb = true;
+    };
+
     const saveWb = () => {
         if (!wbForm.categoryId) return alert('请选择分类');
+        if (!wbForm.name.trim()) return alert('请输入世界书名称');
         if (!wbForm.content.trim()) return alert('内容不能为空');
         if (!contactsDb.value.worldbooks) contactsDb.value.worldbooks = [];
-        contactsDb.value.worldbooks.unshift({
-            id: 'wb_' + Date.now(), categoryId: wbForm.categoryId, keywords: wbForm.keywords.trim(), content: wbForm.content.trim()
-        });
+
+        if (wbForm.id) {
+            const target = contactsDb.value.worldbooks.find(w => w.id === wbForm.id);
+            if (target) {
+                target.categoryId = wbForm.categoryId;
+                target.name = wbForm.name.trim();
+                target.keywords = wbForm.keywords.trim();
+                target.content = wbForm.content.trim();
+            }
+        } else {
+            contactsDb.value.worldbooks.unshift({
+                id: 'wb_' + Date.now(), categoryId: wbForm.categoryId, name: wbForm.name.trim(), keywords: wbForm.keywords.trim(), content: wbForm.content.trim()
+            });
+        }
         modals.wb = false;
+    };
+
+    const deleteWb = () => {
+        if (!wbForm.id) return;
+        if (confirm('确定要删除这本世界书吗？')) {
+            contactsDb.value.worldbooks = contactsDb.value.worldbooks.filter(w => w.id !== wbForm.id);
+            modals.wb = false;
+        }
     };
 
     const ensureCharFields = (char) => {
@@ -139,22 +170,37 @@ const newChar = {
 
     const newMemoryText = ref('');
     const newMemoryWeight = ref('3');
+    const newMemoryTextWorld = ref('');
+    const newMemoryWeightWorld = ref('3');
     
-    const addCharMemory = (char) => {
-        if (!newMemoryText.value.trim()) return;
+    const addCharMemory = (char, type = 'player') => {
+        const textRef = type === 'world' ? newMemoryTextWorld : newMemoryText;
+        const weightRef = type === 'world' ? newMemoryWeightWorld : newMemoryWeight;
+
+        if (!textRef.value.trim()) return;
         if (!Array.isArray(char.memories)) char.memories = [];
         char.memories.unshift({
-            id: 'mem_' + Date.now(),
-            content: newMemoryText.value.trim(),
+            id: 'mem_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+            content: textRef.value.trim(),
             timestamp: Date.now(),
-            weight: parseInt(newMemoryWeight.value) || 3
+            weight: parseInt(weightRef.value) || 3,
+            type: type
         });
-        newMemoryText.value = '';
+        textRef.value = '';
     };
 
     const removeCharMemory = (char, memId) => {
         if (!Array.isArray(char.memories)) return;
         char.memories = char.memories.filter(m => m.id !== memId);
+    };
+
+    const toggleMemoryType = (char, memId) => {
+        if (!Array.isArray(char.memories)) return;
+        const mem = char.memories.find(m => m.id === memId);
+        if (mem) {
+            // 如果原本是世界线记忆，就变为核心；反之亦然
+            mem.type = mem.type === 'world' ? 'player' : 'world';
+        }
     };
 
     const openCharDetail = (char) => {
@@ -243,50 +289,50 @@ const newChar = {
         return value;
     };
 
-const normalizeGeneratedFields = (char, rawData) => {
-    const roleKey = getAsciiRoleKey(char);
-    const theme = getRoleThemeWord(char);
-    const salt = `${char.id}_${char.name}_${char.persona}_${theme}`;
-    
-    let chatName = String(rawData.chatName || char.name || '').slice(0, 15);
+    const normalizeGeneratedFields = (char, rawData) => {
+        const roleKey = getAsciiRoleKey(char);
+        const theme = getRoleThemeWord(char);
+        const salt = `${char.id}_${char.name}_${char.persona}_${theme}`;
+        
+        let chatName = String(rawData.chatName || char.name || '').slice(0, 15);
 
-    let phone = buildDigits(salt + '_phone_fix', 7);
-    phone = ensureUniqueByField(phone, 'phone', char, (i) => buildDigits(salt + '_phone_' + i, 7));
+        let phone = buildDigits(salt + '_phone_fix', 7);
+        phone = ensureUniqueByField(phone, 'phone', char, (i) => buildDigits(salt + '_phone_' + i, 7));
 
-    let email = `${(theme + roleKey + buildAlphaNum(salt + '_mail_fix', 3)).slice(0, 16)}@youl.com`;
-    email = ensureUniqueByField(email, 'email', char, (i) => `${(theme + roleKey + buildAlphaNum(salt + '_mail_' + i, 3)).slice(0, 16)}@youl.com`);
+        let email = `${(theme + roleKey + buildAlphaNum(salt + '_mail_fix', 3)).slice(0, 16)}@youl.com`;
+        email = ensureUniqueByField(email, 'email', char, (i) => `${(theme + roleKey + buildAlphaNum(salt + '_mail_' + i, 3)).slice(0, 16)}@youl.com`);
 
-    let chatAcc = String(rawData.chatAcc || '').replace(/[^a-zA-Z0-9]/g, '').slice(0, 18);
-    if (chatAcc.length < 5) chatAcc = (theme + roleKey + buildAlphaNum(salt + '_acc_fix', 4)).slice(0, 18);
-    chatAcc = ensureUniqueByField(chatAcc, 'chatAcc', char, (i) => (theme + roleKey + buildAlphaNum(salt + '_acc_' + i, 4)).slice(0, 18));
+        let chatAcc = String(rawData.chatAcc || '').replace(/[^a-zA-Z0-9]/g, '').slice(0, 18);
+        if (chatAcc.length < 5) chatAcc = (theme + roleKey + buildAlphaNum(salt + '_acc_fix', 4)).slice(0, 18);
+        chatAcc = ensureUniqueByField(chatAcc, 'chatAcc', char, (i) => (theme + roleKey + buildAlphaNum(salt + '_acc_' + i, 4)).slice(0, 18));
 
-    let chatPwd = String(rawData.chatPwd || '').replace(/[^a-zA-Z0-9]/g, '').slice(0, 12);
-    if (chatPwd.length < 4) chatPwd = (theme + buildAlphaNum(salt + '_pwd_fix', 6)).slice(0, 8);
-    chatPwd = ensureUniqueByField(chatPwd, 'chatPwd', char, (i) => (theme + buildAlphaNum(salt + '_pwd_' + i, 6)).slice(0, 8));
+        let chatPwd = String(rawData.chatPwd || '').replace(/[^a-zA-Z0-9]/g, '').slice(0, 12);
+        if (chatPwd.length < 4) chatPwd = (theme + buildAlphaNum(salt + '_pwd_fix', 6)).slice(0, 8);
+        chatPwd = ensureUniqueByField(chatPwd, 'chatPwd', char, (i) => (theme + buildAlphaNum(salt + '_pwd_' + i, 6)).slice(0, 8));
 
-    let phoneLockType = ['num', 'pattern', 'qa'].includes(String(rawData.phoneLockType || '').trim())
-        ? String(rawData.phoneLockType).trim()
-        : ['num', 'pattern', 'qa'][hashString(salt + '_lock_type') % 3];
+        let phoneLockType = ['num', 'pattern', 'qa'].includes(String(rawData.phoneLockType || '').trim())
+            ? String(rawData.phoneLockType).trim()
+            : ['num', 'pattern', 'qa'][hashString(salt + '_lock_type') % 3];
 
-    let lockPwdNum = '';
-    let lockPwdPat = '';
-    let lockPwdQA_Q = '';
-    let lockPwdQA_A = '';
+        let lockPwdNum = '';
+        let lockPwdPat = '';
+        let lockPwdQA_Q = '';
+        let lockPwdQA_A = '';
 
-    if (phoneLockType === 'num') {
-        lockPwdNum = String(rawData.lockPwdNum || '').replace(/\D/g, '').slice(0, 6);
-        if (lockPwdNum.length !== 4 && lockPwdNum.length !== 6) lockPwdNum = buildDigits(salt + '_lock_num_fix', 6);
-        lockPwdNum = ensureUniqueByField(lockPwdNum, 'lockPwdNum', char, (i) => buildDigits(salt + '_lock_num_' + i, 6));
-    } else if (phoneLockType === 'pattern') {
-        lockPwdPat = buildDrawablePattern(salt + '_lock_pat_fix', 5);
-        lockPwdPat = ensureUniqueByField(lockPwdPat, 'lockPwdPat', char, (i) => buildDrawablePattern(salt + '_lock_pat_' + i, 5));
-    } else {
-        lockPwdQA_Q = String(rawData.lockPwdQA_Q || '只有我知道的问题是？').trim();
-        lockPwdQA_A = String(rawData.lockPwdQA_A || (theme + roleKey.slice(0, 4))).trim();
-    }
+        if (phoneLockType === 'num') {
+            lockPwdNum = String(rawData.lockPwdNum || '').replace(/\D/g, '').slice(0, 6);
+            if (lockPwdNum.length !== 4 && lockPwdNum.length !== 6) lockPwdNum = buildDigits(salt + '_lock_num_fix', 6);
+            lockPwdNum = ensureUniqueByField(lockPwdNum, 'lockPwdNum', char, (i) => buildDigits(salt + '_lock_num_' + i, 6));
+        } else if (phoneLockType === 'pattern') {
+            lockPwdPat = buildDrawablePattern(salt + '_lock_pat_fix', 5);
+            lockPwdPat = ensureUniqueByField(lockPwdPat, 'lockPwdPat', char, (i) => buildDrawablePattern(salt + '_lock_pat_' + i, 5));
+        } else {
+            lockPwdQA_Q = String(rawData.lockPwdQA_Q || '只有我知道的问题是？').trim();
+            lockPwdQA_A = String(rawData.lockPwdQA_A || (theme + roleKey.slice(0, 4))).trim();
+        }
 
-    return { chatName, phone, email, chatAcc, chatPwd, phoneLockType, lockPwdNum, lockPwdPat, lockPwdQA_Q, lockPwdQA_A };
-};
+        return { chatName, phone, email, chatAcc, chatPwd, phoneLockType, lockPwdNum, lockPwdPat, lockPwdQA_Q, lockPwdQA_A };
+    };
 
     const fallbackLocalGenerate = (c) => {
         const rawData = { chatName: c.name };
@@ -304,19 +350,42 @@ const normalizeGeneratedFields = (char, rawData) => {
             fallbackLocalGenerate(c); return;
         }
 
-        const systemPrompt = `你是角色 ${c.name || '未知角色'}。你需要根据你自己的设定，生成符合你身份的账号密码信息。
-请不要输出多余解释，直接按照以下格式逐行输出（严格照抄冒号及格式，不要输出 JSON）：
-Chat昵称：[10字以内的聊天网名昵称，必须符合你的人设]
+        // --- 提取该人物的全量记忆、世界观和羁绊 ---
+        const targetRels = (state.contactsData?.relationships || []).filter(r => r && (r.sourceId === c.id || r.targetId === c.id));
+        let existingContactsStr = targetRels.map(r => {
+            const isSource = r.sourceId === c.id; const otherId = isSource ? r.targetId : r.sourceId; 
+            const otherUser = [...(state.contactsData?.myPersonas || []), ...(state.contactsData?.characters || []), ...(state.contactsData?.npcs || [])].find(p => p && p.id === otherId);
+            if (!otherUser) return null;
+            const myView = isSource ? r.sourceView : r.targetView; const theirView = isSource ? r.targetView : r.sourceView;
+            return `- [${otherUser.name}]：你认为对方是"${myView}"，对方认为你是"${theirView}"`;
+        }).filter(Boolean).join('\n');
+        if (!existingContactsStr.trim()) existingContactsStr = '无';
+
+        const myMemories = (c.memories || []).slice(0, 20).map(m => `- ${m.content}`).join('\n');
+        const memoriesStr = myMemories ? `\n【你的核心记忆】：\n${myMemories}` : '';
+        const wbs = (state.contactsData?.worldbooks || []).slice(0, 10).map(w => `- ${w.keywords || '设定'}: ${w.content}`).join('\n');
+        const wbStr = wbs ? `\n【世界观设定】：\n${wbs}` : '';
+
+        const systemPrompt = `你是角色 ${c.name || '未知角色'}。你需要根据你自己的设定、记忆、人际关系，生成符合你身份的账号密码等私密信息。${wbStr}${memoriesStr}
+【你现有的人际关系】：
+${existingContactsStr}
+
+请不要输出多余解释，仔细思考你的经历，并直接按照以下格式逐行输出（严格照抄冒号及格式，不要输出 JSON）：
+Chat昵称：[10字以内的聊天网名昵称，必须符合你的人设或经历]
 Chat账号：[8到18位纯英文数字的聊天账号]
-Chat密码：[8位纯英文数字的聊天密码]
-数字锁屏密码：[设置4或6位纯数字密码]
+Chat密码：[8位纯英文数字的聊天密码，可以使用对你有特殊意义的数字或字母组合]
+数字锁屏密码：[设置4或6位纯数字密码，比如生日、纪念日等]
 图案锁屏密码：[设置一串0-8的数字例如04876作为手势轨迹]
-密保问题：[设置一个密保问题]
+密保问题：[设置一个只有你知道答案的密保问题，最好和你的羁绊或记忆有关]
 密保答案：[设置对应的密保答案]
 手机锁屏样式：[从 num、pattern、qa 中选择一个，作为你当前主要使用的锁屏样式]`;
 
         const userPrompt = `角色名：${c.name || ''}\n角色设定：${c.persona || ''}\n请直接按要求格式逐行输出。`;
-        alert(`正在调用模型 [${apiConf.activeModel}] 生成... (已切换为极速文本模式)`);
+        
+        state.sysGenStatus = 'loading';
+        state.sysGenMsg = `正在生成角色 ${c.name || ''} 的账号数据...`;
+        state.sysGenRetry = () => callApiToGenerate();
+        nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
 
         try {
             let url = String(apiConf.baseUrl || '').trim();
@@ -332,7 +401,6 @@ Chat密码：[8位纯英文数字的聊天密码]
             const resData = await response.json();
             let content = resData?.choices?.[0]?.message?.content || '';
             
-            // 极速解析文本格式
             const aiData = {};
             const lines = content.split('\n').map(l => l.trim()).filter(Boolean);
             lines.forEach(line => {
@@ -348,11 +416,17 @@ Chat密码：[8位纯英文数字的聊天密码]
 
             const fixed = normalizeGeneratedFields(c, aiData);
             Object.assign(c, fixed);
-            alert('API 生成成功，已自动填入。');
+            state.sysGenStatus = 'success';
+            state.sysGenMsg = '账号生成成功！已自动填入。';
+            nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+            setTimeout(() => { if(state.sysGenStatus === 'success') state.sysGenStatus = 'idle'; }, 3000);
         } catch (error) {
             console.error(error);
-            alert(`API 调用失败，已改用本地生成。\n${error.message}`);
+            state.sysGenStatus = 'error';
+            state.sysGenMsg = 'API 调用失败，已改用本地生成';
+            nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
             fallbackLocalGenerate(c);
+            setTimeout(() => { if(state.sysGenStatus === 'error') state.sysGenStatus = 'idle'; }, 4000);
         }
     };
 
@@ -366,7 +440,6 @@ Chat密码：[8位纯英文数字的聊天密码]
         activeChar.value = null;
     };
 
-    // AI 生成关系羁绊评价
     const callApiToSetRelations = async () => {
         if (!activeChar.value || activeChar.value.isMe) return;
         const edges = canvasEdges.value;
@@ -382,11 +455,15 @@ Chat密码：[8位纯英文数字的聊天密码]
         }).filter(Boolean).join('；');
 
         const sysPrompt = `你是角色 ${activeChar.value.name}。设定：${activeChar.value.persona}。
-请根据你的人设，用简短的词语（如：宿敌/暗恋/挚友/利用对象）评价你对以下角色的看法。
+请根据你的人设，用简短的词语（如：宿敌/暗恋/挚友/利用对象/姐姐/恋人/主人）评价你对以下角色的看法/你认为你们的关系。
 请严格按照格式逐行输出，不要加任何废话：
-角色名：你的看法`;
+角色名：你的看法，你认为你们的关系(可以有多个)`;
 
-        alert(`正在让 ${activeChar.value.name} 思考对大家的看法...`);
+        state.sysGenStatus = 'loading';
+        state.sysGenMsg = `正在让 ${activeChar.value.name} 思考对大家的看法...`;
+        state.sysGenRetry = () => callApiToSetRelations();
+        nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+
         try {
             let url = String(apiConf.baseUrl).trim();
             if (url.endsWith('/')) url = url.slice(0, -1);
@@ -415,11 +492,18 @@ Chat密码：[8位纯英文数字的聊天密码]
                     }
                 }
             });
-            alert('羁绊看法已更新！');
-        } catch (e) { alert('API调用失败: ' + e.message); }
+            state.sysGenStatus = 'success';
+            state.sysGenMsg = '羁绊看法已更新！';
+            nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+            setTimeout(() => { if(state.sysGenStatus === 'success') state.sysGenStatus = 'idle'; }, 3000);
+        } catch (e) { 
+            state.sysGenStatus = 'error';
+            state.sysGenMsg = '羁绊看法生成失败';
+            nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+            setTimeout(() => { if(state.sysGenStatus === 'error') state.sysGenStatus = 'idle'; }, 4000);
+        }
     };
 
-    // 为我的设定获取没加好友的羁绊
     const unfriendedBondedNpcs = computed(() => {
         if (!activeChar.value || !activeChar.value.isMe) return [];
         const myChatAcc = state.chatData.accounts[activeChar.value.id];
@@ -440,12 +524,33 @@ Chat密码：[8位纯英文数字的聊天密码]
         if (url.endsWith('/')) url = url.slice(0, -1);
         if (!url.endsWith('/v1')) url += '/v1';
 
-        alert('正在通知角色发送好友请求，请稍候...');
+        state.sysGenStatus = 'loading';
+        state.sysGenMsg = '正在通知角色发送好友请求...';
+        state.sysGenRetry = () => sendFriendRequestsFromNPCs();
+        nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+
+        let successCount = 0;
         for (let npcId of pendingRequestIds.value) {
             const npc = getOtherChars(activeChar.value).find(c => c.id === npcId);
             if (!npc) continue;
             
-            const sysPrompt = `你是角色 ${npc.name}。设定：${npc.persona}。你要向 ${activeChar.value.name} 发送一条加好友的验证消息。请符合你的人设语气，简短有力（不超过20字）。直接输出你想说的一句话，不要输出引号。`;
+            // 获取他们俩的羁绊关系
+            const rel = (state.contactsData.relationships || []).find(r => 
+                (r.sourceId === npcId && r.targetId === activeChar.value.id) || 
+                (r.sourceId === activeChar.value.id && r.targetId === npcId)
+            );
+            let relStr = '你们互相认识。';
+            if (rel) {
+                const isSource = rel.sourceId === npcId;
+                const npcView = isSource ? rel.sourceView : rel.targetView;
+                const playerView = isSource ? rel.targetView : rel.sourceView;
+                relStr = `你们之间的羁绊关系：你认为对方是"${npcView}"，对方认为你是"${playerView}"。`;
+            }
+
+            const sysPrompt = `你是角色 ${npc.name}。你的设定：${npc.persona || '无'}。
+对方是 ${activeChar.value.name}，对方的设定：${activeChar.value.persona || '无'}。
+${relStr}
+你要向 ${activeChar.value.name} 发送一条添加 Chat 好友的验证消息(好友申请)。请必须符合你的身份人设、语气以及你们之间的关系，简短有力。直接输出你想说的一句话，绝对不要输出引号和其他解释。`;
             try {
                 const res = await fetch(url + '/chat/completions', {
                     method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConf.apiKey}` },
@@ -455,14 +560,23 @@ Chat密码：[8位纯英文数字的聊天密码]
                 const text = (data?.choices?.[0]?.message?.content || `你好，我是${npc.name}`).replace(/"/g, '').trim();
                 
                 if (!state.chatData.friendRequests) state.chatData.friendRequests = [];
-                // 查重，避免重复发送
                 if (!state.chatData.friendRequests.find(r => r.fromId === npcId && r.toId === activeChar.value.id && r.status === 'pending')) {
                     state.chatData.friendRequests.push({ id: 'req_' + Date.now() + Math.random(), fromId: npcId, toId: activeChar.value.id, text, status: 'pending', time: Date.now() });
                 }
+                successCount++;
             } catch (e) { console.error('发送请求失败', e); }
         }
         pendingRequestIds.value = [];
-        alert('选中的角色已向你发送好友申请！请去 Chat APP 的【联系人】里查看【新的朋友】。');
+        
+        if (successCount > 0) {
+            state.sysGenStatus = 'success';
+            state.sysGenMsg = `已收到 ${successCount} 个好友申请！`;
+        } else {
+            state.sysGenStatus = 'error';
+            state.sysGenMsg = '好友申请发送失败';
+        }
+        nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+        setTimeout(() => { if(state.sysGenStatus !== 'idle') state.sysGenStatus = 'idle'; }, 4000);
     };
 
     const canvasNodes = computed(() => {
@@ -577,6 +691,44 @@ Chat密码：[8位纯英文数字的聊天密码]
 
     const endDrag = () => { draggingNodeId = null; isPanning = false; };
 
+    // ===== NPC 库逻辑 =====
+    const npcForm = reactive({ id: '', name: '', avatar: '', persona: '' });
+    
+    const openEditNpc = (npc) => {
+        npcForm.id = npc.id;
+        npcForm.name = npc.name;
+        npcForm.avatar = npc.avatar;
+        npcForm.persona = npc.persona || '';
+        modals.npc = true;
+    };
+    
+    const saveNpc = () => {
+        if (!state.contactsData.npcs) state.contactsData.npcs = [];
+        const target = state.contactsData.npcs.find(n => n.id === npcForm.id);
+        if (target) {
+            target.name = npcForm.name;
+            target.avatar = npcForm.avatar;
+            target.persona = npcForm.persona;
+            // 同步修改底层账号数据
+            if (state.chatData.accounts[npcForm.id]) {
+                state.chatData.accounts[npcForm.id].profile.nickname = npcForm.name;
+                state.chatData.accounts[npcForm.id].profile.avatar = npcForm.avatar;
+                state.chatData.accounts[npcForm.id].profile.signature = npcForm.persona;
+            }
+        }
+        modals.npc = false;
+    };
+    
+    const deleteNpc = (npcId) => {
+        if (!confirm('确定彻底删除该虚拟联系人(NPC)吗？聊天记录也会一并清除。')) return;
+        state.contactsData.npcs = (state.contactsData.npcs || []).filter(n => n.id !== npcId);
+        if (state.contactsData.relationships) {
+            state.contactsData.relationships = state.contactsData.relationships.filter(r => r.sourceId !== npcId && r.targetId !== npcId);
+        }
+        // 彻底清除账号
+        if (state.chatData.accounts[npcId]) delete state.chatData.accounts[npcId];
+    };
+
     return {
         callApiToSetRelations, unfriendedBondedNpcs, pendingRequestIds, sendFriendRequestsFromNPCs,
         contactsTab, modals, charForm, wbForm, worlds, wbCategories, groupedChars, groupedWbs, contactsDb,
@@ -584,6 +736,8 @@ Chat密码：[8位纯英文数字的聊天密码]
         activeChar, pwdVisibility, openCharDetail, callApiToGenerate, deleteActiveChar,
         canvasRef, canvasPan, canvasNodes, canvasEdges, availableRelChars, confirmAddRel, handleNodeClick, selectedNodeId,
         openRelEdit, relEditForm, saveRelEdit, startPan, startDrag, onCanvasMove, endDrag,
-        newMemoryText, newMemoryWeight, addCharMemory, removeCharMemory
+        newMemoryText, newMemoryWeight, newMemoryTextWorld, newMemoryWeightWorld, addCharMemory, removeCharMemory, toggleMemoryType,
+        npcForm, openEditNpc, saveNpc, deleteNpc,
+        openEditWb, deleteWb
     };
 };

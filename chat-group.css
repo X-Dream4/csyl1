@@ -1,0 +1,71 @@
+/* ==== Chat APP 群聊/建群 专属样式 (INS韩系极简风) ==== */
+.cg-modal-content {
+    background: var(--popup-bg);
+    border-radius: 28px;
+    padding: 24px;
+    width: 100%;
+    max-width: 320px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+    border: var(--glass-border);
+}
+
+.cg-member-list {
+    max-height: 240px;
+    overflow-y: auto;
+    padding: 5px;
+    background: rgba(150,150,150,0.03);
+    border-radius: 16px;
+    border: 1px solid rgba(150,150,150,0.08);
+}
+
+.cg-member-item {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    border-bottom: 1px solid rgba(150,150,150,0.04);
+    cursor: pointer;
+    transition: background 0.2s;
+    border-radius: 12px;
+}
+.cg-member-item:active { background: rgba(150,150,150,0.08); }
+.cg-member-item:last-child { border-bottom: none; }
+
+.cg-check-icon { width: 20px; height: 20px; margin-right: 12px; flex-shrink: 0; }
+.cg-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; background: var(--widget-bg-solid); box-shadow: 0 2px 6px rgba(0,0,0,0.05); flex-shrink: 0;}
+.cg-name { font-size: 14px; font-weight: 600; color: var(--text-main); margin-left: 12px; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ==== 动态组合群头像 (1-4人) ==== */
+.cg-composite-avatar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-content: center;
+    background: rgba(150,150,150,0.15);
+    padding: 2px;
+    box-sizing: border-box;
+    overflow: hidden;
+    gap: 2px;
+}
+.cg-composite-avatar img { object-fit: cover; border-radius: 2px; }
+
+/* 1个人 */
+.cg-composite-avatar[data-count="1"] img { width: 100%; height: 100%; }
+/* 2个人 */
+.cg-composite-avatar[data-count="2"] img { width: calc(50% - 1px); height: 100%; }
+/* 3个人 (上1下2) */
+.cg-composite-avatar[data-count="3"] img:nth-child(1) { width: 100%; height: calc(50% - 1px); }
+.cg-composite-avatar[data-count="3"] img:nth-child(2),
+.cg-composite-avatar[data-count="3"] img:nth-child(3) { width: calc(50% - 1px); height: calc(50% - 1px); }
+/* 4个人 (2x2) */
+.cg-composite-avatar[data-count="4"] img { width: calc(50% - 1px); height: calc(50% - 1px); }
+
+
+/* ==== 群设置：群成员编辑列表 ==== */
+.cg-member-edit-list { display: flex; flex-direction: column; gap: 12px; }
+.cg-member-edit-card { background: rgba(150,150,150,0.05); border-radius: 16px; padding: 14px; border: 1px solid rgba(150,150,150,0.08); }
+.cg-mec-header { display: flex; align-items: center; gap: 10px; }
+.cg-mec-avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
+.cg-mec-name { font-size: 13px; font-weight: 700; color: var(--text-main); display: flex; align-items: center; }

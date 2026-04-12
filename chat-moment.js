@@ -3,7 +3,7 @@ window.useChatMomentLogic = function(state, chatMethods) {
     const { chatState, chatDb, currentAccountData } = chatMethods;
 
     const formatMomentTime = (timestamp) => {
-        if (!timestamp) return '刚刚';
+        if (!timestamp || isNaN(timestamp)) return '刚刚';
         const now = Date.now();
         const diff = now - timestamp;
         const minute = 60 * 1000;
@@ -21,45 +21,45 @@ window.useChatMomentLogic = function(state, chatMethods) {
         return Math.floor(diff / year) + '年前';
     };
 
-    // 修复：严格按照 备注 -> Chat昵称 -> 真名 的优先级获取
     const getPersonaName = (id) => {
         if (!id) return '未知';
-        // 如果是我自己 (兼容老数据可能存了 'me')
         if (id === 'me' || id === chatState.currentUser?.id) {
             return currentAccountData.value?.profile?.nickname || chatState.currentUser?.chatName || chatState.currentUser?.name || '我';
         }
-        // 如果是别人，先找我的好友备注
-        const conv = (currentAccountData.value?.conversations || []).find(c => c.type === 'private' && c.targetId === id);
-        if (conv && conv.settings && conv.settings.remarkName) return conv.settings.remarkName.trim();
         
-        // 找他的账号公开昵称
-        const acc = chatDb.value.accounts[id];
-        if (acc && acc.profile && acc.profile.nickname) return acc.profile.nickname;
+        const convs = currentAccountData.value?.conversations || [];
+        const conv = convs.find(c => c && c.type === 'private' && c.targetId === id);
+        if (conv && conv.settings && conv.settings.remarkName) return String(conv.settings.remarkName).trim();
         
-        // 找他的底层角色设定
-        const persona = state.contactsData.characters?.find(c => c.id === id) || state.contactsData.myPersonas?.find(c => c.id === id);
-        if (persona && (persona.chatName || persona.name)) return persona.chatName || persona.name;
+        const acc = chatDb.value?.accounts?.[id];
+        if (acc && acc.profile && acc.profile.nickname) return String(acc.profile.nickname).trim();
+        
+        const chars = state.contactsData?.characters || [];
+        const myPs = state.contactsData?.myPersonas || [];
+        const persona = chars.find(c => c && c.id === id) || myPs.find(c => c && c.id === id);
+        if (persona && (persona.chatName || persona.name)) return String(persona.chatName || persona.name).trim();
         
         return '未知';
     };
 
     const getLikeNames = (likesArray) => {
-        if (!likesArray || !likesArray.length) return '';
-        return likesArray.map(id => getPersonaName(id)).join(', ');
+        if (!Array.isArray(likesArray) || !likesArray.length) return '';
+        return likesArray.map(id => getPersonaName(id)).filter(Boolean).join(', ');
     };
 
     const canIViewMoment = (moment, authorId) => {
+        if (!moment) return false;
         const myId = chatState.currentUser?.id;
         if (!myId) return false;
         if (authorId === myId) return true; 
 
         const vis = moment.visibility || 'all';
-        const targets = moment.visibleTargets || [];
+        const targets = Array.isArray(moment.visibleTargets) ? moment.visibleTargets : [];
 
         if (vis === 'all') return true;
         if (vis === 'self') return false; 
         
-        const authorAcc = chatDb.value.accounts[authorId];
+        const authorAcc = chatDb.value?.accounts?.[authorId];
         let myCategories = [];
         if (authorAcc && authorAcc.friendCategories && authorAcc.friendCategories[myId]) {
             myCategories.push(authorAcc.friendCategories[myId]);
@@ -73,49 +73,85 @@ window.useChatMomentLogic = function(state, chatMethods) {
     };
 
     const allMoments = computed(() => {
-        const _dummy = chatDb.value.triggerSync; // 强制追踪刷新依赖
+        const _dummy = chatDb.value.triggerSync; 
         if (!chatState.currentUser) return [];
         const myAcc = currentAccountData.value;
         if (!myAcc) return [];
-        let momentsList = [];
         
-        if (myAcc.profile && Array.isArray(myAcc.profile.moments)) {
-            myAcc.profile.moments.forEach(m => {
-                momentsList.push({ ...m, authorId: chatState.currentUser.id, authorName: getPersonaName(chatState.currentUser.id), authorAvatar: chatState.currentUser.avatar });
+        let momentsList = [];
+        // 用于解决 Duplicate keys 报错：全局拦截相同的动态 ID
+        const seenIds = new Set();
+        
+        const addSafeMoment = (m, authorId, avatar) => {
+            if (!m || typeof m !== 'object') return;
+            const mId = m.id || ('mom_' + Math.random().toString(36).substring(2, 8));
+            
+            // 如果已经被渲染过了，直接丢弃（防重复渲染）
+            if (seenIds.has(mId)) return;
+            seenIds.add(mId);
+            
+            // 纯读取，绝不在此处修改原始 reactive 数据，杜绝无限死循环
+            momentsList.push({
+                ...m,
+                id: mId,
+                text: typeof m.text === 'string' ? m.text : '',
+                imageType: m.imageType === 'fake' ? 'fake' : 'real',
+                image: typeof m.image === 'string' ? m.image : '',
+                fakeImageText: typeof m.fakeImageText === 'string' ? m.fakeImageText : '',
+                visibility: m.visibility || 'all',
+                visibleTargets: Array.isArray(m.visibleTargets) ? m.visibleTargets : [],
+                timestamp: Number.isFinite(Number(m.timestamp)) ? Number(m.timestamp) : Date.now(),
+                time: typeof m.time === 'string' ? m.time : '',
+                likes: Array.isArray(m.likes) ? m.likes : [],
+                comments: Array.isArray(m.comments) ? m.comments : [],
+                pinned: !!m.pinned,
+                authorId: authorId,
+                authorName: getPersonaName(authorId),
+                authorAvatar: avatar || ''
             });
+        };
+
+        // 加载自己的动态
+        if (myAcc.profile && Array.isArray(myAcc.profile.moments)) {
+            myAcc.profile.moments.forEach(m => addSafeMoment(m, chatState.currentUser.id, chatState.currentUser.avatar));
         }
         
+        // 加载好友的动态 (加入 Set 去重，防止旧存档里一个人加了两次导致崩盘)
         if (Array.isArray(myAcc.friends)) {
-            myAcc.friends.forEach(fid => {
-                const acc = chatDb.value.accounts[fid];
-                const persona = state.contactsData.characters?.find(c => c.id === fid) || state.contactsData.myPersonas?.find(c => c.id === fid);
+            const uniqueFriends = [...new Set(myAcc.friends)];
+            const chars = state.contactsData?.characters || [];
+            const myPs = state.contactsData?.myPersonas || [];
+            
+            uniqueFriends.forEach(fid => {
+                if (!fid) return;
+                const acc = chatDb.value?.accounts?.[fid];
+                const persona = chars.find(c => c && c.id === fid) || myPs.find(c => c && c.id === fid);
+                
                 if (acc && acc.profile && Array.isArray(acc.profile.moments)) {
                     acc.profile.moments.forEach(m => {
                         if (canIViewMoment(m, fid)) {
-                            momentsList.push({ ...m, authorId: fid, authorName: getPersonaName(fid), authorAvatar: persona?.avatar || '' });
+                            addSafeMoment(m, fid, persona?.avatar || acc.profile.avatar);
                         }
                     });
                 }
             });
         }
         
-        // 修正排序：所有动态只按时间排，让列表正常显示
-        return momentsList.sort((a, b) => b.timestamp - a.timestamp);
+        // 倒序排列
+        return momentsList.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
     });
 
-    // 区分出置顶动态，用于上方的横滑列表（限定：只显示当前登录账号自己置顶的动态）
-    const pinnedMoments = computed(() => allMoments.value.filter(m => m.pinned && m.authorId === chatState.currentUser?.id));
-    const feedMoments = computed(() => allMoments.value.filter(m => !m.pinned || m.authorId !== chatState.currentUser?.id));
+    const pinnedMoments = computed(() => allMoments.value.filter(m => m && m.pinned && m.authorId === chatState.currentUser?.id));
+    const feedMoments = computed(() => allMoments.value.filter(m => m && (!m.pinned || m.authorId !== chatState.currentUser?.id)));
 
     const momentState = reactive({
         showPublish: false, text: '', imageType: 'real', image: '', fakeImageText: '', visibility: 'all', visibleTargets: [], showVisibilitySelect: false, showTargetSelect: false,
         showMoreMenu: false, activeMoment: null, showCommentModal: false, commentText: '', showForwardModal: false, showEditModal: false, editText: '', viewPinnedMomentId: null
     });
 
-    // 保证置顶弹窗点赞时能实时响应
     const activePinnedMoment = computed(() => {
         if (!momentState.viewPinnedMomentId) return null;
-        return pinnedMoments.value.find(m => m.id === momentState.viewPinnedMomentId) || null;
+        return pinnedMoments.value.find(m => m && m.id === momentState.viewPinnedMomentId) || null;
     });
 
     const openPublishModal = () => {
@@ -131,13 +167,15 @@ window.useChatMomentLogic = function(state, chatMethods) {
 
     const contactOptions = computed(() => {
         if (!chatState.currentUser) return { categories: [], friends: [] };
-        const acc = currentAccountData.value;
+        const acc = currentAccountData.value || {};
         const cats = acc.categories || [];
         const friends = (acc.friends || []).map(fid => {
-            const persona = state.contactsData.characters?.find(c => c.id === fid) || state.contactsData.myPersonas?.find(c => c.id === fid);
-            const facc = chatDb.value.accounts[fid];
-            return { id: fid, name: facc?.profile?.nickname || persona?.chatName || persona?.name || '未知', avatar: persona?.avatar };
-        });
+            const chars = state.contactsData?.characters || [];
+            const myPs = state.contactsData?.myPersonas || [];
+            const persona = chars.find(c => c && c.id === fid) || myPs.find(c => c && c.id === fid);
+            const facc = chatDb.value?.accounts?.[fid];
+            return { id: fid, name: facc?.profile?.nickname || persona?.chatName || persona?.name || '未知', avatar: persona?.avatar || facc?.profile?.avatar || '' };
+        }).filter(Boolean);
         return { categories: cats, friends };
     });
 
@@ -156,7 +194,8 @@ window.useChatMomentLogic = function(state, chatMethods) {
     const publishMoment = () => {
         if (!momentState.text.trim() && (momentState.imageType === 'real' ? !momentState.image : !momentState.fakeImageText.trim())) return;
         const myAcc = currentAccountData.value;
-        if (!myAcc.profile.moments) myAcc.profile.moments = [];
+        if (!myAcc) return;
+        if (!Array.isArray(myAcc.profile.moments)) myAcc.profile.moments = [];
         myAcc.profile.moments.unshift({
             id: 'mom_' + Date.now(), text: momentState.text.trim(), imageType: momentState.imageType, image: momentState.image, fakeImageText: momentState.fakeImageText.trim(),
             visibility: momentState.visibility, visibleTargets: [...momentState.visibleTargets], timestamp: Date.now(), time: new Date().toLocaleString([], { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }), likes: [], comments: [], pinned: false
@@ -167,32 +206,32 @@ window.useChatMomentLogic = function(state, chatMethods) {
     };
 
     const getSourceMoment = (moment) => {
-        const authorAcc = chatDb.value.accounts[moment.authorId];
-        if (authorAcc && authorAcc.profile && authorAcc.profile.moments) return authorAcc.profile.moments.find(m => m.id === moment.id);
-        return null;
+        if (!moment || !moment.authorId) return null;
+        const authorAcc = chatDb.value?.accounts?.[moment.authorId];
+        if (!authorAcc || !authorAcc.profile || !Array.isArray(authorAcc.profile.moments)) return null;
+        return authorAcc.profile.moments.find(m => m && m.id === moment.id);
     };
 
     const toggleLike = (moment) => {
+        if(!chatState.currentUser) return;
         const myId = chatState.currentUser.id;
         const sourceMoment = getSourceMoment(moment);
         if (!sourceMoment) return;
-        if (!sourceMoment.likes) sourceMoment.likes = [];
+        if (!Array.isArray(sourceMoment.likes)) sourceMoment.likes = [];
         const idx = sourceMoment.likes.indexOf(myId);
         if (idx > -1) sourceMoment.likes.splice(idx, 1);
         else sourceMoment.likes.push(myId);
-        
-        chatDb.value.triggerSync = Date.now(); // 强制刷新界面点赞数
+        chatDb.value.triggerSync = Date.now(); 
     };
 
     const openCommentModal = (moment) => { momentState.activeMoment = moment; momentState.commentText = ''; momentState.showCommentModal = true; };
 
     const submitComment = () => {
-        if (!momentState.commentText.trim() || !momentState.activeMoment) return;
+        if (!momentState.commentText.trim() || !momentState.activeMoment || !chatState.currentUser) return;
         const sourceMoment = getSourceMoment(momentState.activeMoment);
         if (!sourceMoment) return;
-        if (!sourceMoment.comments) sourceMoment.comments = [];
+        if (!Array.isArray(sourceMoment.comments)) sourceMoment.comments = [];
         sourceMoment.comments.push({ id: 'cmt_' + Date.now(), authorId: chatState.currentUser.id, authorName: getPersonaName(chatState.currentUser.id), content: momentState.commentText.trim(), timestamp: Date.now() });
-        
         momentState.showCommentModal = false; momentState.commentText = '';
         chatDb.value.triggerSync = Date.now();
     };
@@ -200,9 +239,10 @@ window.useChatMomentLogic = function(state, chatMethods) {
     const openForwardModal = (moment) => { momentState.activeMoment = moment; momentState.showForwardModal = true; };
 
     const forwardMoment = (conv) => {
-        if (!momentState.activeMoment || !conv) return;
-        const rawConv = currentAccountData.value.conversations.find(c => c.id === conv.id);
+        if (!momentState.activeMoment || !conv || !currentAccountData.value || !chatState.currentUser) return;
+        const rawConv = (currentAccountData.value.conversations || []).find(c => c && c.id === conv.id);
         if (!rawConv) return;
+        if (!Array.isArray(rawConv.messages)) rawConv.messages = [];
         const m = momentState.activeMoment;
         const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         rawConv.messages.push({
@@ -217,9 +257,9 @@ window.useChatMomentLogic = function(state, chatMethods) {
     const openMomentMoreMenu = (moment) => { momentState.activeMoment = moment; momentState.showMoreMenu = true; };
 
     const favoriteMoment = (moment) => {
-        if (!currentAccountData.value) return;
+        if (!currentAccountData.value || !moment) return;
         if (!Array.isArray(currentAccountData.value.favorites)) currentAccountData.value.favorites = [];
-        currentAccountData.value.favorites.unshift({ type: 'moment', convId: '', msgId: moment.id, title: `[动态] ${moment.authorName}`, content: moment.text || (moment.imageType === 'fake' ? moment.fakeImageText : '[图片]'), time: moment.time || '' });
+        currentAccountData.value.favorites.unshift({ type: 'moment', convId: '', msgId: moment.id, title: `[动态] ${moment.authorName || '未知'}`, content: moment.text || (moment.imageType === 'fake' ? moment.fakeImageText : '[图片]'), time: moment.time || '' });
         alert('已收藏到账号'); momentState.showMoreMenu = false;
     };
 
@@ -246,13 +286,22 @@ window.useChatMomentLogic = function(state, chatMethods) {
     };
 
     const deleteMoment = (moment) => {
-        if (!confirm('确定彻底删除这条动态吗？')) return;
-        const authorAcc = chatDb.value.accounts[moment.authorId];
-        if (authorAcc && authorAcc.profile && authorAcc.profile.moments) {
-            authorAcc.profile.moments = authorAcc.profile.moments.filter(m => m.id !== moment.id);
+        if (!moment || !confirm('确定彻底删除这条动态吗？')) return;
+        const authorAcc = chatDb.value?.accounts?.[moment.authorId];
+        if (authorAcc && authorAcc.profile && Array.isArray(authorAcc.profile.moments)) {
+            authorAcc.profile.moments = authorAcc.profile.moments.filter(m => m && m.id !== moment.id);
         }
         if (momentState.viewPinnedMomentId === moment.id) momentState.viewPinnedMomentId = null;
         momentState.showMoreMenu = false;
+        chatDb.value.triggerSync = Date.now();
+    };
+
+    const deleteComment = (moment, cmt) => {
+        if (!moment || !cmt) return;
+        if (!confirm('确定删除这条评论吗？')) return;
+        const sourceMoment = getSourceMoment(moment);
+        if (!sourceMoment || !Array.isArray(sourceMoment.comments)) return;
+        sourceMoment.comments = sourceMoment.comments.filter(c => c.id !== cmt.id);
         chatDb.value.triggerSync = Date.now();
     };
 
@@ -263,6 +312,6 @@ window.useChatMomentLogic = function(state, chatMethods) {
     };
 
     return {
-        allMoments, pinnedMoments, feedMoments, momentState, activePinnedMoment, visibilityLabel, contactOptions, toggleTarget, openPublishModal, triggerMomentImage, publishMoment, toggleLike, openMomentPhotoViewer, formatMomentTime, getLikeNames, openCommentModal, submitComment, openForwardModal, forwardMoment, openMomentMoreMenu, favoriteMoment, pinMoment, openEditMomentModal, saveEditMoment, deleteMoment
+        allMoments, pinnedMoments, feedMoments, momentState, activePinnedMoment, visibilityLabel, contactOptions, toggleTarget, openPublishModal, triggerMomentImage, publishMoment, toggleLike, openMomentPhotoViewer, formatMomentTime, getLikeNames, openCommentModal, submitComment, openForwardModal, forwardMoment, openMomentMoreMenu, favoriteMoment, pinMoment, openEditMomentModal, saveEditMoment, deleteMoment, deleteComment
     };
 };

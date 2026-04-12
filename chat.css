@@ -34,9 +34,10 @@
 .ca-search-bar i { color: var(--text-sub); }
 
 .ca-list { display: flex; flex-direction: column; }
-.ca-list-item { display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid rgba(150,150,150,0.05); gap: 14px; cursor: pointer; transition: background 0.2s; }
+.ca-list-item-wrap { position: relative; border-bottom: 1px solid rgba(150,150,150,0.05); overflow: hidden; }
+.ca-list-item { display: flex; align-items: center; padding: 12px 0; gap: 14px; cursor: pointer; transition: background 0.2s; border-bottom: none; }
+.ca-friend-delete-btn { position: absolute; right: 0; top: 0; bottom: 0; width: 75px; background: #ff4d4f; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; cursor: pointer; z-index: 1; }
 .ca-list-item:active { opacity: 0.7; }
-.ca-list-item:last-child { border-bottom: none; }
 .ca-item-avatar { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; }
 .ca-item-info { flex: 1; overflow: hidden; display: flex; flex-direction: column; gap: 4px; }
 .ca-item-top { display: flex; justify-content: space-between; align-items: center; }

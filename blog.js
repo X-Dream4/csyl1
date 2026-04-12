@@ -26,7 +26,8 @@ window.useBlogLogic = function(state, contactsMethods, chatMethods) {
     // 获取所有人设（用于匹配头像和名字）
     const allPersonas = computed(() => [
         ...(state.contactsData?.myPersonas || []),
-        ...(state.contactsData?.characters || [])
+        ...(state.contactsData?.characters || []),
+        ...(state.contactsData?.npcs || [])
     ]);
 
     const getPersona = (id) => {

@@ -18,6 +18,14 @@
 .ca-msg-bubble { min-height: 1px; display: flex; flex-direction: column; justify-content: center; padding: 9px 14px; box-sizing: border-box; font-size: 14px; background: var(--widget-bg-solid); color: var(--text-main); border-radius: 15px; word-break: break-word; white-space: pre-wrap; box-shadow: 0 2px 12px rgba(0,0,0,.02); line-height: 1.55; cursor: pointer; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
 .ca-msg-trans { margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(150,150,150,.3); font-size: 12px; opacity: .82; }
 
+/* ======== 新增状态栏气泡输出样式 ======== */
+.ca-msg-status-bar {
+    width: 100%;
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px dashed rgba(150,150,150,0.3);
+}
+
 .ca-detail-header { position: absolute; top: 0; left: 0; right: 0; height: 84px; background: rgba(255,255,255,0.45); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); display: flex; align-items: center; justify-content: space-between; padding: 0 16px; z-index: 20; pointer-events: none; border-bottom: 1px solid rgba(150,150,150,0.1); }
 .dark-mode .ca-detail-header { background: rgba(30,30,30,0.45); border-bottom: 1px solid rgba(255,255,255,0.05); }
 .ca-detail-header > * { pointer-events: auto; }
@@ -110,6 +118,29 @@
 .wave-4 { height: 10px; }
 .wave-5 { height: 6px; }
 
+/* ==== 转账专属样式 ==== */
+.ca-msg-transfer { width: 220px; border-radius: 8px; overflow: hidden; background: #52c41a; color: white; cursor: pointer; border: 1px solid rgba(0,0,0,0.05); }
+.ca-msg-transfer-top { padding: 16px 12px; min-height: 80px; display: flex; align-items: center; gap: 10px; }
+.ca-msg-transfer-footer { background: #fff; color: #999; padding: 4px 12px; font-size: 10px; }
+
+/* ==== 红包专属样式 ==== */
+.ca-msg-redpacket { width: 220px; border-radius: 8px; overflow: hidden; background: #fa5151; color: white; cursor: pointer; border: 1px solid rgba(0,0,0,0.05); }
+.rp-modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 9999; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); }
+.rp-env-modal { width: 300px; height: 420px; background: #fa5151; border-radius: 12px; position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: center; box-shadow: none; border:none; }
+.rp-env-cover { width: 100%; height: 100%; position: absolute; inset:0; object-fit: cover; opacity: 0.35; }
+.rp-env-open-btn { width: 88px; height: 88px; border-radius: 50%; background: #ffd700; color: #fa5151; font-size: 34px; font-weight: bold; display: flex; align-items: center; justify-content: center; z-index: 10; cursor: pointer; border: 2px solid #ffdb4d; box-shadow: 0 4px 12px rgba(0,0,0,0.2); margin-top: 130px; }
+.rp-env-open-btn:active { transform: scale(0.95); }
+.rp-anim-open { animation: flipCoin 0.6s infinite linear; }
+@keyframes flipCoin { 0% { transform: rotateY(0deg); } 100% { transform: rotateY(360deg); } }
+.rp-detail-modal { width: 300px; height: 460px; background: white; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; }
+.rp-detail-top { height: 28%; background: #fa5151; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+.rp-detail-top img.cover { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.8; }
+.rp-detail-avatar { width: 56px; height: 56px; border-radius: 50%; border: 3px solid white; z-index: 2; margin-bottom: -28px; }
+.rp-detail-bottom { height: 72%; padding: 40px 20px 20px; display: flex; flex-direction: column; align-items: center; }
+.rp-detail-sender { font-size: 16px; font-weight: bold; color: #333; margin-bottom: 8px; }
+.rp-detail-title { font-size: 14px; color: #999; margin-bottom: 20px; text-align: center; }
+.rp-detail-amount { font-size: 42px; font-weight: bold; color: #8b7d6b; margin-bottom: 20px; display: flex; align-items: baseline; gap: 4px; }
+
 /* ==== 表情包面板样式 ==== */
 .ca-emoji-panel { display: flex; flex-direction: column; height: 100%; background: var(--bg-color); }
 .ca-emoji-tabs { display: flex; align-items: center; border-bottom: 1px solid rgba(150,150,150,0.1); padding: 0 10px; height: 44px; flex-shrink: 0; overflow-x: auto; scrollbar-width: none;}
@@ -154,3 +185,4 @@
 .ca-ms-img { width: 100%; height: 100px; border-radius: 8px; object-fit: cover; }
 .ca-ms-fake-img { width: 100%; height: 100px; border-radius: 8px; background: #e0e0e0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border: 1px solid rgba(150,150,150,0.1); }
 .ca-ms-fake-text { font-size: 10px; color: #888; padding: 0 10px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
+

@@ -8,6 +8,7 @@ const defaultClockIcons = Array.from({length: 12}, (_, i) => createDefaultNumber
 createApp({
     setup() {
         const state = reactive({
+            sysGenStatus: 'idle', sysGenMsg: '', sysGenRetry: null,
             activeApp: null, beautifyTab: 'widget', theme: 'light', desktopWallpaper: '', capsuleBg: '', capsuleOpacity: 1,
             capsuleType: 'chat', chatTime: '10:00', chatLeftAvatar: defaultAvatar1, chatLeftText: '你好呀', chatRightAvatar: defaultAvatar2, chatRightText: '今天天气不错', chatInputText: '输入...', widgetImage1: "https://images.unsplash.com/photo-1600693437635-ceb8f04df160?w=400&q=80", widgetBadge1: { img: '', color: '#ffffff' }, 
             emojiWallItems: [], idCard: { photo: defaultImg, name: '张三', gender: '男', age: '24', address: '首尔市江南区星空路' },
@@ -21,7 +22,7 @@ createApp({
             appsDock: [{ id: 'd1', name: '设置', icon: defaultImg }, { id: 'd2', name: '人脉', icon: defaultImg }, { id: 'd3', name: '美化', icon: defaultImg }],
             wallpapers: ["https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80"],
             settingsTab: 'api', apiConfig: { baseUrl: '', apiKey: '', models: [], activeModel: '' }, storageUsed: 0, storageDetails: [], storageDonutStyle: { background: 'conic-gradient(#eee 0% 100%)' },
-            contactsData: { worlds: [], characters: [], myPersonas: [], wbCategories: [], worldbooks: [], relationships: [], layouts: {} },
+            contactsData: { worlds: [], characters: [], myPersonas: [], npcs: [], wbCategories: [], worldbooks: [], relationships: [], layouts: {}, statusBarPresets: [] },
             chatData: { accounts: {}, groups: {} },
             lockConfig: { enableLockScreen: false, wallpaper: '', enablePassword: false, pwdType: 'num', pwdNum: '', pwdQA_Q: '', pwdQA_A: '', pwdPattern: '' },
             isLocked: false, showPwdInput: false, enteredPwd: '', customFontUrl: '', customFontFamily: '', customFontPresets: []
@@ -37,10 +38,12 @@ createApp({
                     if(!savedState.contactsData.worlds) savedState.contactsData.worlds = [{ id: 'w_default', name: '主宇宙' }];
                     if(!savedState.contactsData.characters) savedState.contactsData.characters = [];
                     if(!savedState.contactsData.myPersonas) savedState.contactsData.myPersonas = [];
+                    if(!savedState.contactsData.npcs) savedState.contactsData.npcs = [];
                     if(!savedState.contactsData.wbCategories) savedState.contactsData.wbCategories = [{ id: 'c_default', name: '通用设定' }];
                     if(!savedState.contactsData.worldbooks) savedState.contactsData.worldbooks = [];
                     if(!savedState.contactsData.relationships) savedState.contactsData.relationships = [];
                     if(!savedState.contactsData.layouts) savedState.contactsData.layouts = {};
+                    if(!savedState.contactsData.statusBarPresets) savedState.contactsData.statusBarPresets = [];
 
                     if(!savedState.chatData) savedState.chatData = { accounts: {}, groups: {} };
                     if(!savedState.chatData.accounts) savedState.chatData.accounts = {};
@@ -49,6 +52,37 @@ createApp({
                     if(!savedState.lockConfig) savedState.lockConfig = { enableLockScreen: false, wallpaper: '', enablePassword: false, pwdType: 'num', pwdNum: '', pwdQA_Q: '', pwdQA_A: '', pwdPattern: '' };
                     
                     Object.assign(state, savedState);
+
+                    if (!state.contactsData.npcs) state.contactsData.npcs = [];
+                    if (state.contactsData.characters) {
+                        const mainChars = [];
+                        state.contactsData.characters.forEach(c => {
+                            if (c.id && c.id.startsWith('npc_gen_')) {
+                                if (!state.contactsData.npcs.find(n => n.id === c.id)) {
+                                    state.contactsData.npcs.unshift({ id: c.id, name: c.name, avatar: c.avatar, persona: c.persona || '', isNpc: true });
+                                }
+                            } else {
+                                mainChars.push(c);
+                            }
+                        });
+                        state.contactsData.characters = mainChars;
+                    }
+                    if (state.chatData && state.chatData.accounts) {
+                        Object.keys(state.chatData.accounts).forEach(accId => {
+                            if (accId.startsWith('npc_gen_')) {
+                                if (!state.contactsData.npcs.find(n => n.id === accId)) {
+                                    const prof = state.chatData.accounts[accId].profile || {};
+                                    state.contactsData.npcs.unshift({
+                                        id: accId,
+                                        name: prof.nickname || prof.realName || '未知NPC',
+                                        avatar: prof.avatar || defaultImg,
+                                        persona: prof.signature || '被抢救回来的旧数据',
+                                        isNpc: true
+                                    });
+                                }
+                            }
+                        });
+                    }
                 }
             } catch(e) { console.error('加载缓存数据失败', e); }
             
@@ -63,7 +97,7 @@ createApp({
             if (saveTimeout) clearTimeout(saveTimeout);
             saveTimeout = setTimeout(() => {
                 localforage.setItem('ins_desktop_v8_state', JSON.parse(JSON.stringify(newState))); 
-            }, 8000); // 延迟 8000 毫秒 (8秒) 保存，极大降低频繁读写的内存损耗
+            }, 8000);
         }, { deep: true });
 
         const updateClock = () => { const now = new Date(); currentDate.value = now; secDeg.value = now.getSeconds() * 6; minDeg.value = now.getMinutes() * 6 + now.getSeconds() * 0.1; hrDeg.value = (now.getHours() % 12) * 30 + now.getMinutes() * 0.5; requestAnimationFrame(updateClock); };
@@ -104,8 +138,9 @@ createApp({
 
         const contactsMethods = window.useContactsLogic(state);
         const chatMethods = window.useChatLogic(state);
-        const chatMomentMethods = window.useChatMomentLogic(state, chatMethods); // <--- 加入对动态的引入
+        const chatMomentMethods = window.useChatMomentLogic(state, chatMethods);
         const chatDetailMethods = window.useChatDetailLogic(state, chatMethods);
+        const chatGroupMethods = window.useChatGroupLogic(state, chatMethods);
         
         const openApp = (app) => { 
             if (app.id === 't1') { state.activeApp = 'chat'; nextTick(() => { if(window.lucide) lucide.createIcons(); }); } 
@@ -124,6 +159,6 @@ createApp({
 
         onMounted(() => { loadData(); requestAnimationFrame(updateClock); });
 
-        return { state, defaultImg, isThemeModalOpen, isClockModalOpen, isWidgetBadgeModalOpen, hrDeg, minDeg, secDeg, fileInput, currentWpIndex, currentDate, calendarGrid, getClockNumberStyle, setTheme, triggerUpload, handleFileChange, openApp, closeApp, editApp, editClockUrl, resetClock, editCapsuleBgUrl, openWidgetBadge1Editor, chooseWidgetBadge1Image, onWidgetBadge1ColorChange, resetWidgetBadge1, addEmoji, clearEmojis, formatTime, formatDate, unlockState, onLockTouchStart, onLockTouchMove, onLockTouchEnd, verifyLockPwd, patternState, patternPathPoints, startPattern, movePattern, endPattern, ...beautifyMethods, ...settingsMethods, ...contactsMethods, ...chatMethods, ...chatMomentMethods, ...chatDetailMethods, ...blogMethods };
+        return { state, defaultImg, isThemeModalOpen, isClockModalOpen, isWidgetBadgeModalOpen, hrDeg, minDeg, secDeg, fileInput, currentWpIndex, currentDate, calendarGrid, getClockNumberStyle, setTheme, triggerUpload, handleFileChange, openApp, closeApp, editApp, editClockUrl, resetClock, editCapsuleBgUrl, openWidgetBadge1Editor, chooseWidgetBadge1Image, onWidgetBadge1ColorChange, resetWidgetBadge1, addEmoji, clearEmojis, formatTime, formatDate, unlockState, onLockTouchStart, onLockTouchMove, onLockTouchEnd, verifyLockPwd, patternState, patternPathPoints, startPattern, movePattern, endPattern, ...beautifyMethods, ...settingsMethods, ...contactsMethods, ...chatMethods, ...chatMomentMethods, ...chatDetailMethods, ...chatGroupMethods, ...blogMethods };
     }
 }).mount('#app');
