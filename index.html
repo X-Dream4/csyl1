@@ -7,24 +7,716 @@
     <link rel="stylesheet" href="chat-moment.css">
     <link rel="stylesheet" href="chat-group.css">
     <script src="beautify.js" defer></script><script src="settings.js" defer></script><script src="contacts.js" defer></script><script src="chat.js" defer></script><script src="chat-moment.js" defer></script><script src="chat-detail.js" defer></script><script src="chat-group.js" defer></script><script src="blog.js" defer></script><script src="app.js" defer></script>
+    <style>
+        @keyframes jiggle { 0% { transform: rotate(-2deg); } 50% { transform: rotate(2deg); } 100% { transform: rotate(-2deg); } }
+        /* 让所有组件和应用都在抖动模式下生效 */
+        .is-editing .app-item, .is-editing .capsule-widget, .is-editing .clock-widget, .is-editing .badge-widget, .is-editing .custom-image-widget, .is-editing .avatar-card-widget { animation: jiggle 0.3s infinite; cursor: grab; position: relative; }
+        .is-editing .app-item:nth-child(even) { animation-direction: reverse; animation-duration: 0.32s; }
+        .desktop-done-btn { position: absolute; top: 30px; right: 20px; background: rgba(255,255,255,0.6); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.5); color: var(--text-main); padding: 8px 18px; border-radius: 20px; font-weight: bold; font-size: 14px; z-index: 1000; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.15); transition: all 0.2s; }
+        .desktop-done-btn:active { transform: scale(0.95); background: rgba(255,255,255,0.8); }
+
+        .grid-delete-btn {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            width: 18px;
+            height: 18px;
+            border: none;
+            border-radius: 50%;
+            background: rgba(120,120,120,0.68);
+            color: #fff;
+            font-size: 12px;
+            line-height: 18px;
+            text-align: center;
+            cursor: pointer;
+            z-index: 5;
+            padding: 0;
+        }
+
+        .grid-delete-btn:active {
+            transform: scale(0.92);
+        }
+
+        .dark-mode .grid-delete-btn {
+            background: rgba(255,255,255,0.28);
+            color: #fff;
+        }
+
+        .page-delete-btn {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            width: 16px;
+            height: 16px;
+            border: none;
+            border-radius: 50%;
+            background: rgba(120,120,120,0.68);
+            color: #fff;
+            font-size: 11px;
+            line-height: 16px;
+            text-align: center;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        .page-delete-btn:active {
+            transform: scale(0.92);
+        }
+
+        /* --- 全新桌面 Grid 引擎 --- */
+.true-grid-desktop {
+    display: grid;
+    grid-template-columns: repeat(var(--grid-cols, 4), 1fr);
+    grid-auto-rows: var(--grid-row-h, 80px);
+    grid-auto-flow: dense;
+    gap: 15px;
+    padding: 20px 16px 56px;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    overflow-y: hidden;
+    flex: 1;
+    align-content: start;
+    transition: background 0.3s;
+    position: relative;
+}
+
+        /* 抖动模式下显示底纹辅助网格 */
+        .is-editing.true-grid-desktop {
+            background-image: 
+                linear-gradient(rgba(120, 120, 120, 0.28) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(120, 120, 120, 0.28) 1px, transparent 1px);
+            background-size: calc((100% - 32px + 15px) / var(--grid-cols, 4)) calc(var(--grid-row-h, 80px) + 15px);
+            background-position: 16px 20px;
+            background-color: rgba(120, 120, 120, 0.06);
+        }
+
+        .dark-mode .is-editing.true-grid-desktop {
+            background-image:
+                linear-gradient(rgba(255, 255, 255, 0.18) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.18) 1px, transparent 1px);
+            background-color: rgba(255, 255, 255, 0.03);
+        }
+
+        /* 拖拽悬浮时的落点高亮动画 */
+        .drag-target {
+            background-color: rgba(255, 255, 255, 0.35) !important;
+            border-radius: 20px;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.6);
+            transform: scale(1.05) !important;
+            transition: all 0.2s ease;
+        }
+        
+.grid-drop-preview {
+    position: absolute;
+    border-radius: 22px;
+    background: rgba(120, 120, 120, 0.16);
+    box-shadow: inset 0 0 0 2px rgba(120, 120, 120, 0.55), 0 0 14px rgba(120, 120, 120, 0.18);
+    pointer-events: none;
+    z-index: 2;
+    transition: all 0.08s ease;
+}
+
+.dark-mode .grid-drop-preview {
+    background: rgba(255,255,255,0.12);
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,0.42), 0 0 18px rgba(255,255,255,0.18);
+}
+
+        .dark-mode .drag-target { background-color: rgba(255, 255, 255, 0.15) !important; box-shadow: 0 0 20px rgba(255, 255, 255, 0.2); }
+
+        /* 定义不同尺寸的体积 */
+        .grid-size-1x1 { position: relative; grid-column: span 1; grid-row: span 1; display: flex; align-items: center; justify-content: center; border-radius: 18px; transition: background 0.2s; }
+        .grid-size-2x2 { position: relative; grid-column: span 2; grid-row: span 2; display: flex; align-items: center; justify-content: center; border-radius: 28px; transition: background 0.2s; }
+        .grid-size-4x2 { position: relative; grid-column: span 4; grid-row: span 2; display: flex; align-items: center; justify-content: center; border-radius: 28px; transition: background 0.2s; }
+
+        .true-grid-desktop .app-item { width: auto; height: 100%; margin: auto; }
+        .true-grid-desktop .capsule-widget { margin: auto; width: 100%; height: 100%; flex: unset; }
+        
+        /* 核心修复：强制组件 1:1，并微缩 8% 避免顶格太满 */
+        .true-grid-desktop .badge-widget, 
+        .true-grid-desktop .clock-widget, 
+        .true-grid-desktop .custom-image-widget, 
+        .true-grid-desktop .avatar-card-widget {
+            width: auto !important; 
+            height: 100% !important; 
+            aspect-ratio: 1 / 1 !important; 
+            margin: auto !important; 
+            flex: unset !important;
+            transform: scale(0.92); /* 稍微缩小一点点，留出留白呼吸感 */
+        }
+    </style>
 </head>
 
 <body>
 <div id="app">
+    <!-- 新增：抖动模式下的完成按钮 -->
+    <div v-if="state.isEditingDesktop && state.activeApp === null" class="desktop-done-btn" @click="exitEditMode">完成</div>
+    <div v-if="state.isEditingDesktop && state.activeApp === null" class="desktop-done-btn" style="right:96px; padding:6px 12px; font-size:12px; opacity:0.92;" @click="restoreSystemAppsToDock">恢复APP</div>
+
     <div v-if="state.sysGenStatus !== 'idle'" class="ca-bg-capsule" :class="{ error: state.sysGenStatus === 'error', success: state.sysGenStatus === 'success' }" style="position: fixed; top: 15px; left: 50%; transform: translateX(-50%); z-index: 99999; pointer-events: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.15);" @click="state.sysGenStatus === 'error' ? (state.sysGenRetry ? state.sysGenRetry() : (state.sysGenStatus='idle')) : null"><span v-if="state.sysGenStatus === 'loading'"><i data-lucide="loader-2" style="width:16px; animation: spin 1s linear infinite;"></i></span><span v-if="state.sysGenStatus === 'success'"><i data-lucide="check-circle" style="width:16px;"></i></span><span v-if="state.sysGenStatus === 'error'"><i data-lucide="x-circle" style="width:16px;"></i></span>{{ state.sysGenMsg || '处理中...' }}</div>
     <div v-if="state.customFontFamily" v-html="'<style>' + (state.customFontUrl ? '@font-face { font-family: \'' + state.customFontFamily + '\'; src: url(\'' + state.customFontUrl + '\'); }' : '') + ' * { font-family: \'' + state.customFontFamily + '\', sans-serif !important; }</style>'"></div>
-    <div v-if="state.isLocked" class="lock-screen-wrap" :style="{ backgroundImage: state.lockConfig.wallpaper ? `url(${state.lockConfig.wallpaper})` : 'none', transform: `translateY(${unlockState.currentY < unlockState.startY ? (unlockState.currentY - unlockState.startY) + 'px' : '0'})` }" @touchstart="onLockTouchStart" @touchmove="onLockTouchMove" @touchend="onLockTouchEnd"><template v-if="!state.showPwdInput"><div class="ls-time">{{ formatTime(currentDate) }}</div><div class="ls-date">{{ formatDate(currentDate) }}</div><div class="ls-swipe-text">向上滑动解锁</div></template><template v-else><div class="ls-pwd-container"><template v-if="state.lockConfig.pwdType==='pattern'"><div class="ls-pwd-title">绘制解锁图案</div><div class="pattern-lock-box" @mousedown="startPattern($event, 'unlock')" @mousemove="movePattern" @mouseup="endPattern" @mouseleave="endPattern" @touchstart.prevent="startPattern($event, 'unlock')" @touchmove.prevent="movePattern" @touchend="endPattern"><svg class="pattern-svg"><polyline :points="patternPathPoints" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" /><line v-if="patternState.isDrawing && patternState.path?.length > 0" :x1="40 + (patternState.path[patternState.path.length-1] % 3) * 80" :y1="40 + Math.floor(patternState.path[patternState.path.length-1] / 3) * 80" :x2="patternState.currentX" :y2="patternState.currentY" stroke="#fff" stroke-width="4" stroke-dasharray="6,6" opacity="0.6"/></svg><div class="pattern-grid"><div v-for="i in 9" :key="i-1" class="pattern-dot-wrap"><div class="pattern-dot" :class="{active: patternState.path.includes(i-1)}"></div></div></div></div></template><template v-else><div class="ls-pwd-title" v-if="state.lockConfig.pwdType==='qa'">{{ state.lockConfig.pwdQA_Q || '请输入答案' }}</div><div class="ls-pwd-title" v-else-if="state.lockConfig.pwdType==='num'">输入数字密码</div><input class="ls-pwd-input" :type="state.lockConfig.pwdType==='num' ? 'password' : 'text'" v-model="state.enteredPwd" placeholder="输入密码并确认" @keyup.enter="verifyLockPwd"><button class="ls-pwd-btn" @click="verifyLockPwd">确认解锁</button></template><div class="ls-pwd-back" @click="state.showPwdInput=false">取消</div></div></template></div>
+    <div v-if="state.isLocked" class="lock-screen-wrap"
+ :style="{ backgroundImage: state.lockConfig.wallpaper ? `url(${state.lockConfig.wallpaper})` : 'none', transform: `translateY(${unlockState.currentY < unlockState.startY ? (unlockState.currentY - unlockState.startY) + 'px' : '0'})` }" @touchstart="onLockTouchStart" @touchmove="onLockTouchMove" @touchend="onLockTouchEnd"><template v-if="!state.showPwdInput"><div class="ls-time">{{ formatTime(currentDate) }}</div><div class="ls-date">{{ formatDate(currentDate) }}</div><div class="ls-swipe-text">向上滑动解锁</div></template><template v-else><div class="ls-pwd-container"><template v-if="state.lockConfig.pwdType==='pattern'"><div class="ls-pwd-title">绘制解锁图案</div><div class="pattern-lock-box" @mousedown="startPattern($event, 'unlock')" @mousemove="movePattern" @mouseup="endPattern" @mouseleave="endPattern" @touchstart.prevent="startPattern($event, 'unlock')" @touchmove.prevent="movePattern" @touchend="endPattern"><svg class="pattern-svg"><polyline :points="patternPathPoints" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" /><line v-if="patternState.isDrawing && patternState.path?.length > 0" :x1="40 + (patternState.path[patternState.path.length-1] % 3) * 80" :y1="40 + Math.floor(patternState.path[patternState.path.length-1] / 3) * 80" :x2="patternState.currentX" :y2="patternState.currentY" stroke="#fff" stroke-width="4" stroke-dasharray="6,6" opacity="0.6"/></svg><div class="pattern-grid"><div v-for="i in 9" :key="i-1" class="pattern-dot-wrap"><div class="pattern-dot" :class="{active: patternState.path.includes(i-1)}"></div></div></div></div></template><template v-else><div class="ls-pwd-title" v-if="state.lockConfig.pwdType==='qa'">{{ state.lockConfig.pwdQA_Q || '请输入答案' }}</div><div class="ls-pwd-title" v-else-if="state.lockConfig.pwdType==='num'">输入数字密码</div><input class="ls-pwd-input" :type="state.lockConfig.pwdType==='num' ? 'password' : 'text'" v-model="state.enteredPwd" placeholder="输入密码并确认" @keyup.enter="verifyLockPwd"><button class="ls-pwd-btn" @click="verifyLockPwd">确认解锁</button></template><div class="ls-pwd-back" @click="state.showPwdInput=false">取消</div></div></template></div>
 
-    <div v-show="state.activeApp === null" class="desktop-container" :class="{'dark-mode': state.theme === 'dark'}" :style="{ backgroundImage: state.desktopWallpaper ? `url(${state.desktopWallpaper})` : 'none' }"><div class="capsule-widget glass-widget" @contextmenu.prevent="isThemeModalOpen = true"><div class="capsule-bg-layer" v-if="state.capsuleBg" :style="{ backgroundImage: `url(${state.capsuleBg})`, opacity: state.capsuleOpacity }"></div><template v-if="state.capsuleType === 'chat'"><div class="chat-section"><input class="chat-time-input" v-model="state.chatTime"><div class="chat-messages"><div class="chat-row left"><img :src="state.chatLeftAvatar" class="avatar" @click="triggerUpload('chatLeftAvatar')"><div class="chat-bubble"><span contenteditable="true" @blur="state.chatLeftText = $event.target.innerText">{{ state.chatLeftText }}</span></div></div><div class="chat-row right"><img :src="state.chatRightAvatar" class="avatar" @click="triggerUpload('chatRightAvatar')"><div class="chat-bubble"><span contenteditable="true" @blur="state.chatRightText = $event.target.innerText">{{ state.chatRightText }}</span></div></div></div><div class="chat-bottom-bar"><div class="chat-icon-btn"><i data-lucide="mic"></i></div><input class="chat-input-fake" v-model="state.chatInputText"><div class="chat-icon-btn"><i data-lucide="smile"></i></div><div class="chat-send-btn"><i data-lucide="arrow-up"></i></div></div></div><div class="image-section" @click.self="triggerUpload('capsuleBg')"><img :src="state.widgetImage1" class="img-card single-card" @click.stop="triggerUpload('widgetImage1')"><div class="widget-mini-badge" v-if="state.widgetBadge1.img || state.widgetBadge1.color" @click.stop="openWidgetBadge1Editor()" :style="state.widgetBadge1.img ? {} : { background: state.widgetBadge1.color || '#ffffff' }"><img v-if="state.widgetBadge1.img" :src="state.widgetBadge1.img"></div></div></template><template v-else-if="state.capsuleType === 'emoji'"><div class="emoji-wall" @click="addEmoji" @contextmenu.prevent="clearEmojis"><div v-if="state.emojiWallItems?.length===0" class="emoji-placeholder">点击屏幕任意处输入文字表情<br>长按此处一键清空</div><div v-for="item in state.emojiWallItems" :key="item.id" class="emoji-item" :style="{ top: item.top+'%', left: item.left+'%', transform: `rotate(${item.rot}deg)`, fontSize: item.size+'px' }">{{ item.text }}</div></div></template><template v-else-if="state.capsuleType === 'calendar'"><div class="jp-calendar"><div class="cal-left"><div class="cal-month">{{ currentDate.getMonth() + 1 }}月</div><div class="cal-date">{{ currentDate.getDate() }}</div><div class="cal-day">{{ ['日','一','二','三','四','五','六'][currentDate.getDay()] }}曜日</div></div><div class="cal-right"><div class="cal-row header"><span v-for="d in ['S','M','T','W','T','F','S']" :key="d">{{d}}</span></div><div class="cal-row" v-for="(week, wIndex) in calendarGrid" :key="wIndex"><span v-for="(day, dIndex) in week" :key="dIndex" :class="{today: day === currentDate.getDate() && day !== ''}">{{day}}</span></div></div></div></template><template v-else-if="state.capsuleType === 'idCard'"><div class="id-card-widget"><div class="id-photo" @click="triggerUpload('idCard_photo')"><img :src="state.idCard.photo"><div v-if="state.idCard.photo.includes('svg+xml')" class="id-photo-hint">点击上传</div></div><div class="id-info"><div class="id-line"><span class="label">Name</span><input v-model="state.idCard.name"></div><div class="id-line"><span class="label">Sex</span><input v-model="state.idCard.gender"></div><div class="id-line"><span class="label">Age</span><input v-model="state.idCard.age"></div><div class="id-line"><span class="label">Add.</span><input v-model="state.idCard.address"></div></div></div></template></div><div class="middle-row"><template v-if="state.widgetSlot1 === 'badge'"><div class="badge-widget" @click="triggerUpload('badgeImage')"><img v-if="state.badgeImage" :src="state.badgeImage" class="badge-img"></div></template><template v-else-if="state.widgetSlot1 === 'clock'"><div class="clock-widget" @click="isClockModalOpen = true" @contextmenu.prevent="isClockModalOpen = true" :style="{ backgroundImage: state.clockBg ? `url(${state.clockBg})` : 'none' }"><div class="clock-face"><img v-for="(icon, index) in state.clockIcons" :key="index" :src="icon" class="clock-number-icon" :style="getClockNumberStyle(index)"><div v-if="!state.clockHandHr" class="hand hand-hr" :style="{ transform: `rotate(${hrDeg}deg)` }"></div><img v-else :src="state.clockHandHr" class="hand-img hand-hr-img" :style="{ transform: `rotate(${hrDeg}deg)` }"><div v-if="!state.clockHandMin" class="hand hand-min" :style="{ transform: `rotate(${minDeg}deg)` }"></div><img v-else :src="state.clockHandMin" class="hand-img hand-min-img" :style="{ transform: `rotate(${minDeg}deg)` }"><div v-if="!state.clockHandSec" class="hand hand-sec" :style="{ transform: `rotate(${secDeg}deg)` }"></div><img v-else :src="state.clockHandSec" class="hand-img hand-sec-img" :style="{ transform: `rotate(${secDeg}deg)` }"><div v-if="!state.clockCenterDot" class="clock-center"></div><img v-else :src="state.clockCenterDot" class="clock-center-img"></div></div></template><template v-else-if="state.widgetSlot1 === 'image'"><div class="custom-image-widget glass-widget" @click="triggerUpload('customImg1')"><img :src="state.customImg1" class="full-cover-img"></div></template><template v-else-if="state.widgetSlot1 === 'avatars'"><div class="avatar-card-widget glass-widget"><input class="avatar-title-input" v-model="state.avatarCard1.titleTop"><div class="avatars-container"><div class="avatar-item pos-left"><img :src="state.avatarCard1.imgLeft" @click="triggerUpload('avatarCard1_imgLeft')" class="ac-img-large"><input class="avatar-name-input" v-model="state.avatarCard1.textLeft"></div><div class="avatar-item pos-right"><img :src="state.avatarCard1.imgRight" @click="triggerUpload('avatarCard1_imgRight')" class="ac-img-large"><input class="avatar-name-input" v-model="state.avatarCard1.textRight"></div></div><input class="avatar-title-input" v-model="state.avatarCard1.titleBottom"></div></template><div class="app-grid"><div class="app-item" v-for="app in state.appsTop" :key="app.id" @click="openApp(app)" @contextmenu.prevent="editApp(app)"><img :src="app.icon" class="app-icon" :class="{'app-has-shadow': state.topHasShadow}"><span v-if="state.topShowName" class="app-name">{{ app.name }}</span></div></div></div><div class="middle-row"><div class="app-grid"><div class="app-item" v-for="app in state.appsBottom" :key="app.id" @click="openApp(app)" @contextmenu.prevent="editApp(app)"><img :src="app.icon" class="app-icon" :class="{'app-has-shadow': state.bottomHasShadow}"><span v-if="state.bottomShowName" class="app-name">{{ app.name }}</span></div></div><template v-if="state.widgetSlot2 === 'badge'"><div class="badge-widget" @click="triggerUpload('badgeImage')"><img v-if="state.badgeImage" :src="state.badgeImage" class="badge-img"></div></template><template v-else-if="state.widgetSlot2 === 'clock'"><div class="clock-widget" @click="isClockModalOpen = true" @contextmenu.prevent="isClockModalOpen = true" :style="{ backgroundImage: state.clockBg ? `url(${state.clockBg})` : 'none' }"><div class="clock-face"><img v-for="(icon, index) in state.clockIcons" :key="index" :src="icon" class="clock-number-icon" :style="getClockNumberStyle(index)"><div v-if="!state.clockHandHr" class="hand hand-hr" :style="{ transform: `rotate(${hrDeg}deg)` }"></div><img v-else :src="state.clockHandHr" class="hand-img hand-hr-img" :style="{ transform: `rotate(${hrDeg}deg)` }"><div v-if="!state.clockHandMin" class="hand hand-min" :style="{ transform: `rotate(${minDeg}deg)` }"></div><img v-else :src="state.clockHandMin" class="hand-img hand-min-img" :style="{ transform: `rotate(${minDeg}deg)` }"><div v-if="!state.clockHandSec" class="hand hand-sec" :style="{ transform: `rotate(${secDeg}deg)` }"></div><img v-else :src="state.clockHandSec" class="hand-img hand-sec-img" :style="{ transform: `rotate(${secDeg}deg)` }"><div v-if="!state.clockCenterDot" class="clock-center"></div><img v-else :src="state.clockCenterDot" class="clock-center-img"></div></div></template><template v-else-if="state.widgetSlot2 === 'image'"><div class="custom-image-widget glass-widget" @click="triggerUpload('customImg2')"><img :src="state.customImg2" class="full-cover-img"></div></template><template v-else-if="state.widgetSlot2 === 'avatars'"><div class="avatar-card-widget glass-widget"><input class="avatar-title-input" v-model="state.avatarCard2.titleTop"><div class="avatars-container"><div class="avatar-item pos-left"><img :src="state.avatarCard2.imgLeft" @click="triggerUpload('avatarCard2_imgLeft')" class="ac-img-large"><input class="avatar-name-input" v-model="state.avatarCard2.textLeft"></div><div class="avatar-item pos-right"><img :src="state.avatarCard2.imgRight" @click="triggerUpload('avatarCard2_imgRight')" class="ac-img-large"><input class="avatar-name-input" v-model="state.avatarCard2.textRight"></div></div><input class="avatar-title-input" v-model="state.avatarCard2.titleBottom"></div></template></div><div class="dock" :class="{'dock-hidden': state.dockHidden}" :style="getDockStyles()"><div class="app-item" v-for="app in state.appsDock" :key="app.id" @click="openApp(app)" @contextmenu.prevent="editApp(app, false)"><img :src="app.icon" class="app-icon dock-icon" :class="{'app-has-shadow': state.dockHasShadow}"><span v-if="state.dockShowName" style="font-size:10px; color:var(--text-sub); margin-top:4px;">{{ app.name }}</span></div></div><div class="modal-overlay" v-if="isThemeModalOpen" @click.self="isThemeModalOpen = false"><div class="modal-content"><h3 class="modal-title">胶囊基础设置</h3><div style="margin-bottom: 20px;"><button class="theme-btn" @click="setTheme('light')">灰白模式 (Light)</button><button class="theme-btn" @click="setTheme('dark')">暗黑模式 (Dark)</button></div><div style="margin-bottom: 15px;"><h4 style="font-size: 13px; color: var(--text-sub); margin-bottom: 8px; text-align: center;">胶囊背景壁纸</h4><div style="display: flex; gap: 8px;"><button class="theme-btn" style="flex: 1; margin-bottom: 0;" @click="editCapsuleBgUrl">URL</button><button class="theme-btn" style="flex: 1; margin-bottom: 0;" @click="triggerUpload('capsuleBg')">本地</button><button class="theme-btn danger-btn" style="flex: 1; margin-bottom: 0;" @click="state.capsuleBg = ''">重置</button></div></div><div style="display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--text-main); margin-bottom: 5px;"><span style="font-weight: 500;">背景层透明度:</span><input type="range" v-model="state.capsuleOpacity" min="0.1" max="1" step="0.05" style="flex: 1; accent-color: var(--text-main);"><span style="width: 35px; text-align: right;">{{ Math.round(state.capsuleOpacity * 100) }}%</span></div><button class="close-modal" @click="isThemeModalOpen = false">完成</button></div></div><div class="modal-overlay" v-if="isClockModalOpen" @click.self="isClockModalOpen = false"><div class="modal-content"><h3 class="modal-title">时钟全方位自定义</h3><button class="theme-btn" @click="triggerUpload('clockBg')">修改底盘壁纸</button><div style="display:flex; gap:10px;"><button class="theme-btn" @click="triggerUpload('clockHandHr')">替换时针</button><button class="theme-btn" @click="triggerUpload('clockHandMin')">替换分针</button></div><div style="display:flex; gap:10px;"><button class="theme-btn" @click="triggerUpload('clockHandSec')">替换秒针</button><button class="theme-btn" @click="triggerUpload('clockCenterDot')">替换中心点</button></div><h3 class="modal-title" style="margin-top: 15px; font-size: 14px;">修改 12 个时间图标</h3><div class="clock-edit-grid"><div class="clock-edit-item" v-for="(icon, index) in state.clockIcons" :key="index"><span>{{ index === 0 ? 12 : index }}点</span><img :src="icon"><div class="clock-edit-actions"><button @click="editClockUrl(index)">URL</button><button @click="triggerUpload('clockIcon', index)">本地</button></div></div></div><button class="theme-btn danger-btn" @click="resetClock">重置时钟图片</button><button class="close-modal" @click="isClockModalOpen = false">保存关闭</button></div></div></div>
-    <div class="modal-overlay" v-if="isWidgetBadgeModalOpen" @click.self="isWidgetBadgeModalOpen = false"><div class="modal-content"><h3 class="modal-title">编辑右下角小圆图</h3><button class="theme-btn" @click="chooseWidgetBadge1Image">上传图片</button><div style="margin: 14px 0 8px; text-align: center; color: var(--text-sub); font-size: 12px;">或者自定义纯色</div><div style="display:flex; justify-content:center; margin-bottom:16px;"><input type="color" :value="state.widgetBadge1.color || '#ffffff'" @change="onWidgetBadge1ColorChange" style="width: 120px; height: 48px; border: none; background: transparent; padding: 0; cursor: pointer;"></div><div style="display:flex; justify-content:center; margin-bottom:16px;"><div style="width:48px; height:48px; border-radius:50%; box-shadow:0 4px 10px rgba(0,0,0,0.08); overflow:hidden;" :style="state.widgetBadge1.img ? {} : { background: state.widgetBadge1.color || '#ffffff' }"><img v-if="state.widgetBadge1.img" :src="state.widgetBadge1.img" style="width:100%; height:100%; object-fit:cover; display:block;"></div></div><button class="theme-btn danger-btn" @click="resetWidgetBadge1">重置</button><button class="close-modal" @click="isWidgetBadgeModalOpen = false">完成</button></div></div>
-    
-    <div v-show="state.activeApp === 'beautify'" class="beautify-app" :class="{'dark-mode': state.theme === 'dark'}"><div class="b-header"><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;"><div class="b-nav" style="margin-bottom:0;" @click="closeApp"><i data-lucide="chevron-left" style="width:20px; height:20px; margin-right:4px;"></i> 桌面</div><div @click="state.theme = state.theme === 'dark' ? 'light' : 'dark'; setTimeout(() => { if(window.lucide) lucide.createIcons(); }, 50)" style="cursor:pointer; color:var(--text-main); display:flex; align-items:center;">
-<span v-if="state.theme === 'dark'"><i data-lucide="sun"></i></span><span v-else><i data-lucide="moon"></i></span>
+    <div v-show="state.activeApp === null" class="desktop-container" :class="{'dark-mode': state.theme === 'dark', 'is-editing': state.isEditingDesktop}" :style="{ backgroundImage: state.desktopWallpaper ? `url(${state.desktopWallpaper})` : 'none', padding: '0', display: 'flex', position: 'relative' }" @click.self="state.isEditingDesktop ? exitEditMode() : null" @contextmenu.prevent="state.isEditingDesktop ? null : enterEditMode()">
+        
+        <!-- 全新：横向翻页外层容器 -->
+        <!-- 经典模式主页 -->
+        <div v-if="state.desktopMode === 'classic'" style="width:100%; height:100%; padding:20px 16px 120px; display:flex; flex-direction:column; gap:16px; overflow:hidden;">
+            <!-- split 顶部行 -->
+            <div v-if="state.topRowType === 'split'" class="middle-row" style="flex:0 0 160px;">
+                <template v-if="state.row0Layout[0] === 'widget0'">
+                    <div style="flex:1;">
+                        <template v-if="state.widgetSlot0 === 'badge'"><div class="badge-widget" @click="triggerUpload('badgeImage')" style="width:100%;height:100%;"><img v-if="state.badgeImage" :src="state.badgeImage" class="badge-img"></div></template>
+                        <template v-else-if="state.widgetSlot0 === 'clock'"><div class="clock-widget" @click="isClockModalOpen = true" style="width:100%;height:100%;" :style="{ backgroundImage: state.clockBg ? `url(${state.clockBg})` : 'none' }"><div class="clock-face"><img v-for="(icon, idx) in state.clockIcons" :key="idx" :src="icon" class="clock-number-icon" :style="getClockNumberStyle(idx)"><div v-if="!state.clockHandHr" class="hand hand-hr" :style="{ transform: `rotate(${hrDeg}deg)` }"></div><img v-else :src="state.clockHandHr" class="hand-img hand-hr-img" :style="{ transform: `rotate(${hrDeg}deg)` }"><div v-if="!state.clockHandMin" class="hand hand-min" :style="{ transform: `rotate(${minDeg}deg)` }"></div><img v-else :src="state.clockHandMin" class="hand-img hand-min-img" :style="{ transform: `rotate(${minDeg}deg)` }"><div v-if="!state.clockHandSec" class="hand hand-sec" :style="{ transform: `rotate(${secDeg}deg)` }"></div><img v-else :src="state.clockHandSec" class="hand-img hand-sec-img" :style="{ transform: `rotate(${secDeg}deg)` }"><div v-if="!state.clockCenterDot" class="clock-center"></div><img v-else :src="state.clockCenterDot" class="clock-center-img"></div></div></template>
+                        <template v-else-if="state.widgetSlot0 === 'image'"><div class="custom-image-widget glass-widget" @click="triggerUpload('customImg0')" style="width:100%;height:100%;"><img :src="state.customImg0" class="full-cover-img"></div></template>
+                        <template v-else-if="state.widgetSlot0 === 'avatars'"><div class="avatar-card-widget glass-widget" style="width:100%;height:100%;"><input class="avatar-title-input" v-model="state.avatarCard0.titleTop"><div class="avatars-container"><div class="avatar-item pos-left"><img :src="state.avatarCard0.imgLeft" @click.stop="triggerUpload('avatarCard0_imgLeft')" class="ac-img-large"><input class="avatar-name-input" v-model="state.avatarCard0.textLeft"></div><div class="avatar-item pos-right"><img :src="state.avatarCard0.imgRight" @click.stop="triggerUpload('avatarCard0_imgRight')" class="ac-img-large"><input class="avatar-name-input" v-model="state.avatarCard0.textRight"></div></div><input class="avatar-title-input" v-model="state.avatarCard0.titleBottom"></div></template>
+                    </div>
+                    <div class="app-grid">
+                        <div class="app-item" v-for="app in state.apps0" :key="app.id" @click="openApp(app)">
+                            <img :src="app.icon" class="app-icon" :class="{'app-has-shadow': state.topHasShadow}">
+                            <span v-if="state.topShowName" class="app-name">{{ app.name }}</span>
+                        </div>
+                    </div>
+                </template>
+                <template v-else>
+                    <div class="app-grid">
+                        <div class="app-item" v-for="app in state.apps0" :key="app.id" @click="openApp(app)">
+                            <img :src="app.icon" class="app-icon" :class="{'app-has-shadow': state.topHasShadow}">
+                            <span v-if="state.topShowName" class="app-name">{{ app.name }}</span>
+                        </div>
+                    </div>
+                    <div style="flex:1;">
+                        <template v-if="state.widgetSlot0 === 'badge'"><div class="badge-widget" @click="triggerUpload('badgeImage')" style="width:100%;height:100%;"><img v-if="state.badgeImage" :src="state.badgeImage" class="badge-img"></div></template>
+                        <template v-else-if="state.widgetSlot0 === 'clock'"><div class="clock-widget" @click="isClockModalOpen = true" style="width:100%;height:100%;" :style="{ backgroundImage: state.clockBg ? `url(${state.clockBg})` : 'none' }"><div class="clock-face"><img v-for="(icon, idx) in state.clockIcons" :key="idx" :src="icon" class="clock-number-icon" :style="getClockNumberStyle(idx)"><div v-if="!state.clockHandHr" class="hand hand-hr" :style="{ transform: `rotate(${hrDeg}deg)` }"></div><img v-else :src="state.clockHandHr" class="hand-img hand-hr-img" :style="{ transform: `rotate(${hrDeg}deg)` }"><div v-if="!state.clockHandMin" class="hand hand-min" :style="{ transform: `rotate(${minDeg}deg)` }"></div><img v-else :src="state.clockHandMin" class="hand-img hand-min-img" :style="{ transform: `rotate(${minDeg}deg)` }"><div v-if="!state.clockHandSec" class="hand hand-sec" :style="{ transform: `rotate(${secDeg}deg)` }"></div><img v-else :src="state.clockHandSec" class="hand-img hand-sec-img" :style="{ transform: `rotate(${secDeg}deg)` }"><div v-if="!state.clockCenterDot" class="clock-center"></div><img v-else :src="state.clockCenterDot" class="clock-center-img"></div></div></template>
+                        <template v-else-if="state.widgetSlot0 === 'image'"><div class="custom-image-widget glass-widget" @click="triggerUpload('customImg0')" style="width:100%;height:100%;"><img :src="state.customImg0" class="full-cover-img"></div></template>
+                        <template v-else-if="state.widgetSlot0 === 'avatars'"><div class="avatar-card-widget glass-widget" style="width:100%;height:100%;"><input class="avatar-title-input" v-model="state.avatarCard0.titleTop"><div class="avatars-container"><div class="avatar-item pos-left"><img :src="state.avatarCard0.imgLeft" @click.stop="triggerUpload('avatarCard0_imgLeft')" class="ac-img-large"><input class="avatar-name-input" v-model="state.avatarCard0.textLeft"></div><div class="avatar-item pos-right"><img :src="state.avatarCard0.imgRight" @click.stop="triggerUpload('avatarCard0_imgRight')" class="ac-img-large"><input class="avatar-name-input" v-model="state.avatarCard0.textRight"></div></div><input class="avatar-title-input" v-model="state.avatarCard0.titleBottom"></div></template>
+                    </div>
+                </template>
+            </div>
+
+            <template v-for="section in state.desktopLayout.filter(s => !(state.topRowType === 'split' && s === 'capsule'))" :key="section">
+                <div v-if="section === 'capsule'" class="capsule-widget glass-widget">
+                    <div class="capsule-bg-layer" v-if="state.capsuleBg" :style="{ backgroundImage: `url(${state.capsuleBg})`, opacity: state.capsuleOpacity }"></div>
+                    <template v-if="state.capsuleType === 'chat'"><div class="chat-section"><input class="chat-time-input" v-model="state.chatTime"><div class="chat-messages"><div class="chat-row left"><img :src="state.chatLeftAvatar" class="avatar"><div class="chat-bubble"><span>{{ state.chatLeftText }}</span></div></div><div class="chat-row right"><img :src="state.chatRightAvatar" class="avatar"><div class="chat-bubble"><span>{{ state.chatRightText }}</span></div></div></div><div class="chat-bottom-bar"><div class="chat-icon-btn"><i data-lucide="mic"></i></div><input class="chat-input-fake" :value="state.chatInputText"><div class="chat-icon-btn"><i data-lucide="smile"></i></div><div class="chat-send-btn"><i data-lucide="arrow-up"></i></div></div></div><div class="image-section"><img :src="state.widgetImage1" class="img-card single-card"><div class="widget-mini-badge" v-if="state.widgetBadge1.img || state.widgetBadge1.color" :style="state.widgetBadge1.img ? {} : { background: state.widgetBadge1.color || '#ffffff' }"><img v-if="state.widgetBadge1.img" :src="state.widgetBadge1.img"></div></div></template>
+                    <template v-else-if="state.capsuleType === 'emoji'"><div class="emoji-wall"><div v-if="state.emojiWallItems?.length===0" class="emoji-placeholder">点击输入文字表情</div><div v-for="item in state.emojiWallItems" :key="item.id" class="emoji-item" :style="{ top: item.top+'%', left: item.left+'%', transform: `rotate(${item.rot}deg)`, fontSize: item.size+'px' }">{{ item.text }}</div></div></template>
+                    <template v-else-if="state.capsuleType === 'calendar'"><div class="jp-calendar"><div class="cal-left"><div class="cal-month">{{ currentDate.getMonth() + 1 }}月</div><div class="cal-date">{{ currentDate.getDate() }}</div><div class="cal-day">{{ ['日','一','二','三','四','五','六'][currentDate.getDay()] }}曜日</div></div><div class="cal-right"><div class="cal-row header"><span v-for="d in ['S','M','T','W','T','F','S']" :key="d">{{d}}</span></div><div class="cal-row" v-for="(week, wIndex) in calendarGrid" :key="wIndex"><span v-for="(day, dIndex) in week" :key="dIndex" :class="{today: day === currentDate.getDate() && day !== ''}">{{day}}</span></div></div></div></template>
+                </div>
+
+                <div v-else-if="section === 'row1'" class="middle-row">
+                    <template v-if="state.row1Layout[0] === 'widget1'">
+                        <div style="flex:1;">
+                            <template v-if="state.widgetSlot1 === 'badge'"><div class="badge-widget" style="width:100%;height:100%;"><img v-if="state.badgeImage" :src="state.badgeImage" class="badge-img"></div></template>
+                            <template v-else-if="state.widgetSlot1 === 'clock'"><div class="clock-widget" style="width:100%;height:100%;" :style="{ backgroundImage: state.clockBg ? `url(${state.clockBg})` : 'none' }"><div class="clock-face"><img v-for="(icon, idx) in state.clockIcons" :key="idx" :src="icon" class="clock-number-icon" :style="getClockNumberStyle(idx)"><div v-if="!state.clockHandHr" class="hand hand-hr" :style="{ transform: `rotate(${hrDeg}deg)` }"></div><img v-else :src="state.clockHandHr" class="hand-img hand-hr-img" :style="{ transform: `rotate(${hrDeg}deg)` }"><div v-if="!state.clockHandMin" class="hand hand-min" :style="{ transform: `rotate(${minDeg}deg)` }"></div><img v-else :src="state.clockHandMin" class="hand-img hand-min-img" :style="{ transform: `rotate(${minDeg}deg)` }"><div v-if="!state.clockHandSec" class="hand hand-sec" :style="{ transform: `rotate(${secDeg}deg)` }"></div><img v-else :src="state.clockHandSec" class="hand-img hand-sec-img" :style="{ transform: `rotate(${secDeg}deg)` }"><div v-if="!state.clockCenterDot" class="clock-center"></div><img v-else :src="state.clockCenterDot" class="clock-center-img"></div></div></template>
+                            <template v-else-if="state.widgetSlot1 === 'image'"><div class="custom-image-widget glass-widget" style="width:100%;height:100%;"><img :src="state.customImg1" class="full-cover-img"></div></template>
+                            <template v-else-if="state.widgetSlot1 === 'avatars'"><div class="avatar-card-widget glass-widget" style="width:100%;height:100%;"><input class="avatar-title-input" v-model="state.avatarCard1.titleTop"><div class="avatars-container"><div class="avatar-item pos-left"><img :src="state.avatarCard1.imgLeft" class="ac-img-large"><input class="avatar-name-input" v-model="state.avatarCard1.textLeft"></div><div class="avatar-item pos-right"><img :src="state.avatarCard1.imgRight" class="ac-img-large"><input class="avatar-name-input" v-model="state.avatarCard1.textRight"></div></div><input class="avatar-title-input" v-model="state.avatarCard1.titleBottom"></div></template>
+                        </div>
+                        <div class="app-grid">
+                            <div class="app-item" v-for="app in state.appsTop" :key="app.id" @click="openApp(app)">
+                                <img :src="app.icon" class="app-icon" :class="{'app-has-shadow': state.topHasShadow}">
+                                <span v-if="state.topShowName" class="app-name">{{ app.name }}</span>
+                            </div>
+                        </div>
+                    </template>
+                    <template v-else>
+                        <div class="app-grid">
+                            <div class="app-item" v-for="app in state.appsTop" :key="app.id" @click="openApp(app)">
+                                <img :src="app.icon" class="app-icon" :class="{'app-has-shadow': state.topHasShadow}">
+                                <span v-if="state.topShowName" class="app-name">{{ app.name }}</span>
+                            </div>
+                        </div>
+                        <div style="flex:1;">
+                            <template v-if="state.widgetSlot1 === 'badge'"><div class="badge-widget" style="width:100%;height:100%;"><img v-if="state.badgeImage" :src="state.badgeImage" class="badge-img"></div></template>
+                            <template v-else-if="state.widgetSlot1 === 'clock'"><div class="clock-widget" style="width:100%;height:100%;" :style="{ backgroundImage: state.clockBg ? `url(${state.clockBg})` : 'none' }"><div class="clock-face"><img v-for="(icon, idx) in state.clockIcons" :key="idx" :src="icon" class="clock-number-icon" :style="getClockNumberStyle(idx)"><div v-if="!state.clockHandHr" class="hand hand-hr" :style="{ transform: `rotate(${hrDeg}deg)` }"></div><img v-else :src="state.clockHandHr" class="hand-img hand-hr-img" :style="{ transform: `rotate(${hrDeg}deg)` }"><div v-if="!state.clockHandMin" class="hand hand-min" :style="{ transform: `rotate(${minDeg}deg)` }"></div><img v-else :src="state.clockHandMin" class="hand-img hand-min-img" :style="{ transform: `rotate(${minDeg}deg)` }"><div v-if="!state.clockHandSec" class="hand hand-sec" :style="{ transform: `rotate(${secDeg}deg)` }"></div><img v-else :src="state.clockHandSec" class="hand-img hand-sec-img" :style="{ transform: `rotate(${secDeg}deg)` }"><div v-if="!state.clockCenterDot" class="clock-center"></div><img v-else :src="state.clockCenterDot" class="clock-center-img"></div></div></template>
+                            <template v-else-if="state.widgetSlot1 === 'image'"><div class="custom-image-widget glass-widget" style="width:100%;height:100%;"><img :src="state.customImg1" class="full-cover-img"></div></template>
+                            <template v-else-if="state.widgetSlot1 === 'avatars'"><div class="avatar-card-widget glass-widget" style="width:100%;height:100%;"><input class="avatar-title-input" v-model="state.avatarCard1.titleTop"><div class="avatars-container"><div class="avatar-item pos-left"><img :src="state.avatarCard1.imgLeft" class="ac-img-large"><input class="avatar-name-input" v-model="state.avatarCard1.textLeft"></div><div class="avatar-item pos-right"><img :src="state.avatarCard1.imgRight" class="ac-img-large"><input class="avatar-name-input" v-model="state.avatarCard1.textRight"></div></div><input class="avatar-title-input" v-model="state.avatarCard1.titleBottom"></div></template>
+                        </div>
+                    </template>
+                </div>
+
+                <div v-else-if="section === 'row2'" class="middle-row">
+                    <template v-if="state.row2Layout[0] === 'widget2'">
+                        <div style="flex:1;">
+                            <template v-if="state.widgetSlot2 === 'badge'"><div class="badge-widget" style="width:100%;height:100%;"><img v-if="state.badgeImage" :src="state.badgeImage" class="badge-img"></div></template>
+                            <template v-else-if="state.widgetSlot2 === 'clock'"><div class="clock-widget" style="width:100%;height:100%;" :style="{ backgroundImage: state.clockBg ? `url(${state.clockBg})` : 'none' }"><div class="clock-face"><img v-for="(icon, idx) in state.clockIcons" :key="idx" :src="icon" class="clock-number-icon" :style="getClockNumberStyle(idx)"><div v-if="!state.clockHandHr" class="hand hand-hr" :style="{ transform: `rotate(${hrDeg}deg)` }"></div><img v-else :src="state.clockHandHr" class="hand-img hand-hr-img" :style="{ transform: `rotate(${hrDeg}deg)` }"><div v-if="!state.clockHandMin" class="hand hand-min" :style="{ transform: `rotate(${minDeg}deg)` }"></div><img v-else :src="state.clockHandMin" class="hand-img hand-min-img" :style="{ transform: `rotate(${minDeg}deg)` }"><div v-if="!state.clockHandSec" class="hand hand-sec" :style="{ transform: `rotate(${secDeg}deg)` }"></div><img v-else :src="state.clockHandSec" class="hand-img hand-sec-img" :style="{ transform: `rotate(${secDeg}deg)` }"><div v-if="!state.clockCenterDot" class="clock-center"></div><img v-else :src="state.clockCenterDot" class="clock-center-img"></div></div></template>
+                            <template v-else-if="state.widgetSlot2 === 'image'"><div class="custom-image-widget glass-widget" style="width:100%;height:100%;"><img :src="state.customImg2" class="full-cover-img"></div></template>
+                            <template v-else-if="state.widgetSlot2 === 'avatars'"><div class="avatar-card-widget glass-widget" style="width:100%;height:100%;"><input class="avatar-title-input" v-model="state.avatarCard2.titleTop"><div class="avatars-container"><div class="avatar-item pos-left"><img :src="state.avatarCard2.imgLeft" class="ac-img-large"><input class="avatar-name-input" v-model="state.avatarCard2.textLeft"></div><div class="avatar-item pos-right"><img :src="state.avatarCard2.imgRight" class="ac-img-large"><input class="avatar-name-input" v-model="state.avatarCard2.textRight"></div></div><input class="avatar-title-input" v-model="state.avatarCard2.titleBottom"></div></template>
+                        </div>
+                        <div class="app-grid">
+                            <div class="app-item" v-for="app in state.appsBottom" :key="app.id" @click="openApp(app)">
+                                <img :src="app.icon" class="app-icon" :class="{'app-has-shadow': state.bottomHasShadow}">
+                                <span v-if="state.bottomShowName" class="app-name">{{ app.name }}</span>
+                            </div>
+                        </div>
+                    </template>
+                    <template v-else>
+                        <div class="app-grid">
+                            <div class="app-item" v-for="app in state.appsBottom" :key="app.id" @click="openApp(app)">
+                                <img :src="app.icon" class="app-icon" :class="{'app-has-shadow': state.bottomHasShadow}">
+                                <span v-if="state.bottomShowName" class="app-name">{{ app.name }}</span>
+                            </div>
+                        </div>
+                        <div style="flex:1;">
+                            <template v-if="state.widgetSlot2 === 'badge'"><div class="badge-widget" style="width:100%;height:100%;"><img v-if="state.badgeImage" :src="state.badgeImage" class="badge-img"></div></template>
+                            <template v-else-if="state.widgetSlot2 === 'clock'"><div class="clock-widget" style="width:100%;height:100%;" :style="{ backgroundImage: state.clockBg ? `url(${state.clockBg})` : 'none' }"><div class="clock-face"><img v-for="(icon, idx) in state.clockIcons" :key="idx" :src="icon" class="clock-number-icon" :style="getClockNumberStyle(idx)"><div v-if="!state.clockHandHr" class="hand hand-hr" :style="{ transform: `rotate(${hrDeg}deg)` }"></div><img v-else :src="state.clockHandHr" class="hand-img hand-hr-img" :style="{ transform: `rotate(${hrDeg}deg)` }"><div v-if="!state.clockHandMin" class="hand hand-min" :style="{ transform: `rotate(${minDeg}deg)` }"></div><img v-else :src="state.clockHandMin" class="hand-img hand-min-img" :style="{ transform: `rotate(${minDeg}deg)` }"><div v-if="!state.clockHandSec" class="hand hand-sec" :style="{ transform: `rotate(${secDeg}deg)` }"></div><img v-else :src="state.clockHandSec" class="hand-img hand-sec-img" :style="{ transform: `rotate(${secDeg}deg)` }"><div v-if="!state.clockCenterDot" class="clock-center"></div><img v-else :src="state.clockCenterDot" class="clock-center-img"></div></div></template>
+                            <template v-else-if="state.widgetSlot2 === 'image'"><div class="custom-image-widget glass-widget" style="width:100%;height:100%;"><img :src="state.customImg2" class="full-cover-img"></div></template>
+                            <template v-else-if="state.widgetSlot2 === 'avatars'"><div class="avatar-card-widget glass-widget" style="width:100%;height:100%;"><input class="avatar-title-input" v-model="state.avatarCard2.titleTop"><div class="avatars-container"><div class="avatar-item pos-left"><img :src="state.avatarCard2.imgLeft" class="ac-img-large"><input class="avatar-name-input" v-model="state.avatarCard2.textLeft"></div><div class="avatar-item pos-right"><img :src="state.avatarCard2.imgRight" class="ac-img-large"><input class="avatar-name-input" v-model="state.avatarCard2.textRight"></div></div><input class="avatar-title-input" v-model="state.avatarCard2.titleBottom"></div></template>
+                        </div>
+                    </template>
+                </div>
+            </template>
+        </div>
+
+        <!-- 自由网格模式主页 -->
+        <div v-else ref="desktopScrollRef" @scroll="onDesktopScroll" style="display:flex; position:absolute; top:0; left:0; right:0; bottom:132px; overflow-x:auto; overflow-y:hidden; scroll-snap-type:x mandatory; scrollbar-width:none; scroll-behavior:smooth;">
+            <div v-for="(pageItems, pageIndex) in state.desktopPages" :key="pageIndex"
+                 class="true-grid-desktop"
+                 :style="{ flex: '0 0 100vw', scrollSnapAlign: 'start', scrollSnapStop: 'always', '--grid-cols': state.gridCols || 4, '--grid-row-h': (state.gridCols == 5 ? '60px' : '74px') }"
+                 @click.self="state.isEditingDesktop ? exitEditMode() : null"
+                 @contextmenu.prevent="state.isEditingDesktop ? null : enterEditMode()"
+                 @dragover.prevent
+                 @drop.self="onEmptyGridDrop($event, pageIndex)">
+
+                <div
+                    v-if="hoverPreview.show && hoverPreview.pageIndex === pageIndex"
+                    class="grid-drop-preview"
+                    :style="{
+                        left: hoverPreview.left + 'px',
+                        top: hoverPreview.top + 'px',
+                        width: hoverPreview.width + 'px',
+                        height: hoverPreview.height + 'px'
+                    }">
+                </div>
+
+    <div v-for="(item, index) in pageItems" :key="item.id"
+                     :class="['grid-size-' + item.w + 'x' + item.h, { 'drag-target': dragOverInfo.index === index && dragOverInfo.group === 'desktop' && dragOverInfo.pageIndex === pageIndex }]"
+                     :draggable="state.isEditingDesktop"
+                     @dragstart="onGridDragStart($event, index, pageIndex, 'desktop')"
+                     @dragover.prevent="onGridDragOver($event, index, pageIndex, 'desktop')"
+                     @dragend="onGridDragEnd"
+                     @drop="onGridDrop($event, index, pageIndex, 'desktop')">
+
+                    <button
+                        v-if="state.isEditingDesktop && item.type !== 'empty'"
+                        class="grid-delete-btn"
+                        @click.stop="deleteGridItem(pageIndex, index)">
+                        ×
+                    </button>
+
+                    <div v-if="item.type === 'empty'" class="empty-grid-cell" style="width:100%; height:100%; opacity:0;"></div>
+
+                    <div v-else-if="item.type === 'app'" class="app-item" @click="state.isEditingDesktop ? null : openApp(item.appRef)">
+                        <img :src="item.appRef.icon" class="app-icon" :class="{'app-has-shadow': state.topHasShadow}">
+                        <span v-if="state.topShowName" class="app-name">{{ item.appRef.name }}</span>
+                    </div>
+
+                    <div v-else-if="item.type === 'capsule'" class="capsule-widget glass-widget" @contextmenu.prevent="state.isEditingDesktop ? null : (isThemeModalOpen = true)">
+                        <div class="capsule-bg-layer" v-if="state.capsuleBg" :style="{ backgroundImage: `url(${state.capsuleBg})`, opacity: state.capsuleOpacity }"></div>
+
+                        <template v-if="state.capsuleType === 'chat'">
+                            <div class="chat-section">
+                                <input class="chat-time-input" v-model="state.chatTime">
+                                <div class="chat-messages">
+                                    <div class="chat-row left">
+                                        <img :src="state.chatLeftAvatar" class="avatar" @click.stop="triggerUpload('chatLeftAvatar')">
+                                        <div class="chat-bubble"><span contenteditable="true" @blur="state.chatLeftText = $event.target.innerText">{{ state.chatLeftText }}</span></div>
+                                    </div>
+                                    <div class="chat-row right">
+                                        <img :src="state.chatRightAvatar" class="avatar" @click.stop="triggerUpload('chatRightAvatar')">
+                                        <div class="chat-bubble"><span contenteditable="true" @blur="state.chatRightText = $event.target.innerText">{{ state.chatRightText }}</span></div>
+                                    </div>
+                                </div>
+                                <div class="chat-bottom-bar">
+                                    <div class="chat-icon-btn"><i data-lucide="mic"></i></div>
+                                    <input class="chat-input-fake" v-model="state.chatInputText">
+                                    <div class="chat-icon-btn"><i data-lucide="smile"></i></div>
+                                    <div class="chat-send-btn"><i data-lucide="arrow-up"></i></div>
+                                </div>
+                            </div>
+                            <div class="image-section" @click.self="triggerUpload('capsuleBg')">
+                                <img :src="state.widgetImage1" class="img-card single-card" @click.stop="triggerUpload('widgetImage1')">
+                                <div class="widget-mini-badge" v-if="state.widgetBadge1.img || state.widgetBadge1.color" @click.stop="openWidgetBadge1Editor()" :style="state.widgetBadge1.img ? {} : { background: state.widgetBadge1.color || '#ffffff' }">
+                                    <img v-if="state.widgetBadge1.img" :src="state.widgetBadge1.img">
+                                </div>
+                            </div>
+                        </template>
+
+                        <template v-else-if="state.capsuleType === 'emoji'">
+                            <div class="emoji-wall" @click="addEmoji" @contextmenu.prevent="clearEmojis">
+                                <div v-if="state.emojiWallItems?.length===0" class="emoji-placeholder">点击屏幕任意处输入文字表情<br>长按此处一键清空</div>
+                                <div v-for="item in state.emojiWallItems" :key="item.id" class="emoji-item" :style="{ top: item.top+'%', left: item.left+'%', transform: `rotate(${item.rot}deg)`, fontSize: item.size+'px' }">{{ item.text }}</div>
+                            </div>
+                        </template>
+
+                        <template v-else-if="state.capsuleType === 'calendar'">
+                            <div class="jp-calendar">
+                                <div class="cal-left">
+                                    <div class="cal-month">{{ currentDate.getMonth() + 1 }}月</div>
+                                    <div class="cal-date">{{ currentDate.getDate() }}</div>
+                                    <div class="cal-day">{{ ['日','一','二','三','四','五','六'][currentDate.getDay()] }}曜日</div>
+                                </div>
+                                <div class="cal-right">
+                                    <div class="cal-row header"><span v-for="d in ['S','M','T','W','T','F','S']" :key="d">{{ d }}</span></div>
+                                    <div class="cal-row" v-for="(week, wIndex) in calendarGrid" :key="wIndex">
+                                        <span v-for="(day, dIndex) in week" :key="dIndex" :class="{today: day === currentDate.getDate() && day !== ''}">{{ day }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+
+                        <template v-else-if="state.capsuleType === 'idCard'">
+                            <div class="id-card-widget">
+                                <div class="id-photo" @click="triggerUpload('idCard_photo')">
+                                    <img :src="state.idCard.photo">
+                                    <div v-if="state.idCard.photo.includes('svg+xml')" class="id-photo-hint">点击上传</div>
+                                </div>
+                                <div class="id-info">
+                                    <div class="id-line"><span class="label">Name</span><input v-model="state.idCard.name"></div>
+                                    <div class="id-line"><span class="label">Sex</span><input v-model="state.idCard.gender"></div>
+                                    <div class="id-line"><span class="label">Age</span><input v-model="state.idCard.age"></div>
+                                    <div class="id-line"><span class="label">Add.</span><input v-model="state.idCard.address"></div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+
+                    <div v-else-if="item.type === 'widget'" style="width:100%; height:100%;">
+                        <template v-if="getItemWidgetKind(item) === 'badge'">
+                            <div class="badge-widget" @click="triggerUpload('badgeImage')" style="width:100%; height:100%; margin:0;">
+                                <img v-if="state.badgeImage" :src="state.badgeImage" class="badge-img">
+                            </div>
+                        </template>
+
+                        <template v-else-if="getItemWidgetKind(item) === 'clock'">
+                            <div class="clock-widget" @click="state.isEditingDesktop ? null : (isClockModalOpen = true)" @contextmenu.prevent="state.isEditingDesktop ? null : (isClockModalOpen = true)" :style="[{ backgroundImage: state.clockBg ? `url(${state.clockBg})` : 'none', width:'100%', height:'100%', margin:0 }]">
+                                <div class="clock-face">
+                                    <img v-for="(icon, idx) in state.clockIcons" :key="idx" :src="icon" class="clock-number-icon" :style="getClockNumberStyle(idx)">
+                                    <div v-if="!state.clockHandHr" class="hand hand-hr" :style="{ transform: `rotate(${hrDeg}deg)` }"></div>
+                                    <img v-else :src="state.clockHandHr" class="hand-img hand-hr-img" :style="{ transform: `rotate(${hrDeg}deg)` }">
+                                    <div v-if="!state.clockHandMin" class="hand hand-min" :style="{ transform: `rotate(${minDeg}deg)` }"></div>
+                                    <img v-else :src="state.clockHandMin" class="hand-img hand-min-img" :style="{ transform: `rotate(${minDeg}deg)` }">
+                                    <div v-if="!state.clockHandSec" class="hand hand-sec" :style="{ transform: `rotate(${secDeg}deg)` }"></div>
+                                    <img v-else :src="state.clockHandSec" class="hand-img hand-sec-img" :style="{ transform: `rotate(${secDeg}deg)` }">
+                                    <div v-if="!state.clockCenterDot" class="clock-center"></div>
+                                    <img v-else :src="state.clockCenterDot" class="clock-center-img">
+                                </div>
+                            </div>
+                        </template>
+
+                        <template v-else-if="getItemWidgetKind(item) === 'image'">
+                            <div class="custom-image-widget glass-widget" @click="triggerUpload('customImg' + getItemDataKey(item))" style="width:100%; height:100%; margin:0;">
+                                <img :src="state['customImg' + getItemDataKey(item)]" class="full-cover-img">
+                            </div>
+                        </template>
+
+                        <template v-else-if="getItemWidgetKind(item) === 'avatars'">
+                            <div class="avatar-card-widget glass-widget" style="width:100%; height:100%; margin:0;">
+                                <input class="avatar-title-input" v-model="state['avatarCard' + getItemDataKey(item)].titleTop">
+                                <div class="avatars-container">
+                                    <div class="avatar-item pos-left">
+                                        <img :src="state['avatarCard' + getItemDataKey(item)].imgLeft" @click.stop="triggerUpload('avatarCard' + getItemDataKey(item) + '_imgLeft')" class="ac-img-large">
+                                        <input class="avatar-name-input" v-model="state['avatarCard' + getItemDataKey(item)].textLeft">
+                                    </div>
+                                    <div class="avatar-item pos-right">
+                                        <img :src="state['avatarCard' + getItemDataKey(item)].imgRight" @click.stop="triggerUpload('avatarCard' + getItemDataKey(item) + '_imgRight')" class="ac-img-large">
+                                        <input class="avatar-name-input" v-model="state['avatarCard' + getItemDataKey(item)].textRight">
+                                    </div>
+                                </div>
+                                <input class="avatar-title-input" v-model="state['avatarCard' + getItemDataKey(item)].titleBottom">
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="state.desktopMode === 'grid'" style="position:absolute; bottom:112px; left:0; right:0; display:flex; justify-content:center; gap:8px; z-index:10;">
+            <div v-for="(_, idx) in state.desktopPages" :key="idx"
+                 style="position:relative; width:14px; height:14px; display:flex; align-items:center; justify-content:center;">
+                <div
+                    @click="changePage(idx)"
+                    style="width:7px; height:7px; border-radius:50%; cursor:pointer; transition:all 0.3s;"
+                    :style="{ background: 'var(--text-main)', opacity: state.currentPage === idx ? 0.8 : 0.2, boxShadow: state.currentPage === idx ? '0 1px 3px rgba(0,0,0,0.1)' : 'none' }">
+                </div>
+                <button
+                    v-if="state.isEditingDesktop"
+                    class="page-delete-btn"
+                    @click.stop="deleteGridPage(idx)">
+                    ×
+                </button>
+            </div>
+        </div>
+
+        <div class="dock" :class="{'dock-hidden': state.dockHidden}" :style="[getDockStyles(), { position:'absolute', bottom:'15px', left:'20px', right:'20px', zIndex:100 }]" @dragover.prevent @drop.self="onDockDropArea($event)">
+            <div class="app-item"
+                 v-for="(app, index) in state.appsDock"
+                 :key="app.id"
+                 :class="{ 'drag-target': dragOverInfo.index === index && dragOverInfo.group === 'dock' }"
+                 :style="{ padding:'8px', transition:'all 0.2s', position:'relative' }"
+                 :draggable="state.isEditingDesktop && state.desktopMode === 'grid'"
+                 @dragstart="onGridDragStart($event, index, null, 'dock')"
+                 @dragover.prevent="onGridDragOver($event, index, null, 'dock')"
+                 @dragend="onGridDragEnd"
+                 @drop="onGridDrop($event, index, null, 'dock')"
+                 @click="state.isEditingDesktop ? null : openApp(app)"
+                 @contextmenu.prevent="state.isEditingDesktop ? null : enterEditMode()">
+                <button
+                    v-if="state.isEditingDesktop"
+                    class="grid-delete-btn"
+                    @click.stop="deleteDockApp(index)">
+                    ×
+                </button>
+                <img :src="app.icon" class="app-icon dock-icon" :class="{'app-has-shadow': state.dockHasShadow}">
+                <span v-if="state.dockShowName" style="font-size:10px; color:var(--text-sub); margin-top:4px;">{{ app.name }}</span>
+            </div>
+        </div>
+
+        <div class="modal-overlay" v-if="isThemeModalOpen" @click.self="isThemeModalOpen = false">
+            <div class="modal-content">
+                <h3 class="modal-title">胶囊基础设置</h3>
+                <div style="margin-bottom:20px;">
+                    <button class="theme-btn" @click="setTheme('light')">灰白模式 (Light)</button>
+                    <button class="theme-btn" @click="setTheme('dark')">暗黑模式 (Dark)</button>
+                </div>
+                <div style="margin-bottom:15px;">
+                    <h4 style="font-size:13px; color:var(--text-sub); margin-bottom:8px; text-align:center;">胶囊背景壁纸</h4>
+                    <div style="display:flex; gap:8px;">
+                        <button class="theme-btn" style="flex:1; margin-bottom:0;" @click="editCapsuleBgUrl">URL</button>
+                        <button class="theme-btn" style="flex:1; margin-bottom:0;" @click="triggerUpload('capsuleBg')">本地</button>
+                        <button class="theme-btn danger-btn" style="flex:1; margin-bottom:0;" @click="state.capsuleBg = ''">重置</button>
+                    </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:10px; font-size:12px; color:var(--text-main); margin-bottom:5px;">
+                    <span style="font-weight:500;">背景层透明度:</span>
+                    <input type="range" v-model="state.capsuleOpacity" min="0.1" max="1" step="0.05" style="flex:1; accent-color:var(--text-main);">
+                    <span style="width:35px; text-align:right;">{{ Math.round(state.capsuleOpacity * 100) }}%</span>
+                </div>
+                <button class="close-modal" @click="isThemeModalOpen = false">完成</button>
+            </div>
+        </div>
+
+        <div class="modal-overlay" v-if="isClockModalOpen" @click.self="isClockModalOpen = false">
+            <div class="modal-content">
+                <h3 class="modal-title">时钟全方位自定义</h3>
+                <button class="theme-btn" @click="triggerUpload('clockBg')">修改底盘壁纸</button>
+                <div style="display:flex; gap:10px;">
+                    <button class="theme-btn" @click="triggerUpload('clockHandHr')">替换时针</button>
+                    <button class="theme-btn" @click="triggerUpload('clockHandMin')">替换分针</button>
+                </div>
+                <div style="display:flex; gap:10px;">
+                    <button class="theme-btn" @click="triggerUpload('clockHandSec')">替换秒针</button>
+                    <button class="theme-btn" @click="triggerUpload('clockCenterDot')">替换中心点</button>
+                </div>
+                <h3 class="modal-title" style="margin-top:15px; font-size:14px;">修改 12 个时间图标</h3>
+                <div class="clock-edit-grid">
+                    <div class="clock-edit-item" v-for="(icon, index) in state.clockIcons" :key="index">
+                        <span>{{ index === 0 ? 12 : index }}点</span>
+                        <img :src="icon">
+                        <div class="clock-edit-actions">
+                            <button @click="editClockUrl(index)">URL</button>
+                            <button @click="triggerUpload('clockIcon', index)">本地</button>
+                        </div>
+                    </div>
+                </div>
+                <button class="theme-btn danger-btn" @click="resetClock">重置时钟图片</button>
+                <button class="close-modal" @click="isClockModalOpen = false">保存关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" v-if="isWidgetBadgeModalOpen" @click.self="isWidgetBadgeModalOpen = false">
+        <div class="modal-content">
+            <h3 class="modal-title">编辑右下角小圆图</h3>
+            <button class="theme-btn" @click="chooseWidgetBadge1Image">上传图片</button>
+            <div style="margin:14px 0 8px; text-align:center; color:var(--text-sub); font-size:12px;">或者自定义纯色</div>
+            <div style="display:flex; justify-content:center; margin-bottom:16px;">
+                <input type="color" :value="state.widgetBadge1.color || '#ffffff'" @change="onWidgetBadge1ColorChange" style="width:120px; height:48px; border:none; background:transparent; padding:0; cursor:pointer;">
+            </div>
+            <div style="display:flex; justify-content:center; margin-bottom:16px;">
+                <div style="width:48px; height:48px; border-radius:50%; box-shadow:0 4px 10px rgba(0,0,0,0.08); overflow:hidden;" :style="state.widgetBadge1.img ? {} : { background: state.widgetBadge1.color || '#ffffff' }">
+                    <img v-if="state.widgetBadge1.img" :src="state.widgetBadge1.img" style="width:100%; height:100%; object-fit:cover; display:block;">
+                </div>
+            </div>
+            <button class="theme-btn danger-btn" @click="resetWidgetBadge1">重置</button>
+            <button class="close-modal" @click="isWidgetBadgeModalOpen = false">完成</button>
+        </div>
+    </div>
+
+    <div v-show="state.activeApp === 'beautify'" class="beautify-app" :class="{'dark-mode': state.theme === 'dark'}"><div class="b-header"><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;"><div class="b-nav" style="margin-bottom:0;" @click="closeApp"><i data-lucide="chevron-left" style="width:20px; height:20px; margin-right:4px;"></i> 桌面</div><div @click="state.theme = state.theme === 'dark' ? 'light' : 'dark'" style="cursor:pointer; color:var(--text-main); display:flex; align-items:center;">
+<svg v-if="state.theme === 'dark'" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+<svg v-else xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
 </div>
-</div><div class="b-tabs"><div class="b-tab" :class="{active: state.beautifyTab === 'wallpaper'}" @click="state.beautifyTab = 'wallpaper'">壁纸</div>
-<div class="b-tab" :class="{active: state.beautifyTab === 'icon'}" @click="state.beautifyTab = 'icon'">图标</div><div class="b-tab" :class="{active: state.beautifyTab === 'widget'}" @click="state.beautifyTab = 'widget'">小组件</div><div class="b-tab" :class="{active: state.beautifyTab === 'lock'}" @click="state.beautifyTab = 'lock'">锁屏</div><div class="b-tab" :class="{active: state.beautifyTab === 'font'}" @click="state.beautifyTab = 'font'">字体</div></div></div><div class="b-content"><div v-if="state.beautifyTab === 'wallpaper'" class="b-tab-content b-wallpaper-tab"><div class="wallpaper-slider" @touchstart="onWpTouchStart" @touchend="onWpTouchEnd"><div v-if="state.wallpapers?.length === 0" class="empty-state">暂无壁纸，请添加</div><div v-for="(wp, index) in state.wallpapers" :key="index" class="wp-card" :style="getWpCardStyle(index)" @click="handleWpClick(index)" @contextmenu.prevent="deleteWallpaper(index)"><img :src="wp"><div v-if="index === currentWpIndex" class="wp-card-label">点击应用 / 长按删除</div></div></div><div class="b-actions-bottom"><button class="b-btn" @click="addWallpaperUrl">添加网络壁纸 URL</button><button class="b-btn b-btn-primary" @click="triggerUpload('wallpaper')">本地上传壁纸</button></div></div><div v-if="state.beautifyTab === 'icon'" class="b-tab-content b-icon-tab"><div class="b-section-header"><h4 class="b-section-title">顶部应用</h4><div class="b-controls-row"><label><input type="checkbox" v-model="state.topShowName">显名</label><label><input type="checkbox" v-model="state.topHasShadow">阴影</label></div></div><div class="b-app-list"><div class="b-app-list-item" v-for="(app, index) in state.appsTop" :key="app.id"><img :src="app.icon" class="b-app-img"><div class="b-app-info"><span class="b-app-name">{{ app.name }}</span></div><div class="b-app-actions"><button @click="editAppInfo('appsTop', index, true)">更名</button><button @click="editAppIconUrl('appsTop', index)">URL</button><button @click="triggerUpload('appIcon', {group: 'appsTop', index: index})">本地</button></div></div></div><div class="b-section-header"><h4 class="b-section-title">底部应用</h4><div class="b-controls-row"><label><input type="checkbox" v-model="state.bottomShowName">显名</label><label><input type="checkbox" v-model="state.bottomHasShadow">阴影</label></div></div><div class="b-app-list"><div class="b-app-list-item" v-for="(app, index) in state.appsBottom" :key="app.id"><img :src="app.icon" class="b-app-img"><div class="b-app-info"><span class="b-app-name">{{ app.name }}</span></div><div class="b-app-actions"><button @click="editAppInfo('appsBottom', index, true)">更名</button><button @click="editAppIconUrl('appsBottom', index)">URL</button><button @click="triggerUpload('appIcon', {group: 'appsBottom', index: index})">本地</button></div></div></div><div class="b-section-header"><h4 class="b-section-title">Dock栏 (悬浮)</h4><div class="b-controls-row"><label><input type="checkbox" v-model="state.dockHidden">全透</label><label><input type="checkbox" v-model="state.dockShowName">显名</label><label><input type="checkbox" v-model="state.dockHasShadow">阴影</label></div></div><div class="b-slider-group" v-if="!state.dockHidden"><div class="b-slider-item"><span>底色(HEX):</span><input type="text" v-model="state.dockColor" placeholder="#ffffff"><button @click="state.dockColor = ''">重置</button></div><div class="b-slider-item"><span>透明度:</span><input type="range" v-model="state.dockOpacity" min="0" max="1" step="0.1"><button @click="state.dockOpacity = 0.5">重置</button></div><div class="b-slider-item"><span>模糊(px):</span><input type="range" v-model="state.dockBlur" min="0" max="30" step="1"><button @click="state.dockBlur = 15">重置</button></div></div><div class="b-app-list"><div class="b-app-list-item" v-for="(app, index) in state.appsDock" :key="app.id"><img :src="app.icon" class="b-app-img"><div class="b-app-info"><span class="b-app-name">{{ app.name || '无名称' }}</span></div><div class="b-app-actions"><button @click="editAppInfo('appsDock', index, true)">更名</button><button @click="editAppIconUrl('appsDock', index)">URL</button><button @click="triggerUpload('appIcon', {group: 'appsDock', index: index})">本地</button></div></div></div></div><div v-if="state.beautifyTab === 'widget'" class="b-tab-content b-widget-tab"><div class="b-section-header"><h4 class="b-section-title">顶部气泡胶囊</h4></div><div class="b-widget-selector"><button :class="{active: state.capsuleType === 'chat'}" @click="state.capsuleType = 'chat'">假聊天</button><button :class="{active: state.capsuleType === 'emoji'}" @click="state.capsuleType = 'emoji'">表情墙</button><button :class="{active: state.capsuleType === 'calendar'}" @click="state.capsuleType = 'calendar'">日历</button><button :class="{active: state.capsuleType === 'idCard'}" @click="state.capsuleType = 'idCard'">工作牌</button></div><div class="b-widget-preview preview-capsule"><div class="capsule-widget glass-widget preview-item-capsule"><div class="capsule-bg-layer" v-if="state.capsuleBg" :style="{ backgroundImage: `url(${state.capsuleBg})`, opacity: state.capsuleOpacity }"></div><template v-if="state.capsuleType === 'chat'"><div class="chat-section"><input class="chat-time-input" :value="state.chatTime"><div class="chat-messages"><div class="chat-row left"><img :src="state.chatLeftAvatar" class="avatar"><div class="chat-bubble"><span>{{ state.chatLeftText }}</span></div></div><div class="chat-row right"><img :src="state.chatRightAvatar" class="avatar"><div class="chat-bubble"><span>{{ state.chatRightText }}</span></div></div></div><div class="chat-bottom-bar"><div class="chat-icon-btn"><i data-lucide="mic"></i></div><input class="chat-input-fake" :value="state.chatInputText"><div class="chat-icon-btn"><i data-lucide="smile"></i></div><div class="chat-send-btn"><i data-lucide="arrow-up"></i></div></div></div><div class="image-section"><img :src="state.widgetImage1" class="img-card single-card"><div class="widget-mini-badge" v-if="state.widgetBadge1.img || state.widgetBadge1.color" :style="state.widgetBadge1.img ? {} : { background: state.widgetBadge1.color || '#ffffff' }"><img v-if="state.widgetBadge1.img" :src="state.widgetBadge1.img"></div></div></template><template v-else-if="state.capsuleType === 'emoji'"><div class="emoji-wall"><div class="emoji-placeholder">点击输入文字表情</div></div></template><template v-else-if="state.capsuleType === 'calendar'"><div class="jp-calendar"><div class="cal-left"><div class="cal-month">{{ currentDate.getMonth() + 1 }}月</div><div class="cal-date">{{ currentDate.getDate() }}</div><div class="cal-day">曜日</div></div><div class="cal-right"><div class="cal-row header"><span v-for="d in ['S','M','T','W','T','F','S']" :key="d">{{d}}</span></div></div></div></template><template v-else-if="state.capsuleType === 'idCard'"><div class="id-card-widget"><div class="id-photo"><img :src="state.idCard.photo"></div><div class="id-info"><div class="id-line"><span class="label">Name</span><input :value="state.idCard.name"></div><div class="id-line"><span class="label">Sex</span><input :value="state.idCard.gender"></div></div></div></template></div></div><div class="b-section-header" style="margin-top:20px;"><h4 class="b-section-title">第一排左侧 (Slot 1)</h4></div><div class="b-widget-selector"><button :class="{active: state.widgetSlot1 === 'badge'}" @click="state.widgetSlot1 = 'badge'">徽章</button><button :class="{active: state.widgetSlot1 === 'clock'}" @click="state.widgetSlot1 = 'clock'">时钟</button><button :class="{active: state.widgetSlot1 === 'image'}" @click="state.widgetSlot1 = 'image'">图片卡</button><button :class="{active: state.widgetSlot1 === 'avatars'}" @click="state.widgetSlot1 = 'avatars'">双头像</button></div><div class="b-widget-preview preview-slot"><div class="preview-item-slot"><template v-if="state.widgetSlot1 === 'badge'"><div class="badge-widget" style="width:100%;height:100%;"><img v-if="state.badgeImage" :src="state.badgeImage" class="badge-img"></div></template><template v-else-if="state.widgetSlot1 === 'clock'"><div class="clock-widget" style="width:100%;height:100%;" :style="{ backgroundImage: state.clockBg ? `url(${state.clockBg})` : 'none' }"><div class="clock-face"><img v-for="(icon, index) in state.clockIcons" :key="index" :src="icon" class="clock-number-icon" :style="getClockNumberStyle(index)"><div v-if="!state.clockHandHr" class="hand hand-hr" :style="{ transform: `rotate(${hrDeg}deg)` }"></div><img v-else :src="state.clockHandHr" class="hand-img hand-hr-img" :style="{ transform: `rotate(${hrDeg}deg)` }"><div v-if="!state.clockHandMin" class="hand hand-min" :style="{ transform: `rotate(${minDeg}deg)` }"></div><img v-else :src="state.clockHandMin" class="hand-img hand-min-img" :style="{ transform: `rotate(${minDeg}deg)` }"><div v-if="!state.clockHandSec" class="hand hand-sec" :style="{ transform: `rotate(${secDeg}deg)` }"></div><img v-else :src="state.clockHandSec" class="hand-img hand-sec-img" :style="{ transform: `rotate(${secDeg}deg)` }"><div v-if="!state.clockCenterDot" class="clock-center"></div><img v-else :src="state.clockCenterDot" class="clock-center-img"></div></div></template><template v-else-if="state.widgetSlot1 === 'image'"><div class="custom-image-widget glass-widget" style="width:100%;height:100%;"><img :src="state.customImg1" class="full-cover-img"></div></template><template v-else-if="state.widgetSlot1 === 'avatars'"><div class="avatar-card-widget glass-widget" style="width:100%;height:100%;"><input class="avatar-title-input" :value="state.avatarCard1.titleTop"><div class="avatars-container"><div class="avatar-item pos-left"><img :src="state.avatarCard1.imgLeft" class="ac-img-large"><input class="avatar-name-input" :value="state.avatarCard1.textLeft"></div><div class="avatar-item pos-right"><img :src="state.avatarCard1.imgRight" class="ac-img-large"><input class="avatar-name-input" :value="state.avatarCard1.textRight"></div></div><input class="avatar-title-input" :value="state.avatarCard1.titleBottom"></div></template></div></div><div class="b-section-header" style="margin-top:20px;"><h4 class="b-section-title">第二排右侧 (Slot 2)</h4></div><div class="b-widget-selector"><button :class="{active: state.widgetSlot2 === 'badge'}" @click="state.widgetSlot2 = 'badge'">徽章</button><button :class="{active: state.widgetSlot2 === 'clock'}" @click="state.widgetSlot2 = 'clock'">时钟</button><button :class="{active: state.widgetSlot2 === 'image'}" @click="state.widgetSlot2 = 'image'">图片卡</button><button :class="{active: state.widgetSlot2 === 'avatars'}" @click="state.widgetSlot2 = 'avatars'">双头像</button></div><div class="b-widget-preview preview-slot"><div class="preview-item-slot"><template v-if="state.widgetSlot2 === 'badge'"><div class="badge-widget" style="width:100%;height:100%;"><img v-if="state.badgeImage" :src="state.badgeImage" class="badge-img"></div></template><template v-else-if="state.widgetSlot2 === 'clock'"><div class="clock-widget" style="width:100%;height:100%;" :style="{ backgroundImage: state.clockBg ? `url(${state.clockBg})` : 'none' }"><div class="clock-face"><img v-for="(icon, index) in state.clockIcons" :key="index" :src="icon" class="clock-number-icon" :style="getClockNumberStyle(index)"><div v-if="!state.clockHandHr" class="hand hand-hr" :style="{ transform: `rotate(${hrDeg}deg)` }"></div><img v-else :src="state.clockHandHr" class="hand-img hand-hr-img" :style="{ transform: `rotate(${hrDeg}deg)` }"><div v-if="!state.clockHandMin" class="hand hand-min" :style="{ transform: `rotate(${minDeg}deg)` }"></div><img v-else :src="state.clockHandMin" class="hand-img hand-min-img" :style="{ transform: `rotate(${minDeg}deg)` }"><div v-if="!state.clockHandSec" class="hand hand-sec" :style="{ transform: `rotate(${secDeg}deg)` }"></div><img v-else :src="state.clockHandSec" class="hand-img hand-sec-img" :style="{ transform: `rotate(${secDeg}deg)` }"><div v-if="!state.clockCenterDot" class="clock-center"></div><img v-else :src="state.clockCenterDot" class="clock-center-img"></div></div></template><template v-else-if="state.widgetSlot2 === 'image'"><div class="custom-image-widget glass-widget" style="width:100%;height:100%;"><img :src="state.customImg2" class="full-cover-img"></div></template><template v-else-if="state.widgetSlot2 === 'avatars'"><div class="avatar-card-widget glass-widget" style="width:100%;height:100%;"><input class="avatar-title-input" :value="state.avatarCard2.titleTop"><div class="avatars-container"><div class="avatar-item pos-left"><img :src="state.avatarCard2.imgLeft" class="ac-img-large"><input class="avatar-name-input" :value="state.avatarCard2.textLeft"></div><div class="avatar-item pos-right"><img :src="state.avatarCard2.imgRight" class="ac-img-large"><input class="avatar-name-input" :value="state.avatarCard2.textRight"></div></div><input class="avatar-title-input" :value="state.avatarCard2.titleBottom"></div></template></div></div></div>    <div v-if="state.beautifyTab === 'font'" class="b-tab-content b-font-tab"><div class="b-section-header"><h4 class="b-section-title">全局字体效果预览</h4></div><div class="font-preview-box"><div class="font-preview-line">晓看天色暮看云，行也思君，坐也思君</div><div class="font-preview-line">The price of the shirt is nine pounds and fifteen pence.</div><div class="font-preview-line">世界は絶えず回転し、私たちが出会うまで。</div><div class="font-preview-line">내가 너의 내일이 되기 위해 오늘을 살아왔어.</div><div class="font-preview-line">0123456789 ！@#￥%……&*（）</div></div><div class="b-section-header" style="margin-top:20px;"><h4 class="b-section-title">预设字体库</h4><button v-if="state.customFontFamily" @click="saveCurrentFontToPreset" class="b-btn b-btn-primary" style="width:auto; padding:4px 10px; font-size:11px; margin-right:5px;">保存当前到预设</button></div><div class="b-widget-selector"><button :class="{active: !state.customFontUrl && !state.customFontFamily}" @click="applyPresetFont('', '')">系统默认</button><button :class="{active: state.customFontFamily === 'serif'}" @click="applyPresetFont('serif', '')">标准衬线</button><button :class="{active: state.customFontFamily === 'cursive'}" @click="applyPresetFont('cursive', '')">手写体</button><button :class="{active: state.customFontFamily === 'monospace'}" @click="applyPresetFont('monospace', '')">等宽体</button><button v-for="font in state.customFontPresets" :key="font.id" :class="{active: state.customFontFamily === font.family}" @click="applyPresetFont(font.family, font.url)" @contextmenu.prevent="deleteFontPreset(font.id)">{{ font.name }}</button></div><div class="b-section-header" style="margin-top:20px;"><h4 class="b-section-title">自定义上传字体</h4></div><div style="display:flex; gap:10px;"><button class="b-btn b-btn-primary" style="flex:1;" @click="triggerUpload('customFont')">本地上传(TTF/OTF)</button><button class="b-btn" style="flex:1; background:var(--widget-bg-solid); color:var(--text-main);" @click="uploadFontUrl">网络 URL</button></div><div style="font-size:10px; color:var(--text-sub); margin-top:10px; text-align:center;">本地上传可能导致存储激增，推荐使用体积小的字体</div><div style="font-size:10px; color:var(--text-sub); margin-top:4px; text-align:center;">提示：长按(或右键)预设库里的自定义按钮即可删除</div></div>
+</div><div class="b-tabs">
+<div class="b-tab" :class="{active: state.beautifyTab === 'wallpaper'}" @click="state.beautifyTab = 'wallpaper'">壁纸</div>
+<div class="b-tab" :class="{active: state.beautifyTab === 'icon'}" @click="state.beautifyTab = 'icon'">图标</div><div class="b-tab" :class="{active: state.beautifyTab === 'widget'}" @click="state.beautifyTab = 'widget'">小组件</div><div class="b-tab" :class="{active: state.beautifyTab === 'layout'}" @click="state.beautifyTab = 'layout'">排版</div><div class="b-tab" :class="{active: state.beautifyTab === 'lock'}" @click="state.beautifyTab = 'lock'">锁屏</div><div class="b-tab" :class="{active: state.beautifyTab === 'font'}" @click="state.beautifyTab = 'font'">字体</div></div></div>
+<div class="b-content"><div v-if="state.beautifyTab === 'wallpaper'" class="b-tab-content b-wallpaper-tab"><div class="wallpaper-slider" @touchstart="onWpTouchStart" @touchend="onWpTouchEnd"><div v-if="state.wallpapers?.length === 0" class="empty-state">暂无壁纸，请添加</div><div v-for="(wp, index) in state.wallpapers" :key="index" class="wp-card" :style="getWpCardStyle(index)" @click="handleWpClick(index)" @contextmenu.prevent="deleteWallpaper(index)"><img :src="wp"><div v-if="index === currentWpIndex" class="wp-card-label">点击应用 / 长按删除</div></div></div><div class="b-actions-bottom"><button class="b-btn" @click="addWallpaperUrl">添加网络壁纸 URL</button><button class="b-btn b-btn-primary" @click="triggerUpload('wallpaper')">本地上传壁纸</button></div></div><div v-if="state.beautifyTab === 'icon'" class="b-tab-content b-icon-tab">
 
-<div v-if="state.beautifyTab === 'lock'" class="b-tab-content"><div class="b-section-header"><h4 class="b-section-title">全局锁屏设置</h4></div><div class="b-slider-group"><div class="b-controls-row" style="justify-content: space-between; padding: 10px 5px;"><label style="font-size:14px; font-weight:600; color:var(--text-main);">启用锁屏模式</label><input type="checkbox" v-model="state.lockConfig.enableLockScreen"></div><div class="b-slider-item" v-if="state.lockConfig.enableLockScreen"><span>锁屏壁纸:</span><button @click="triggerUpload('lockConfig_wallpaper')">上传</button><button class="danger-btn" style="color:white; margin-left:5px;" @click="state.lockConfig.wallpaper = ''">清除</button></div></div><div class="b-section-header" v-if="state.lockConfig.enableLockScreen"><h4 class="b-section-title">安全密码 (可选)</h4></div><div class="b-slider-group" v-if="state.lockConfig.enableLockScreen"><div class="b-controls-row" style="justify-content: space-between; padding: 10px 5px;"><label style="font-size:14px; font-weight:600; color:var(--text-main);">启用锁屏密码</label><input type="checkbox" v-model="state.lockConfig.enablePassword"></div><template v-if="state.lockConfig.enablePassword"><div class="b-slider-item"><span>密码类型:</span><select class="c-select" style="flex:1; padding:4px;" v-model="state.lockConfig.pwdType"><option value="num">数字密码 (4/6位)</option><option value="pattern">图案手势密码</option><option value="qa">问答密码</option></select></div><div class="b-form-item" v-if="state.lockConfig.pwdType === 'num'"><input class="c-input" type="password" placeholder="设置4位或6位数字" v-model="state.lockConfig.pwdNum" maxlength="6"></div><div class="b-form-item" v-if="state.lockConfig.pwdType === 'qa'"><input class="c-input" type="text" placeholder="提示问题 (例: 最喜欢谁?)" v-model="state.lockConfig.pwdQA_Q" style="margin-bottom: 8px;"><input class="c-input" type="password" placeholder="设置答案" v-model="state.lockConfig.pwdQA_A"></div><div class="b-form-item" v-if="state.lockConfig.pwdType === 'pattern'"><div style="text-align:center; font-size:12px; color:var(--text-sub); margin-bottom:10px;">请在下方绘制解锁图案</div><div class="pattern-lock-box" @mousedown="startPattern($event, 'set')" @mousemove="movePattern" @mouseup="endPattern" @mouseleave="endPattern" @touchstart.prevent="startPattern($event, 'set')" @touchmove.prevent="movePattern" @touchend="endPattern"><svg class="pattern-svg"><polyline :points="patternPathPoints" fill="none" stroke="var(--text-main)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" /><line v-if="patternState.isDrawing && patternState.path?.length > 0" :x1="40 + (patternState.path[patternState.path.length-1] % 3) * 80" :y1="40 + Math.floor(patternState.path[patternState.path.length-1] / 3) * 80" :x2="patternState.currentX" :y2="patternState.currentY" stroke="var(--text-main)" stroke-width="4" stroke-dasharray="6,6" opacity="0.5"/></svg><div class="pattern-grid"><div v-for="i in 9" :key="i-1" class="pattern-dot-wrap"><div class="pattern-dot" :class="{active: patternState.path.includes(i-1)}"></div></div></div></div><div style="text-align:center; font-size:12px; color:var(--text-main); font-weight:bold;">已存特征值: {{ state.lockConfig.pwdPattern || '未设置' }}</div></div></template></div></div></div>
+<div class="b-section-header" v-if="state.topRowType === 'split'"><h4 class="b-section-title">顶部新排应用 (Row 0)</h4></div>
+<div class="b-app-list" v-if="state.topRowType === 'split'"><div class="b-app-list-item" v-for="(app, index) in state.apps0" :key="app.id"><img :src="app.icon" class="b-app-img"><div class="b-app-info"><span class="b-app-name">{{ app.name }}</span></div><div class="b-app-actions"><button @click="editAppInfo('apps0', index, true)">更名</button><button @click="editAppIconUrl('apps0', index)">URL</button><button @click="triggerUpload('appIcon', {group: 'apps0', index: index})">本地</button></div></div></div>
+
+<div class="b-section-header"><h4 class="b-section-title">中部应用</h4>
+<div class="b-controls-row"><label><input type="checkbox" v-model="state.topShowName">显名</label><label><input type="checkbox" v-model="state.topHasShadow">阴影</label></div></div><div class="b-app-list"><div class="b-app-list-item" v-for="(app, index) in state.appsTop" :key="app.id"><img :src="app.icon" class="b-app-img"><div class="b-app-info"><span class="b-app-name">{{ app.name }}</span></div><div class="b-app-actions"><button @click="editAppInfo('appsTop', index, true)">更名</button><button @click="editAppIconUrl('appsTop', index)">URL</button><button @click="triggerUpload('appIcon', {group: 'appsTop', index: index})">本地</button></div></div></div><div class="b-section-header"><h4 class="b-section-title">底部应用</h4><div class="b-controls-row"><label><input type="checkbox" v-model="state.bottomShowName">显名</label><label><input type="checkbox" v-model="state.bottomHasShadow">阴影</label></div></div><div class="b-app-list"><div class="b-app-list-item" v-for="(app, index) in state.appsBottom" :key="app.id"><img :src="app.icon" class="b-app-img"><div class="b-app-info"><span class="b-app-name">{{ app.name }}</span></div><div class="b-app-actions"><button @click="editAppInfo('appsBottom', index, true)">更名</button><button @click="editAppIconUrl('appsBottom', index)">URL</button><button @click="triggerUpload('appIcon', {group: 'appsBottom', index: index})">本地</button></div></div></div><div class="b-section-header"><h4 class="b-section-title">Dock栏 (悬浮)</h4><div class="b-controls-row"><label><input type="checkbox" v-model="state.dockHidden">全透</label><label><input type="checkbox" v-model="state.dockShowName">显名</label><label><input type="checkbox" v-model="state.dockHasShadow">阴影</label></div></div><div class="b-slider-group" v-if="!state.dockHidden"><div class="b-slider-item"><span>底色(HEX):</span><input type="text" v-model="state.dockColor" placeholder="#ffffff"><button @click="state.dockColor = ''">重置</button></div><div class="b-slider-item"><span>透明度:</span><input type="range" v-model="state.dockOpacity" min="0" max="1" step="0.1"><button @click="state.dockOpacity = 0.5">重置</button></div><div class="b-slider-item"><span>模糊(px):</span><input type="range" v-model="state.dockBlur" min="0" max="30" step="1"><button @click="state.dockBlur = 15">重置</button></div></div><div class="b-app-list"><div class="b-app-list-item" v-for="(app, index) in state.appsDock" :key="app.id"><img :src="app.icon" class="b-app-img"><div class="b-app-info"><span class="b-app-name">{{ app.name || '无名称' }}</span></div><div class="b-app-actions"><button @click="editAppInfo('appsDock', index, true)">更名</button><button @click="editAppIconUrl('appsDock', index)">URL</button><button @click="triggerUpload('appIcon', {group: 'appsDock', index: index})">本地</button></div></div></div></div><div v-if="state.beautifyTab === 'widget'" class="b-tab-content b-widget-tab"><div class="b-section-header"><h4 class="b-section-title">顶部气泡胶囊</h4></div><div class="b-widget-selector"><button :class="{active: state.capsuleType === 'chat'}" @click="state.capsuleType = 'chat'">假聊天</button><button :class="{active: state.capsuleType === 'emoji'}" @click="state.capsuleType = 'emoji'">表情墙</button><button :class="{active: state.capsuleType === 'calendar'}" @click="state.capsuleType = 'calendar'">日历</button><button :class="{active: state.capsuleType === 'idCard'}" @click="state.capsuleType = 'idCard'">工作牌</button></div><div class="b-widget-preview preview-capsule"><div class="capsule-widget glass-widget preview-item-capsule"><div class="capsule-bg-layer" v-if="state.capsuleBg" :style="{ backgroundImage: `url(${state.capsuleBg})`, opacity: state.capsuleOpacity }"></div><template v-if="state.capsuleType === 'chat'"><div class="chat-section"><input class="chat-time-input" :value="state.chatTime"><div class="chat-messages"><div class="chat-row left"><img :src="state.chatLeftAvatar" class="avatar"><div class="chat-bubble"><span>{{ state.chatLeftText }}</span></div></div><div class="chat-row right"><img :src="state.chatRightAvatar" class="avatar"><div class="chat-bubble"><span>{{ state.chatRightText }}</span></div></div></div><div class="chat-bottom-bar"><div class="chat-icon-btn"><i data-lucide="mic"></i></div><input class="chat-input-fake" :value="state.chatInputText"><div class="chat-icon-btn"><i data-lucide="smile"></i></div><div class="chat-send-btn"><i data-lucide="arrow-up"></i></div></div></div><div class="image-section"><img :src="state.widgetImage1" class="img-card single-card"><div class="widget-mini-badge" v-if="state.widgetBadge1.img || state.widgetBadge1.color" :style="state.widgetBadge1.img ? {} : { background: state.widgetBadge1.color || '#ffffff' }"><img v-if="state.widgetBadge1.img" :src="state.widgetBadge1.img"></div></div></template><template v-else-if="state.capsuleType === 'emoji'"><div class="emoji-wall"><div class="emoji-placeholder">点击输入文字表情</div></div></template><template v-else-if="state.capsuleType === 'calendar'"><div class="jp-calendar"><div class="cal-left"><div class="cal-month">{{ currentDate.getMonth() + 1 }}月</div><div class="cal-date">{{ currentDate.getDate() }}</div><div class="cal-day">曜日</div></div><div class="cal-right"><div class="cal-row header"><span v-for="d in ['S','M','T','W','T','F','S']" :key="d">{{d}}</span></div></div></div></template><template v-else-if="state.capsuleType === 'idCard'"><div class="id-card-widget"><div class="id-photo"><img :src="state.idCard.photo"></div><div class="id-info"><div class="id-line"><span class="label">Name</span><input :value="state.idCard.name"></div><div class="id-line"><span class="label">Sex</span><input :value="state.idCard.gender"></div></div></div></template></div></div><div class="b-section-header" style="margin-top:20px;"><h4 class="b-section-title">第一排左侧 (Slot 1)</h4></div><div class="b-widget-selector"><button :class="{active: state.widgetSlot1 === 'badge'}" @click="state.widgetSlot1 = 'badge'">徽章</button><button :class="{active: state.widgetSlot1 === 'clock'}" @click="state.widgetSlot1 = 'clock'">时钟</button><button :class="{active: state.widgetSlot1 === 'image'}" @click="state.widgetSlot1 = 'image'">图片卡</button><button :class="{active: state.widgetSlot1 === 'avatars'}" @click="state.widgetSlot1 = 'avatars'">双头像</button></div><div class="b-widget-preview preview-slot"><div class="preview-item-slot"><template v-if="state.widgetSlot1 === 'badge'"><div class="badge-widget" style="width:100%;height:100%;"><img v-if="state.badgeImage" :src="state.badgeImage" class="badge-img"></div></template><template v-else-if="state.widgetSlot1 === 'clock'"><div class="clock-widget" style="width:100%;height:100%;" :style="{ backgroundImage: state.clockBg ? `url(${state.clockBg})` : 'none' }"><div class="clock-face"><img v-for="(icon, index) in state.clockIcons" :key="index" :src="icon" class="clock-number-icon" :style="getClockNumberStyle(index)"><div v-if="!state.clockHandHr" class="hand hand-hr" :style="{ transform: `rotate(${hrDeg}deg)` }"></div><img v-else :src="state.clockHandHr" class="hand-img hand-hr-img" :style="{ transform: `rotate(${hrDeg}deg)` }"><div v-if="!state.clockHandMin" class="hand hand-min" :style="{ transform: `rotate(${minDeg}deg)` }"></div><img v-else :src="state.clockHandMin" class="hand-img hand-min-img" :style="{ transform: `rotate(${minDeg}deg)` }"><div v-if="!state.clockHandSec" class="hand hand-sec" :style="{ transform: `rotate(${secDeg}deg)` }"></div><img v-else :src="state.clockHandSec" class="hand-img hand-sec-img" :style="{ transform: `rotate(${secDeg}deg)` }"><div v-if="!state.clockCenterDot" class="clock-center"></div><img v-else :src="state.clockCenterDot" class="clock-center-img"></div></div></template><template v-else-if="state.widgetSlot1 === 'image'"><div class="custom-image-widget glass-widget" style="width:100%;height:100%;"><img :src="state.customImg1" class="full-cover-img"></div></template><template v-else-if="state.widgetSlot1 === 'avatars'"><div class="avatar-card-widget glass-widget" style="width:100%;height:100%;"><input class="avatar-title-input" :value="state.avatarCard1.titleTop"><div class="avatars-container"><div class="avatar-item pos-left"><img :src="state.avatarCard1.imgLeft" class="ac-img-large"><input class="avatar-name-input" :value="state.avatarCard1.textLeft"></div><div class="avatar-item pos-right"><img :src="state.avatarCard1.imgRight" class="ac-img-large"><input class="avatar-name-input" :value="state.avatarCard1.textRight"></div></div><input class="avatar-title-input" :value="state.avatarCard1.titleBottom"></div></template></div></div><div class="b-section-header" style="margin-top:20px;"><h4 class="b-section-title">第二排右侧 (Slot 2)</h4></div><div class="b-widget-selector"><button :class="{active: state.widgetSlot2 === 'badge'}" @click="state.widgetSlot2 = 'badge'">徽章</button><button :class="{active: state.widgetSlot2 === 'clock'}" @click="state.widgetSlot2 = 'clock'">时钟</button><button :class="{active: state.widgetSlot2 === 'image'}" @click="state.widgetSlot2 = 'image'">图片卡</button><button :class="{active: state.widgetSlot2 === 'avatars'}" @click="state.widgetSlot2 = 'avatars'">双头像</button></div><div class="b-widget-preview preview-slot"><div class="preview-item-slot"><template v-if="state.widgetSlot2 === 'badge'"><div class="badge-widget" style="width:100%;height:100%;"><img v-if="state.badgeImage" :src="state.badgeImage" class="badge-img"></div></template><template v-else-if="state.widgetSlot2 === 'clock'"><div class="clock-widget" style="width:100%;height:100%;" :style="{ backgroundImage: state.clockBg ? `url(${state.clockBg})` : 'none' }"><div class="clock-face"><img v-for="(icon, index) in state.clockIcons" :key="index" :src="icon" class="clock-number-icon" :style="getClockNumberStyle(index)"><div v-if="!state.clockHandHr" class="hand hand-hr" :style="{ transform: `rotate(${hrDeg}deg)` }"></div><img v-else :src="state.clockHandHr" class="hand-img hand-hr-img" :style="{ transform: `rotate(${hrDeg}deg)` }"><div v-if="!state.clockHandMin" class="hand hand-min" :style="{ transform: `rotate(${minDeg}deg)` }"></div><img v-else :src="state.clockHandMin" class="hand-img hand-min-img" :style="{ transform: `rotate(${minDeg}deg)` }"><div v-if="!state.clockHandSec" class="hand hand-sec" :style="{ transform: `rotate(${secDeg}deg)` }"></div><img v-else :src="state.clockHandSec" class="hand-img hand-sec-img" :style="{ transform: `rotate(${secDeg}deg)` }"><div v-if="!state.clockCenterDot" class="clock-center"></div><img v-else :src="state.clockCenterDot" class="clock-center-img"></div></div></template><template v-else-if="state.widgetSlot2 === 'image'"><div class="custom-image-widget glass-widget" style="width:100%;height:100%;"><img :src="state.customImg2" class="full-cover-img"></div></template><template v-else-if="state.widgetSlot2 === 'avatars'"><div class="avatar-card-widget glass-widget" style="width:100%;height:100%;"><input class="avatar-title-input" :value="state.avatarCard2.titleTop"><div class="avatars-container"><div class="avatar-item pos-left"><img :src="state.avatarCard2.imgLeft" class="ac-img-large"><input class="avatar-name-input" :value="state.avatarCard2.textLeft"></div><div class="avatar-item pos-right"><img :src="state.avatarCard2.imgRight" class="ac-img-large"><input class="avatar-name-input" :value="state.avatarCard2.textRight"></div></div><input class="avatar-title-input" :value="state.avatarCard2.titleBottom"></div></template></div></div></div>    
+<div v-if="state.beautifyTab === 'layout'" class="b-tab-content">
+    <!-- 模式二选一开关 -->
+    <div style="display:flex; background:var(--widget-bg-solid); padding:6px; border-radius:16px; margin-bottom:15px; box-shadow:0 2px 10px rgba(0,0,0,0.03); border: var(--glass-border);">
+        <button style="flex:1; padding:12px; border-radius:12px; border:none; font-weight:600; font-size:13px; transition:all 0.2s; cursor:pointer;" :style="{ background: state.desktopMode === 'classic' ? 'var(--text-main)' : 'transparent', color: state.desktopMode === 'classic' ? 'var(--bg-color)' : 'var(--text-sub)' }" @click="state.desktopMode = 'classic'">经典排版模式</button>
+        <button style="flex:1; padding:12px; border-radius:12px; border:none; font-weight:600; font-size:13px; transition:all 0.2s; cursor:pointer;" :style="{ background: state.desktopMode === 'grid' ? 'var(--text-main)' : 'transparent', color: state.desktopMode === 'grid' ? 'var(--bg-color)' : 'var(--text-sub)' }" @click="state.desktopMode = 'grid'">自由网格模式</button>
+    </div>
+
+    <!-- 模式A：自由网格专属选项 -->
+    <template v-if="state.desktopMode === 'grid'">
+        <div class="b-section-header"><h4 class="b-section-title">桌面网格密度</h4></div>
+        <div class="b-slider-group">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size:13px; font-weight:600; color:var(--text-main);">当前列数: {{ state.gridCols || 4 }} 列</span>
+                <div style="display:flex; gap:10px;">
+                    <button style="padding: 8px 14px; border-radius: 8px; border: none; background: var(--text-main); color: var(--bg-color); font-size: 12px; cursor: pointer; font-weight: 600;" @click="state.gridCols = 4; forceSave()">4列 (默认)</button>
+                    <button style="padding: 8px 14px; border-radius: 8px; border: none; background: var(--text-main); color: var(--bg-color); font-size: 12px; cursor: pointer; font-weight: 600;" @click="state.gridCols = 5; forceSave()">5列 (密集)</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="b-section-header" style="margin-top:10px;"><h4 class="b-section-title">添加到自由网格</h4></div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <button class="b-btn b-btn-primary" @click="openGridAddPanel('capsule')">+ 气泡大胶囊</button>
+            <button class="b-btn b-btn-primary" @click="openGridAddPanel('widget')">+ 小组件</button>
+            <button class="b-btn b-btn-primary" @click="openGridAddPanel('app')">+ APP 快捷方式</button>
+        </div>
+        <div style="font-size:11px; color:var(--text-sub); text-align:center; padding:10px;">自由模式下，你可以长按应用直接与空白处对调位置，完全自由摆放。</div>
+    </template>
+
+    <!-- 模式B：经典固定排版专属选项 -->
+    <template v-if="state.desktopMode === 'classic'">
+        <div class="b-section-header"><h4 class="b-section-title">顶部区域形态 (Capsule vs Split)</h4></div>
+        <div class="b-slider-group">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size:13px; font-weight:600; color:var(--text-main);">当前: {{ state.topRowType === 'capsule' ? '大屏气泡胶囊' : '经典组件+应用' }}</span>
+                <button style="padding: 8px 14px; border-radius: 8px; border: none; background: var(--text-main); color: var(--bg-color); font-size: 12px; cursor: pointer; font-weight: 600;" @click="state.topRowType = state.topRowType === 'capsule' ? 'split' : 'capsule'">切换形态</button>
+            </div>
+        </div>
+
+        <div v-if="state.topRowType === 'split'">
+            <div class="b-section-header" style="margin-top:10px;"><h4 class="b-section-title">顶部排版左右对调 (Row 0)</h4></div>
+            <div class="b-slider-group">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-size:13px; font-weight:600; color:var(--text-main);">当前: {{ state.row0Layout[0] === 'widget0' ? '左侧组件 · 右侧应用' : '左侧应用 · 右侧组件' }}</span>
+                    <button style="padding: 8px 14px; border-radius: 8px; border: none; background: var(--text-main); color: var(--bg-color); font-size: 12px; cursor: pointer; font-weight: 600;" @click="state.row0Layout = [...state.row0Layout].reverse()">左右对调</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="b-section-header" style="margin-top:15px;"><h4 class="b-section-title">桌面模块上下排序 (由上到下)</h4></div>
+        <div class="b-slider-group" style="gap: 8px;">
+            <div v-for="(item, idx) in state.desktopLayout" :key="item" style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-color); padding:12px; border-radius:12px; border: var(--glass-border);">
+                <span style="font-weight:600; font-size:13px; color:var(--text-main);">
+                    {{ item === 'capsule' ? '顶部气泡胶囊' : (item === 'row1' ? '第一排 (组件1 + 应用)' : '第二排 (组件2 + 应用)') }}
+                </span>
+                <div style="display:flex; gap:10px;">
+                    <button style="padding: 6px 12px; border-radius: 8px; border: none; background: var(--widget-bg-solid); color: var(--text-main); font-size: 12px; cursor: pointer; font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,0.05);" @click="moveLayoutUp(idx)" :disabled="idx === 0" :style="{opacity: idx === 0 ? 0.4 : 1}">上移</button>
+                    <button style="padding: 6px 12px; border-radius: 8px; border: none; background: var(--widget-bg-solid); color: var(--text-main); font-size: 12px; cursor: pointer; font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,0.05);" @click="moveLayoutDown(idx)" :disabled="idx === 2" :style="{opacity: idx === 2 ? 0.4 : 1}">下移</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="b-section-header" style="margin-top:10px;"><h4 class="b-section-title">第一排左右对调</h4></div>
+        <div class="b-slider-group">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size:13px; font-weight:600; color:var(--text-main);">当前: {{ state.row1Layout[0] === 'widget1' ? '左侧组件 · 右侧应用' : '左侧应用 · 右侧组件' }}</span>
+                <button style="padding: 8px 14px; border-radius: 8px; border: none; background: var(--text-main); color: var(--bg-color); font-size: 12px; cursor: pointer; font-weight: 600;" @click="swapRow1">左右对调</button>
+            </div>
+        </div>
+
+        <div class="b-section-header" style="margin-top:10px;"><h4 class="b-section-title">第二排左右对调</h4></div>
+        <div class="b-slider-group">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size:13px; font-weight:600; color:var(--text-main);">当前: {{ state.row2Layout[0] === 'appsBottom' ? '左侧应用 · 右侧组件' : '左侧组件 · 右侧应用' }}</span>
+                <button style="padding: 8px 14px; border-radius: 8px; border: none; background: var(--text-main); color: var(--bg-color); font-size: 12px; cursor: pointer; font-weight: 600;" @click="swapRow2">左右对调</button>
+            </div>
+        </div>
+    </template>
+    
+    <button class="b-btn b-btn-primary" style="margin-top: 15px;" @click="forceSave()">强制保存排版</button>
+</div>
+
+<div v-if="state.beautifyTab === 'font'" class="b-tab-content b-font-tab"><div class="b-section-header"><h4 class="b-section-title">全局字体效果预览</h4></div><div class="font-preview-box"><div class="font-preview-line">晓看天色暮看云，行也思君，坐也思君</div><div class="font-preview-line">The price of the shirt is nine pounds and fifteen pence.</div><div class="font-preview-line">世界は絶えず回転し、私たちが出会うまで。</div><div class="font-preview-line">내가 너의 내일이 되기 위해 오늘을 살아왔어.</div><div class="font-preview-line">0123456789 ！@#￥%……&*（）</div></div><div class="b-section-header" style="margin-top:20px;"><h4 class="b-section-title">预设字体库</h4><button v-if="state.customFontFamily" @click="saveCurrentFontToPreset" class="b-btn b-btn-primary" style="width:auto; padding:4px 10px; font-size:11px; margin-right:5px;">保存当前到预设</button></div><div class="b-widget-selector"><button :class="{active: !state.customFontUrl && !state.customFontFamily}" @click="applyPresetFont('', '')">系统默认</button><button :class="{active: state.customFontFamily === 'serif'}" @click="applyPresetFont('serif', '')">标准衬线</button><button :class="{active: state.customFontFamily === 'cursive'}" @click="applyPresetFont('cursive', '')">手写体</button><button :class="{active: state.customFontFamily === 'monospace'}" @click="applyPresetFont('monospace', '')">等宽体</button><button v-for="font in state.customFontPresets" :key="font.id" :class="{active: state.customFontFamily === font.family}" @click="applyPresetFont(font.family, font.url)" @contextmenu.prevent="deleteFontPreset(font.id)">{{ font.name }}</button></div><div class="b-section-header" style="margin-top:20px;"><h4 class="b-section-title">自定义上传字体</h4></div><div style="display:flex; gap:10px;"><button class="b-btn b-btn-primary" style="flex:1;" @click="triggerUpload('customFont')">本地上传(TTF/OTF)</button><button class="b-btn" style="flex:1; background:var(--widget-bg-solid); color:var(--text-main);" @click="uploadFontUrl">网络 URL</button></div><div style="font-size:10px; color:var(--text-sub); margin-top:10px; text-align:center;">本地上传可能导致存储激增，推荐使用体积小的字体</div><div style="font-size:10px; color:var(--text-sub); margin-top:4px; text-align:center;">提示：长按(或右键)预设库里的自定义按钮即可删除</div></div>
+
+<div v-if="state.beautifyTab === 'lock'" class="b-tab-content"><div class="b-section-header"><h4 class="b-section-title">全局锁屏设置</h4></div><div class="b-slider-group"><div class="b-controls-row" style="justify-content: space-between; padding: 10px 5px;"><label style="font-size:14px; font-weight:600; color:var(--text-main);">启用锁屏模式</label><input type="checkbox" v-model="state.lockConfig.enableLockScreen"></div><div class="b-slider-item" v-if="state.lockConfig.enableLockScreen"><span>锁屏壁纸:</span><button @click="triggerUpload('lockConfig_wallpaper')">上传</button><button class="danger-btn" style="color:#ff7875; margin-left:5px;" @click="state.lockConfig.wallpaper = ''">清除</button>
+</div></div>
+<div class="b-section-header" v-if="state.lockConfig.enableLockScreen"><h4 class="b-section-title">安全密码 (可选)</h4></div><div class="b-slider-group" v-if="state.lockConfig.enableLockScreen"><div class="b-controls-row" style="justify-content: space-between; padding: 10px 5px;"><label style="font-size:14px; font-weight:600; color:var(--text-main);">启用锁屏密码</label><input type="checkbox" v-model="state.lockConfig.enablePassword"></div><template v-if="state.lockConfig.enablePassword"><div class="b-slider-item"><span>密码类型:</span><select class="c-select" style="flex:1; padding:4px;" v-model="state.lockConfig.pwdType"><option value="num">数字密码 (4/6位)</option><option value="pattern">图案手势密码</option><option value="qa">问答密码</option></select></div><div class="b-form-item" v-if="state.lockConfig.pwdType === 'num'"><input class="c-input" type="password" placeholder="设置4位或6位数字" v-model="state.lockConfig.pwdNum" maxlength="6"></div><div class="b-form-item" v-if="state.lockConfig.pwdType === 'qa'"><input class="c-input" type="text" placeholder="提示问题 (例: 最喜欢谁?)" v-model="state.lockConfig.pwdQA_Q" style="margin-bottom: 8px;"><input class="c-input" type="password" placeholder="设置答案" v-model="state.lockConfig.pwdQA_A"></div><div class="b-form-item" v-if="state.lockConfig.pwdType === 'pattern'"><div style="text-align:center; font-size:12px; color:var(--text-sub); margin-bottom:10px;">请在下方绘制解锁图案</div><div class="pattern-lock-box" @mousedown="startPattern($event, 'set')" @mousemove="movePattern" @mouseup="endPattern" @mouseleave="endPattern" @touchstart.prevent="startPattern($event, 'set')" @touchmove.prevent="movePattern" @touchend="endPattern"><svg class="pattern-svg"><polyline :points="patternPathPoints" fill="none" stroke="var(--text-main)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" /><line v-if="patternState.isDrawing && patternState.path?.length > 0" :x1="40 + (patternState.path[patternState.path.length-1] % 3) * 80" :y1="40 + Math.floor(patternState.path[patternState.path.length-1] / 3) * 80" :x2="patternState.currentX" :y2="patternState.currentY" stroke="var(--text-main)" stroke-width="4" stroke-dasharray="6,6" opacity="0.5"/></svg><div class="pattern-grid"><div v-for="i in 9" :key="i-1" class="pattern-dot-wrap"><div class="pattern-dot" :class="{active: patternState.path.includes(i-1)}"></div></div></div></div><div style="text-align:center; font-size:12px; color:var(--text-main); font-weight:bold;">已存特征值: {{ state.lockConfig.pwdPattern || '未设置' }}</div></div></template></div></div></div>
+
+<div class="modal-overlay" v-if="state.activeApp === 'beautify' && state.gridAddPanel.show" @click.self="state.gridAddPanel.show = false">
+    <div class="modal-content">
+        <h3 class="modal-title">添加到自由网格</h3>
+
+        <div style="margin-bottom:12px;">
+            <div style="font-size:12px; color:var(--text-sub); margin-bottom:6px;">添加到第几页</div>
+            <select class="c-select" style="width:100%;" v-model="state.gridAddPanel.pageIndex">
+                <option v-for="(_, pIdx) in state.desktopPages" :key="pIdx" :value="pIdx">第 {{ pIdx + 1 }} 页</option>
+            </select>
+        </div>
+
+        <template v-if="state.gridAddPanel.itemType === 'widget'">
+            <div style="margin-bottom:12px;">
+                <div style="font-size:12px; color:var(--text-sub); margin-bottom:6px;">选择小组件类型</div>
+                <select class="c-select" style="width:100%;" v-model="state.gridAddPanel.widgetKind">
+                    <option value="badge">徽章</option>
+                    <option value="clock">时钟</option>
+                    <option value="image">图片卡</option>
+                    <option value="avatars">双头像卡</option>
+                </select>
+            </div>
+
+            <div style="margin-bottom:12px;">
+                <div style="font-size:12px; color:var(--text-sub); margin-bottom:6px;">组件尺寸</div>
+                <select class="c-select" style="width:100%;" v-model="state.gridAddPanel.widgetSize">
+                    <option value="2x2">2 x 2</option>
+                </select>
+            </div>
+
+            <div v-if="state.gridAddPanel.widgetKind === 'image' || state.gridAddPanel.widgetKind === 'avatars'" style="margin-bottom:12px;">
+                <div style="font-size:12px; color:var(--text-sub); margin-bottom:6px;">使用哪套组件数据</div>
+                <select class="c-select" style="width:100%;" v-model="state.gridAddPanel.widgetDataKey">
+                    <option value="0">第0套</option>
+                    <option value="1">第1套</option>
+                    <option value="2">第2套</option>
+                </select>
+            </div>
+        </template>
+
+        <template v-if="state.gridAddPanel.itemType === 'app'">
+            <div style="margin-bottom:12px;">
+                <div style="font-size:12px; color:var(--text-sub); margin-bottom:6px;">从哪个应用组选择</div>
+                <select class="c-select" style="width:100%;" v-model="state.gridAddPanel.appSource">
+                    <option value="apps0">顶部应用组</option>
+                    <option value="appsTop">中部应用组</option>
+                    <option value="appsBottom">底部应用组</option>
+                    <option value="appsDock">Dock 应用组</option>
+                </select>
+            </div>
+
+            <div style="margin-bottom:12px;">
+                <div style="font-size:12px; color:var(--text-sub); margin-bottom:6px;">选择具体 APP</div>
+                <select class="c-select" style="width:100%;" v-model="state.gridAddPanel.appIndex">
+                    <option v-for="(app, aIdx) in state[state.gridAddPanel.appSource]" :key="aIdx" :value="aIdx">
+                        {{ app.name || ('APP ' + (aIdx + 1)) }}
+                    </option>
+                </select>
+            </div>
+        </template>
+
+        <template v-if="state.gridAddPanel.itemType === 'capsule'">
+            <div style="font-size:12px; color:var(--text-sub); margin-bottom:12px; text-align:center;">
+                将添加一个 4x2 的气泡大胶囊到指定页面
+            </div>
+        </template>
+
+        <div style="display:flex; gap:10px;">
+            <button class="theme-btn" style="flex:1; margin-bottom:0;" @click="state.gridAddPanel.show = false">取消</button>
+            <button class="close-modal" style="flex:1; margin-top:0;" @click="confirmAddGridItem">确认添加</button>
+        </div>
+    </div>
+</div>
+
     </div>
     
     <div v-show="state.activeApp === 'settings'" class="settings-app" :class="{'dark-mode': state.theme === 'dark'}"><div class="s-header"><div class="s-nav" @click="closeApp"><i data-lucide="chevron-left" style="width:22px; height:22px; margin-right:4px;"></i> 返回桌面</div><div class="s-title">设置中心</div></div><div class="s-content"><div v-show="state.settingsTab === 'api'" class="s-page">
@@ -1062,98 +1754,174 @@
 
     <!-- Blog APP 视图 -->
     <div v-show="state.activeApp === 'blog'" class="blog-app" :class="{'dark-mode': state.theme === 'dark'}">
+        <!-- 顶栏 -->
         <div class="bl-header">
-            <div class="bl-nav-left">
-                <div @click="closeApp" style="display:flex; align-items:center; cursor:pointer; color:var(--text-main);">
-                    <i data-lucide="chevron-left" style="width:24px;"></i>
-                </div>
-                <div class="bl-app-title">Moments</div>
-            </div>
+            <!-- 去掉箭头，点击 Blog 字母返回桌面 -->
+            <div class="bl-app-title" @click="closeApp" style="cursor: pointer;">Blog</div>
             <div class="bl-header-actions">
-                <div class="bl-account-switch" @click="blogState.showAccountMenu = !blogState.showAccountMenu">
-                    <span>{{ currentAccount?.name || '未登录' }}</span>
-                    <i data-lucide="chevron-down" style="width:16px;"></i>
-                </div>
-                <div class="ca-dropdown" v-if="blogState.showAccountMenu" @click.self="blogState.showAccountMenu=false" style="right:20px; top:60px;">
-                    <div class="ca-dropdown-item" v-for="acc in availableAccounts" :key="acc.id" @click="blogSwitchAccount(acc.id)">
-                        <span v-if="acc.type === 'personal'"><i data-lucide="user" style="width:16px;"></i></span><span v-else><i data-lucide="heart" style="width:16px;"></i></span>
- {{ acc.name }}
-                    </div>
-                </div>
+                <!-- 用 span 把图标包起来，防止事件被图标库吞掉，点击触发批量发帖 -->
+                <span @click="generateRandomPosts" style="cursor:pointer; display:flex; align-items:center;">
+                    <i data-lucide="heart" style="width:24px;"></i>
+                </span>
             </div>
         </div>
 
-        <div class="bl-content">
-            <div class="bl-couple-hero" v-if="currentAccount.type === 'couple'" :style="{ backgroundImage: currentAccount.data.cover ? `url(${currentAccount.data.cover})` : 'none' }">
-                <div class="bl-couple-hero-content">
-                    <div>
-                        <div class="bl-couple-hero-title">{{ currentAccount.name }}</div>
-                        <div class="bl-couple-hero-days">建立于: {{ new Date(currentAccount.data.createTime).toLocaleDateString() }}</div>
+        <!-- 1. 首页 -->
+        <div class="bl-content" v-show="blogState.activeTab === 'home'">
+            <!-- 横向可滑动的头像栏 (Stories) -->
+            <div class="bl-stories">
+                <div class="bl-story-item">
+                    <div class="bl-story-avatar-wrap" style="background:none; border:2px solid #e0e0e0;">
+                        <img :src="getPersona('me').avatar || defaultImg" class="bl-story-avatar">
                     </div>
+                    <span class="bl-story-name">我的故事</span>
+                </div>
+                <!-- 增加 v-show 判断，如果是“我的预设账号(myPersonas)”则隐藏，避免重复 -->
+                <div class="bl-story-item" v-for="persona in allPersonas" :key="persona.id" v-show="!state.contactsData?.myPersonas?.some(m => m.id === persona.id)">
+                    <div class="bl-story-avatar-wrap">
+                        <img :src="persona.avatar || defaultImg" class="bl-story-avatar">
+                    </div>
+                    <span class="bl-story-name">{{ persona.chatName || persona.name }}</span>
                 </div>
             </div>
 
-            <div style="padding: 10px 0;">
-                <div v-if="feedPosts.length === 0" class="c-empty" style="margin-top:40px;">暂无动态，点击右下角按钮发布第一条动态吧！</div>
+            <!-- Feed流 -->
+            <div style="padding: 0;">
+                <div v-if="feedPosts.length === 0" class="c-empty" style="margin-top:40px;">关注更多人，查看他们的动态吧！</div>
                 <div class="bl-post-card" v-for="post in feedPosts" :key="post.id">
                     <div class="bl-post-header">
                         <div class="bl-author-info">
-                            <div v-if="post.isCouple" class="bl-couple-avatar-wrap">
-                                <img :src="post.coupleAvatars[0] || defaultImg">
-                                <img :src="post.coupleAvatars[1] || defaultImg">
-                            </div>
-                            <img v-else :src="post.authorAvatar || defaultImg" class="bl-author-avatar">
-                            <div class="bl-author-text">
-                                <span class="bl-author-name">
-                                    {{ post.authorName }}
-                                    <span class="bl-couple-badge" v-if="post.isCouple">Couple</span>
-                                </span>
-                                <span class="bl-post-time">{{ new Date(post.timestamp).toLocaleString() }}</span>
-                            </div>
+                            <img :src="post.authorAvatar || defaultImg" class="bl-author-avatar">
+                            <div class="bl-author-name">{{ post.authorName }}</div>
                         </div>
-                        <i data-lucide="more-horizontal" style="color:var(--text-sub); width:20px; cursor:pointer;"></i>
+                        <i data-lucide="more-horizontal" style="color:var(--text-main); width:20px; cursor:pointer;"></i>
                     </div>
+                    
+                    <!-- 动态文字 -->
                     <div class="bl-post-text">{{ post.text }}</div>
+                    
+                    <!-- 如果有 AI 生成的假照片，就在文字下面显示一个带图标的灰色方框 -->
+                    <div v-if="post.fakeImageText" style="margin: 0 15px 15px; background: rgba(150,150,150,0.06); border: 1px dashed rgba(150,150,150,0.2); border-radius: 12px; height: 260px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 20px;">
+                        <i data-lucide="image" style="width:32px; height:32px; color:var(--text-sub); opacity: 0.5;"></i>
+                        <span style="font-size: 12px; color: var(--text-sub); text-align: center; line-height: 1.5;">[ 照片分享 ]<br>{{ post.fakeImageText }}</span>
+                    </div>
                     
                     <div class="bl-actions">
                         <div class="bl-action-btn" :class="{liked: post.likes.includes('me')}" @click="blogToggleLike(post)">
                             <i data-lucide="heart" :fill="post.likes.includes('me') ? '#ff4d4f' : 'none'"></i>
-                            <span class="bl-action-text">{{ post.likes.length || '赞' }}</span>
                         </div>
                         <div class="bl-action-btn">
                             <i data-lucide="message-circle"></i>
-                            <span class="bl-action-text">{{ post.comments.length || '评论' }}</span>
+                        </div>
+                        <div class="bl-action-btn">
+                            <i data-lucide="send"></i>
                         </div>
                     </div>
-
-                    <div class="bl-comments-section" v-if="post.comments.length > 0">
-                        <div class="bl-comment-item" v-for="cmt in post.comments" :key="cmt.id">
-                            <span class="bl-comment-author">{{ getPersona(cmt.authorId).name }}</span>
-                            <span class="bl-comment-text">{{ cmt.content }}</span>
-                        </div>
-                    </div>
+                    <div class="bl-likes-count" v-if="post.likes.length > 0">{{ post.likes.length }} 次赞</div>
+                    <div class="bl-post-time">{{ formatTime(new Date(post.timestamp)) }}</div>
                 </div>
             </div>
         </div>
 
-        <div class="bl-fab" @click="blogState.showPostModal = true"><i data-lucide="plus"></i></div>
+        <!-- 2. 热搜 -->
+        <div class="bl-content" v-show="blogState.activeTab === 'hot'" style="padding: 20px 0;">
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:0 20px;">
+                <div class="bl-hot-header" style="padding:0; margin-bottom:0;">Explore Trending</div>
+                <div @click="fetchHotSearch(true)" style="cursor:pointer; color:var(--text-sub); display:flex; align-items:center; gap:4px; font-size:12px;">
+                    <i data-lucide="refresh-cw" :style="{ width:'14px', animation: hotState.loading ? 'spin 1s linear infinite' : 'none' }"></i> 刷新
+                </div>
+            </div>
+            <div class="bl-hot-tabs" style="margin-top: 15px;">
+                <div class="bl-hot-tab" 
+                     v-for="p in hotPlatforms" :key="p.id"
+                     :class="{active: hotState.activePlatform === p.id}"
+                     @click="hotState.activePlatform = p.id">
+                    {{ p.name }}
+                </div>
+            </div>
+            <div class="bl-hot-list">
+                <div v-if="hotState.loading" class="c-empty" style="margin-top: 30px;"><i data-lucide="loader-2" style="animation: spin 1s linear infinite; margin-bottom:10px;"></i><br>正在获取宇宙信号...</div>
+                <div v-else-if="hotState.error" class="c-empty" style="margin-top: 30px; color:#ff4d4f;">{{ hotState.error }}<br><button class="c-add-rel-btn" style="margin-top:15px; width:120px;" @click="fetchHotSearch">重新加载</button></div>
+                <div v-else-if="hotState.list.length === 0" class="c-empty" style="margin-top: 30px;">暂无数据</div>
+                <template v-else>
+                    <div class="bl-hot-item" v-for="(item, index) in hotState.list" :key="index">
+                        <div class="bl-hot-rank" :class="{'top-1': index===0, 'top-2': index===1, 'top-3': index===2}">{{ index + 1 }}</div>
+                        <div class="bl-hot-info">
+                            <div class="bl-hot-title">{{ item.title }}</div>
+                            <div class="bl-hot-heat" v-if="item.hot">
+                                <i data-lucide="trending-up" style="width:12px; height:12px;"></i> {{ item.hot }} 热度
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <!-- 3. 我的 -->
+        <div class="bl-content" v-show="blogState.activeTab === 'me'">
+            <div class="bl-me-header">
+                <img :src="getPersona('me').avatar || defaultImg" class="bl-me-avatar">
+                <div class="bl-me-info">
+                    <div class="bl-me-name">{{ getPersona('me').name || '我' }}</div>
+                    <div class="bl-me-stats">
+                        <div class="bl-stat-item">
+                            <span class="bl-stat-num">0</span>
+                            <span class="bl-stat-label">帖子</span>
+                        </div>
+                        <div class="bl-stat-item">
+                            <span class="bl-stat-num">98</span>
+                            <span class="bl-stat-label">粉丝</span>
+                        </div>
+                        <div class="bl-stat-item">
+                            <span class="bl-stat-num">235</span>
+                            <span class="bl-stat-label">获赞</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bl-me-posts-grid">
+                <!-- 筛选出我的帖子 -->
+                <div class="bl-me-post-item" v-for="post in feedPosts.filter(p => p.authorId === 'me')" :key="post.id">
+                    <span>{{ post.text.slice(0, 30) }}...</span>
+                </div>
+                <div v-if="feedPosts.filter(p => p.authorId === 'me').length === 0" style="grid-column: span 3; text-align: center; padding: 40px; color: var(--text-sub); font-size: 12px;">暂无发布的动态</div>
+            </div>
+        </div>
+
+        <!-- 底栏 -->
+        <div class="bl-bottom-bar">
+            <div class="bl-tab-btn" :class="{active: blogState.activeTab === 'home'}" @click="blogState.activeTab = 'home'">
+                <i data-lucide="home"></i>
+            </div>
+            <div class="bl-tab-btn" :class="{active: blogState.activeTab === 'hot'}" @click="blogState.activeTab = 'hot'">
+                <i data-lucide="search"></i>
+            </div>
+            <div class="bl-tab-btn" :class="{active: blogState.activeTab === 'me'}" @click="blogState.activeTab = 'me'">
+                <i data-lucide="user"></i>
+            </div>
+        </div>
+
+        <div class="bl-fab" v-show="blogState.activeTab === 'home'" @click="blogState.showPostModal = true"><i data-lucide="plus"></i></div>
 
         <!-- 发帖弹窗 -->
         <div class="c-modal-centered" v-if="blogState.showPostModal" @click.self="blogState.showPostModal = false">
             <div class="c-modal-centered-content">
-                <h4 style="text-align:center; font-size:16px; color:var(--text-main); font-weight:700;">发布动态 ({{ currentAccount.name }})</h4>
+                <h4 style="text-align:center; font-size:16px; color:var(--text-main); font-weight:700;">发布动态</h4>
                 <div class="c-form-item">
-                    <textarea class="c-textarea" v-model="blogState.postForm.text" placeholder="分享此刻的心情..." style="min-height: 120px;"></textarea>
+                    <textarea class="c-textarea" v-model="blogState.postForm.text" placeholder="写下此刻的想法..." style="min-height: 120px;"></textarea>
                 </div>
                 <div style="display:flex; gap:10px; margin-top:5px;">
                     <button class="c-add-rel-btn" style="flex:1; margin:0; background:var(--widget-bg); color:var(--text-main);" @click="blogState.showPostModal = false">取消</button>
-                    <button class="c-add-rel-btn" style="flex:1; margin:0; background:var(--text-main); color:var(--bg-color);" @click="publishPost">发布</button>
+                    <button class="c-add-rel-btn" style="flex:1; margin:0; background:var(--text-main); color:var(--bg-color);" @click="publishPost">分享</button>
                 </div>
             </div>
         </div>
+
     </div>
 
-    <input type="file" ref="fileInput" class="hidden-file-input" accept="image/*, font/*, .ttf, .otf, .woff, .woff2" @change="handleFileChange"><input type="file" class="hidden-file-input data-file-input" accept=".json" @change="handleImportData">
+    <input type="file" ref="fileInput" class="hidden-file-input" accept="image/*, font/*, .ttf, .otf, .woff, .woff2" @change="handleFileChange">
+    <input type="file" class="hidden-file-input data-file-input" accept=".json" @change="handleImportData">
 </div>
 </body>
 </html>
