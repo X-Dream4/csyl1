@@ -1,0 +1,132 @@
+/* ==== 电话/拨号 APP 样式 (INS韩系极简风) ==== */
+.phone-app { width: 100vw; height: 100vh; background-color: var(--bg-color); display: flex; flex-direction: column; overflow: hidden; position: fixed; top: 0; left: 0; z-index: 50; animation: fadeIn 0.3s ease; }
+
+.ph-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 20px 10px; background: var(--bg-color); z-index: 20; }
+.ph-app-title { font-size: 24px; font-weight: 700; font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; color: var(--text-main); letter-spacing: -0.5px; }
+
+.ph-content { flex: 1; overflow-y: auto; background: var(--bg-color); padding-bottom: 90px; }
+.ph-page-title { font-size: 28px; font-weight: 800; color: var(--text-main); padding: 10px 20px 20px; }
+
+.ph-empty { padding: 40px 20px; text-align: center; color: var(--text-sub); font-size: 14px; }
+
+/* 通话记录 */
+.ph-call-item { display: flex; align-items: center; padding: 12px 20px; border-bottom: 1px solid rgba(150,150,150,0.05); cursor: pointer; transition: background 0.2s; }
+.ph-call-item:active { background: rgba(150,150,150,0.05); }
+.ph-call-avatar-wrap { width: 44px; height: 44px; border-radius: 50%; overflow: hidden; flex-shrink: 0; margin-right: 15px; background: var(--widget-bg-solid); }
+.ph-call-avatar { width: 100%; height: 100%; object-fit: cover; }
+.ph-call-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.ph-call-name { font-size: 16px; font-weight: 600; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ph-call-name.ph-spam { color: #ff4d4f; }
+.ph-call-name.ph-missed { color: #ff4d4f; }
+.ph-call-desc { font-size: 12px; color: var(--text-sub); display: flex; align-items: center; gap: 4px; }
+.ph-call-time { font-size: 12px; color: var(--text-sub); margin-left: 10px; }
+
+/* 联系人列表 */
+.ph-letter-divider { padding: 4px 20px; background: rgba(150,150,150,0.05); font-size: 12px; font-weight: 700; color: var(--text-sub); }
+.ph-contact-item { display: flex; align-items: center; padding: 12px 20px; border-bottom: 1px solid rgba(150,150,150,0.05); cursor: pointer; }
+.ph-contact-item:active { background: rgba(150,150,150,0.05); }
+.ph-contact-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; margin-right: 15px; }
+.ph-contact-name { font-size: 16px; font-weight: 600; color: var(--text-main); }
+
+/* 底栏 */
+.ph-bottom-bar { position: absolute; bottom: 0; left: 0; right: 0; height: 60px; background: rgba(255,255,255,0.85); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-top: 1px solid rgba(150,150,150,0.1); display: flex; justify-content: space-around; align-items: center; padding-bottom: env(safe-area-inset-bottom); z-index: 20; }
+.dark-mode .ph-bottom-bar { background: rgba(30,30,30,0.85); }
+.ph-tab-btn { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--text-sub); cursor: pointer; transition: color 0.2s; width: 60px; }
+.ph-tab-btn.active { color: var(--text-main); }
+.ph-tab-btn i { width: 22px; height: 22px; }
+.ph-tab-btn span { font-size: 10px; font-weight: 600; }
+
+/* 联系人详情 */
+.ph-contact-detail { position: absolute; inset: 0; background: var(--bg-color); z-index: 30; display: flex; flex-direction: column; animation: slideLeft 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); }
+.ph-cd-header { display: flex; padding: 20px; align-items: center; }
+.ph-cd-back { cursor: pointer; color: var(--text-main); }
+.ph-cd-body { flex: 1; overflow-y: auto; padding: 0 20px 40px; display: flex; flex-direction: column; align-items: center; }
+.ph-cd-avatar { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; margin-bottom: 15px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); }
+.ph-cd-name { font-size: 24px; font-weight: 700; color: var(--text-main); margin-bottom: 25px; }
+
+.ph-cd-actions { display: flex; gap: 20px; width: 100%; margin-bottom: 30px; }
+.ph-cd-action-btn { flex: 1; background: var(--widget-bg-solid); border-radius: 16px; padding: 15px 0; display: flex; flex-direction: column; align-items: center; gap: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); border: var(--glass-border); cursor: pointer; transition: transform 0.1s; }
+.ph-cd-action-btn:active { transform: scale(0.96); }
+.ph-cd-action-icon { width: 40px; height: 40px; border-radius: 50%; background: rgba(150,150,150,0.1); display: flex; align-items: center; justify-content: center; color: var(--text-main); }
+.ph-cd-action-btn span { font-size: 12px; font-weight: 600; color: var(--text-main); }
+
+.ph-cd-card { width: 100%; background: var(--widget-bg-solid); border-radius: 16px; padding: 5px 20px; margin-bottom: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); border: var(--glass-border); display: flex; flex-direction: column; }
+.ph-cd-row { display: flex; flex-direction: column; padding: 15px 0; border-bottom: 1px solid rgba(150,150,150,0.08); gap: 6px; }
+.ph-cd-row:last-child { border-bottom: none; }
+.ph-cd-label { font-size: 12px; color: var(--text-sub); font-weight: 600; }
+.ph-cd-value { font-size: 15px; color: var(--text-main); font-weight: 500; }
+.ph-cd-card-title { font-size: 14px; font-weight: 700; color: var(--text-main); padding: 15px 0 5px; border-bottom: 1px solid rgba(150,150,150,0.08); }
+.ph-cd-call-history { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid rgba(150,150,150,0.05); font-size: 14px; font-weight: 500; }
+.ph-cd-call-history:last-child { border-bottom: none; }
+
+/* 通话界面 */
+.ph-call-screen { position: absolute; inset: 0; background: rgba(20,20,20,0.85); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); z-index: 100; display: flex; flex-direction: column; color: #fff; animation: slideUp 0.3s ease; }
+.ph-call-header { padding: 20px; display: flex; color: #fff; }
+.ph-call-info-top { display: flex; flex-direction: column; align-items: center; margin-top: 10px; margin-bottom: 20px; }
+.ph-call-avatar-large { width: 90px; height: 90px; border-radius: 50%; object-fit: cover; margin-bottom: 15px; box-shadow: 0 0 30px rgba(0,0,0,0.3); }
+.ph-call-name-large { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
+.ph-call-status { font-size: 14px; opacity: 0.7; }
+
+.ph-call-messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; scroll-behavior: smooth; }
+.ph-call-msg-wrap { display: flex; width: 100%; }
+.ph-call-msg-wrap.user { justify-content: flex-end; }
+.ph-call-msg-wrap.ai { justify-content: flex-start; }
+.ph-call-bubble { max-width: 80%; padding: 12px 16px; border-radius: 18px; font-size: 14px; line-height: 1.5; word-break: break-word; white-space: pre-wrap; }
+.ph-call-msg-wrap.user .ph-call-bubble { background: rgba(255,255,255,0.2); color: #fff; border-bottom-right-radius: 4px; }
+.ph-call-msg-wrap.ai .ph-call-bubble { background: rgba(0,0,0,0.4); color: #fff; border-bottom-left-radius: 4px; }
+.ph-call-msg-wrap.sys { justify-content: center; }
+.ph-call-msg-wrap.sys .ph-call-bubble { background: transparent; color: rgba(255,255,255,0.6); font-size: 12px; text-align: center; padding: 4px 10px; font-style: italic; }
+
+.ph-call-bottom { padding: 15px 20px 40px; background: linear-gradient(to top, rgba(0,0,0,0.8), transparent); }
+.ph-call-input-area { display: flex; gap: 10px; align-items: flex-end; background: rgba(255,255,255,0.1); border-radius: 20px; padding: 8px; }
+.ph-call-input-wrapper { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.ph-call-action-input { background: rgba(0,0,0,0.3); border: 1px dashed rgba(255,255,255,0.2); outline: none; color: rgba(255,255,255,0.8); font-size: 12px; padding: 6px 12px; border-radius: 12px; font-style: italic; }
+.ph-call-action-input::placeholder { color: rgba(255,255,255,0.3); }
+.ph-call-input { background: transparent; border: none; outline: none; color: #fff; font-size: 14px; padding: 4px 10px; min-height: 40px; max-height: 80px; resize: none; }
+.ph-call-input::placeholder { color: rgba(255,255,255,0.4); }
+.ph-call-send { width: 40px; height: 40px; border-radius: 50%; background: #fff; color: #000; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; margin-bottom: 2px;}
+
+.ph-call-api-btn { background: rgba(255,255,255,0.15); color: #fff; padding: 8px 20px; border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid rgba(255,255,255,0.3); transition: all 0.2s; }
+.ph-call-api-btn:active { background: rgba(255,255,255,0.3); }
+.ph-call-api-btn.disabled { opacity: 0.5; pointer-events: none; }
+
+.ph-call-controls { display: flex; justify-content: center; gap: 40px; margin-top: 25px; }
+.ph-cc-btn { width: 60px; height: 60px; border-radius: 50%; background: rgba(255,255,255,0.15); display: flex; justify-content: center; align-items: center; cursor: pointer; transition: transform 0.2s; }
+.ph-cc-btn:active { transform: scale(0.9); }
+.ph-cc-end { background: #ff4d4f; }
+
+/* 【新增代码直接粘贴在 call.css 最下面】 */
+/* 通话详情记录回顾页 */
+.ph-call-record-detail { 
+    position: absolute; 
+    inset: 0; 
+    background: rgba(20,20,20,0.95); 
+    backdrop-filter: blur(25px); 
+    -webkit-backdrop-filter: blur(25px); 
+    z-index: 40; 
+    display: flex; 
+    flex-direction: column; 
+    color: #fff; 
+    animation: slideLeft 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); 
+}
+
+/* 短信界面 */
+.ph-sms-screen { position: absolute; inset: 0; background: var(--bg-color); z-index: 100; display: flex; flex-direction: column; animation: slideLeft 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); }
+.ph-sms-header { display: flex; align-items: center; justify-content: space-between; padding: 20px; background: rgba(255,255,255,0.85); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border-bottom: 1px solid rgba(150,150,150,0.1); z-index: 10; }
+.dark-mode .ph-sms-header { background: rgba(30,30,30,0.85); }
+.ph-sms-back { cursor: pointer; color: var(--text-main); }
+.ph-sms-title { display: flex; flex-direction: column; align-items: center; }
+.ph-sms-name { font-size: 16px; font-weight: 700; color: var(--text-main); }
+.ph-sms-phone { font-size: 11px; color: var(--text-sub); }
+.ph-sms-call { cursor: pointer; color: var(--text-main); }
+
+.ph-sms-messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; background: var(--bg-color); }
+.ph-sms-messages .ph-call-msg-wrap.user .ph-call-bubble { background: var(--text-main); color: var(--bg-color); }
+.ph-sms-messages .ph-call-msg-wrap.ai .ph-call-bubble { background: var(--widget-bg-solid); color: var(--text-main); border: var(--glass-border); box-shadow: 0 2px 10px rgba(0,0,0,0.02); }
+
+.ph-sms-bottom { display: flex; align-items: flex-end; padding: 10px 15px 25px; background: var(--bg-color); border-top: 1px solid rgba(150,150,150,0.1); gap: 10px; }
+.ph-sms-api-btn { width: 36px; height: 36px; border-radius: 50%; background: var(--widget-bg-solid); color: var(--text-main); display: flex; justify-content: center; align-items: center; cursor: pointer; flex-shrink: 0; margin-bottom: 2px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); border: var(--glass-border);}
+.ph-sms-input-wrapper { flex: 1; background: var(--widget-bg-solid); border-radius: 18px; padding: 10px 15px; box-shadow: inset 0 2px 5px rgba(0,0,0,0.02); border: var(--glass-border); }
+.ph-sms-input-wrapper .ph-call-input { width: 100%; color: var(--text-main); min-height: 20px; max-height: 80px; }
+.ph-sms-input-wrapper .ph-call-input::placeholder { color: var(--text-sub); }
+.ph-sms-send { color: var(--text-main); font-size: 14px; font-weight: 700; cursor: pointer; padding: 10px 5px; flex-shrink: 0; white-space: nowrap;}

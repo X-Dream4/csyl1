@@ -6,7 +6,8 @@
     <link rel="stylesheet" href="desktop.css"><link rel="stylesheet" href="beautify.css"><link rel="stylesheet" href="settings.css"><link rel="stylesheet" href="contacts.css"><link rel="stylesheet" href="chat.css"><link rel="stylesheet" href="chat-detail.css"><link rel="stylesheet" href="blog.css">
     <link rel="stylesheet" href="chat-moment.css">
     <link rel="stylesheet" href="chat-group.css">
-    <script src="beautify.js" defer></script><script src="settings.js" defer></script><script src="contacts.js" defer></script><script src="chat.js" defer></script><script src="chat-moment.js" defer></script><script src="chat-detail.js" defer></script><script src="chat-group.js" defer></script><script src="blog.js" defer></script><script src="app.js" defer></script>
+    <link rel="stylesheet" href="call.css">
+    <script src="beautify.js" defer></script><script src="settings.js" defer></script><script src="contacts.js" defer></script><script src="chat.js" defer></script><script src="chat-moment.js" defer></script><script src="chat-detail.js" defer></script><script src="chat-group.js" defer></script><script src="blog.js" defer></script><script src="call.js" defer></script><script src="app.js" defer></script>
     <style>
         @keyframes jiggle { 0% { transform: rotate(-2deg); } 50% { transform: rotate(2deg); } 100% { transform: rotate(-2deg); } }
         /* 让所有组件和应用都在抖动模式下生效 */
@@ -170,9 +171,9 @@
             <div v-if="state.topRowType === 'split'" class="middle-row" style="flex:0 0 160px;">
                 <template v-if="state.row0Layout[0] === 'widget0'">
                     <div style="flex:1;">
-                        <template v-if="state.widgetSlot0 === 'badge'"><div class="badge-widget" @click="triggerUpload('badgeImage')" style="width:100%;height:100%;"><img v-if="state.badgeImage" :src="state.badgeImage" class="badge-img"></div></template>
-                        <template v-else-if="state.widgetSlot0 === 'clock'"><div class="clock-widget" @click="isClockModalOpen = true" style="width:100%;height:100%;" :style="{ backgroundImage: state.clockBg ? `url(${state.clockBg})` : 'none' }"><div class="clock-face"><img v-for="(icon, idx) in state.clockIcons" :key="idx" :src="icon" class="clock-number-icon" :style="getClockNumberStyle(idx)"><div v-if="!state.clockHandHr" class="hand hand-hr" :style="{ transform: `rotate(${hrDeg}deg)` }"></div><img v-else :src="state.clockHandHr" class="hand-img hand-hr-img" :style="{ transform: `rotate(${hrDeg}deg)` }"><div v-if="!state.clockHandMin" class="hand hand-min" :style="{ transform: `rotate(${minDeg}deg)` }"></div><img v-else :src="state.clockHandMin" class="hand-img hand-min-img" :style="{ transform: `rotate(${minDeg}deg)` }"><div v-if="!state.clockHandSec" class="hand hand-sec" :style="{ transform: `rotate(${secDeg}deg)` }"></div><img v-else :src="state.clockHandSec" class="hand-img hand-sec-img" :style="{ transform: `rotate(${secDeg}deg)` }"><div v-if="!state.clockCenterDot" class="clock-center"></div><img v-else :src="state.clockCenterDot" class="clock-center-img"></div></div></template>
-                        <template v-else-if="state.widgetSlot0 === 'image'"><div class="custom-image-widget glass-widget" @click="triggerUpload('customImg0')" style="width:100%;height:100%;"><img :src="state.customImg0" class="full-cover-img"></div></template>
+                        <template v-if="state.widgetSlot0 === 'badge'"><div class="badge-widget" @click="triggerUpload('badgeImage')" @contextmenu.prevent="triggerUpload('badgeImage')" style="width:100%;height:100%;"><img v-if="state.badgeImage" :src="state.badgeImage" class="badge-img"></div></template>
+                        <template v-else-if="state.widgetSlot0 === 'clock'"><div class="clock-widget" @click="isClockModalOpen = true" @contextmenu.prevent="isClockModalOpen = true" style="width:100%;height:100%;" :style="{ backgroundImage: state.clockBg ? `url(${state.clockBg})` : 'none' }"><div class="clock-face"><img v-for="(icon, idx) in state.clockIcons" :key="idx" :src="icon" class="clock-number-icon" :style="getClockNumberStyle(idx)"><div v-if="!state.clockHandHr" class="hand hand-hr" :style="{ transform: `rotate(${hrDeg}deg)` }"></div><img v-else :src="state.clockHandHr" class="hand-img hand-hr-img" :style="{ transform: `rotate(${hrDeg}deg)` }"><div v-if="!state.clockHandMin" class="hand hand-min" :style="{ transform: `rotate(${minDeg}deg)` }"></div><img v-else :src="state.clockHandMin" class="hand-img hand-min-img" :style="{ transform: `rotate(${minDeg}deg)` }"><div v-if="!state.clockHandSec" class="hand hand-sec" :style="{ transform: `rotate(${secDeg}deg)` }"></div><img v-else :src="state.clockHandSec" class="hand-img hand-sec-img" :style="{ transform: `rotate(${secDeg}deg)` }"><div v-if="!state.clockCenterDot" class="clock-center"></div><img v-else :src="state.clockCenterDot" class="clock-center-img"></div></div></template>
+                        <template v-else-if="state.widgetSlot0 === 'image'"><div class="custom-image-widget glass-widget" @click="triggerUpload('customImg0')" @contextmenu.prevent="triggerUpload('customImg0')" style="width:100%;height:100%;"><img :src="state.customImg0" class="full-cover-img"></div></template>
                         <template v-else-if="state.widgetSlot0 === 'avatars'"><div class="avatar-card-widget glass-widget" style="width:100%;height:100%;"><input class="avatar-title-input" v-model="state.avatarCard0.titleTop"><div class="avatars-container"><div class="avatar-item pos-left"><img :src="state.avatarCard0.imgLeft" @click.stop="triggerUpload('avatarCard0_imgLeft')" class="ac-img-large"><input class="avatar-name-input" v-model="state.avatarCard0.textLeft"></div><div class="avatar-item pos-right"><img :src="state.avatarCard0.imgRight" @click.stop="triggerUpload('avatarCard0_imgRight')" class="ac-img-large"><input class="avatar-name-input" v-model="state.avatarCard0.textRight"></div></div><input class="avatar-title-input" v-model="state.avatarCard0.titleBottom"></div></template>
                         <template v-else-if="state.widgetSlot0 === 'custom'"><div class="classic-custom-widget-host"><component v-if="getCustomWidgetComponentById(state.customWidgetRef0)" :is="getCustomWidgetComponentById(state.customWidgetRef0)"></component></div></template>
                     </div>
@@ -191,9 +192,9 @@
                         </div>
                     </div>
                     <div style="flex:1;">
-                        <template v-if="state.widgetSlot0 === 'badge'"><div class="badge-widget" @click="triggerUpload('badgeImage')" style="width:100%;height:100%;"><img v-if="state.badgeImage" :src="state.badgeImage" class="badge-img"></div></template>
-                        <template v-else-if="state.widgetSlot0 === 'clock'"><div class="clock-widget" @click="isClockModalOpen = true" style="width:100%;height:100%;" :style="{ backgroundImage: state.clockBg ? `url(${state.clockBg})` : 'none' }"><div class="clock-face"><img v-for="(icon, idx) in state.clockIcons" :key="idx" :src="icon" class="clock-number-icon" :style="getClockNumberStyle(idx)"><div v-if="!state.clockHandHr" class="hand hand-hr" :style="{ transform: `rotate(${hrDeg}deg)` }"></div><img v-else :src="state.clockHandHr" class="hand-img hand-hr-img" :style="{ transform: `rotate(${hrDeg}deg)` }"><div v-if="!state.clockHandMin" class="hand hand-min" :style="{ transform: `rotate(${minDeg}deg)` }"></div><img v-else :src="state.clockHandMin" class="hand-img hand-min-img" :style="{ transform: `rotate(${minDeg}deg)` }"><div v-if="!state.clockHandSec" class="hand hand-sec" :style="{ transform: `rotate(${secDeg}deg)` }"></div><img v-else :src="state.clockHandSec" class="hand-img hand-sec-img" :style="{ transform: `rotate(${secDeg}deg)` }"><div v-if="!state.clockCenterDot" class="clock-center"></div><img v-else :src="state.clockCenterDot" class="clock-center-img"></div></div></template>
-                        <template v-else-if="state.widgetSlot0 === 'image'"><div class="custom-image-widget glass-widget" @click="triggerUpload('customImg0')" style="width:100%;height:100%;"><img :src="state.customImg0" class="full-cover-img"></div></template>
+                        <template v-if="state.widgetSlot0 === 'badge'"><div class="badge-widget" @click="triggerUpload('badgeImage')" @contextmenu.prevent="triggerUpload('badgeImage')" style="width:100%;height:100%;"><img v-if="state.badgeImage" :src="state.badgeImage" class="badge-img"></div></template>
+                        <template v-else-if="state.widgetSlot0 === 'clock'"><div class="clock-widget" @click="isClockModalOpen = true" @contextmenu.prevent="isClockModalOpen = true" style="width:100%;height:100%;" :style="{ backgroundImage: state.clockBg ? `url(${state.clockBg})` : 'none' }"><div class="clock-face"><img v-for="(icon, idx) in state.clockIcons" :key="idx" :src="icon" class="clock-number-icon" :style="getClockNumberStyle(idx)"><div v-if="!state.clockHandHr" class="hand hand-hr" :style="{ transform: `rotate(${hrDeg}deg)` }"></div><img v-else :src="state.clockHandHr" class="hand-img hand-hr-img" :style="{ transform: `rotate(${hrDeg}deg)` }"><div v-if="!state.clockHandMin" class="hand hand-min" :style="{ transform: `rotate(${minDeg}deg)` }"></div><img v-else :src="state.clockHandMin" class="hand-img hand-min-img" :style="{ transform: `rotate(${minDeg}deg)` }"><div v-if="!state.clockHandSec" class="hand hand-sec" :style="{ transform: `rotate(${secDeg}deg)` }"></div><img v-else :src="state.clockHandSec" class="hand-img hand-sec-img" :style="{ transform: `rotate(${secDeg}deg)` }"><div v-if="!state.clockCenterDot" class="clock-center"></div><img v-else :src="state.clockCenterDot" class="clock-center-img"></div></div></template>
+                        <template v-else-if="state.widgetSlot0 === 'image'"><div class="custom-image-widget glass-widget" @click="triggerUpload('customImg0')" @contextmenu.prevent="triggerUpload('customImg0')" style="width:100%;height:100%;"><img :src="state.customImg0" class="full-cover-img"></div></template>
                         <template v-else-if="state.widgetSlot0 === 'avatars'"><div class="avatar-card-widget glass-widget" style="width:100%;height:100%;"><input class="avatar-title-input" v-model="state.avatarCard0.titleTop"><div class="avatars-container"><div class="avatar-item pos-left"><img :src="state.avatarCard0.imgLeft" @click.stop="triggerUpload('avatarCard0_imgLeft')" class="ac-img-large"><input class="avatar-name-input" v-model="state.avatarCard0.textLeft"></div><div class="avatar-item pos-right"><img :src="state.avatarCard0.imgRight" @click.stop="triggerUpload('avatarCard0_imgRight')" class="ac-img-large"><input class="avatar-name-input" v-model="state.avatarCard0.textRight"></div></div><input class="avatar-title-input" v-model="state.avatarCard0.titleBottom"></div></template>
                         <template v-else-if="state.widgetSlot0 === 'custom'"><div class="classic-custom-widget-host"><component v-if="getCustomWidgetComponentById(state.customWidgetRef0)" :is="getCustomWidgetComponentById(state.customWidgetRef0)"></component></div></template>
                     </div>
@@ -201,7 +202,7 @@
             </div>
 
             <template v-for="section in state.desktopLayout.filter(s => !(state.topRowType === 'split' && s === 'capsule'))" :key="section">
-                <div v-if="section === 'capsule'" class="capsule-widget glass-widget">
+                <div v-if="section === 'capsule'" class="capsule-widget glass-widget" @contextmenu.prevent="isThemeModalOpen = true">
                     <div class="capsule-bg-layer" v-if="state.capsuleBg" :style="{ backgroundImage: `url(${state.capsuleBg})`, opacity: state.capsuleOpacity }"></div>
                     <template v-if="state.capsuleType === 'chat'"><div class="chat-section"><input class="chat-time-input" v-model="state.chatTime"><div class="chat-messages"><div class="chat-row left"><img :src="state.chatLeftAvatar" class="avatar"><div class="chat-bubble"><span>{{ state.chatLeftText }}</span></div></div><div class="chat-row right"><img :src="state.chatRightAvatar" class="avatar"><div class="chat-bubble"><span>{{ state.chatRightText }}</span></div></div></div><div class="chat-bottom-bar"><div class="chat-icon-btn"><i data-lucide="mic"></i></div><input class="chat-input-fake" :value="state.chatInputText"><div class="chat-icon-btn"><i data-lucide="smile"></i></div><div class="chat-send-btn"><i data-lucide="arrow-up"></i></div></div></div><div class="image-section"><img :src="state.widgetImage1" class="img-card single-card"><div class="widget-mini-badge" v-if="state.widgetBadge1.img || state.widgetBadge1.color" :style="state.widgetBadge1.img ? {} : { background: state.widgetBadge1.color || '#ffffff' }"><img v-if="state.widgetBadge1.img" :src="state.widgetBadge1.img"></div></div></template>
                     <template v-else-if="state.capsuleType === 'emoji'"><div class="emoji-wall"><div v-if="state.emojiWallItems?.length===0" class="emoji-placeholder">点击输入文字表情</div><div v-for="item in state.emojiWallItems" :key="item.id" class="emoji-item" :style="{ top: item.top+'%', left: item.left+'%', transform: `rotate(${item.rot}deg)`, fontSize: item.size+'px' }">{{ item.text }}</div></div></template>
@@ -213,9 +214,9 @@
                 <div v-else-if="section === 'row1'" class="middle-row">
                     <template v-if="state.row1Layout[0] === 'widget1'">
                         <div style="flex:1;">
-                            <template v-if="state.widgetSlot1 === 'badge'"><div class="badge-widget" style="width:100%;height:100%;"><img v-if="state.badgeImage" :src="state.badgeImage" class="badge-img"></div></template>
-                            <template v-else-if="state.widgetSlot1 === 'clock'"><div class="clock-widget" style="width:100%;height:100%;" :style="{ backgroundImage: state.clockBg ? `url(${state.clockBg})` : 'none' }"><div class="clock-face"><img v-for="(icon, idx) in state.clockIcons" :key="idx" :src="icon" class="clock-number-icon" :style="getClockNumberStyle(idx)"><div v-if="!state.clockHandHr" class="hand hand-hr" :style="{ transform: `rotate(${hrDeg}deg)` }"></div><img v-else :src="state.clockHandHr" class="hand-img hand-hr-img" :style="{ transform: `rotate(${hrDeg}deg)` }"><div v-if="!state.clockHandMin" class="hand hand-min" :style="{ transform: `rotate(${minDeg}deg)` }"></div><img v-else :src="state.clockHandMin" class="hand-img hand-min-img" :style="{ transform: `rotate(${minDeg}deg)` }"><div v-if="!state.clockHandSec" class="hand hand-sec" :style="{ transform: `rotate(${secDeg}deg)` }"></div><img v-else :src="state.clockHandSec" class="hand-img hand-sec-img" :style="{ transform: `rotate(${secDeg}deg)` }"><div v-if="!state.clockCenterDot" class="clock-center"></div><img v-else :src="state.clockCenterDot" class="clock-center-img"></div></div></template>
-                            <template v-else-if="state.widgetSlot1 === 'image'"><div class="custom-image-widget glass-widget" @click="triggerUpload('customImg1')" style="width:100%;height:100%;"><img :src="state.customImg1" class="full-cover-img"></div></template>
+                            <template v-if="state.widgetSlot1 === 'badge'"><div class="badge-widget" @click="triggerUpload('badgeImage')" @contextmenu.prevent="triggerUpload('badgeImage')" style="width:100%;height:100%;"><img v-if="state.badgeImage" :src="state.badgeImage" class="badge-img"></div></template>
+                            <template v-else-if="state.widgetSlot1 === 'clock'"><div class="clock-widget" @click="isClockModalOpen = true" @contextmenu.prevent="isClockModalOpen = true" style="width:100%;height:100%;" :style="{ backgroundImage: state.clockBg ? `url(${state.clockBg})` : 'none' }"><div class="clock-face"><img v-for="(icon, idx) in state.clockIcons" :key="idx" :src="icon" class="clock-number-icon" :style="getClockNumberStyle(idx)"><div v-if="!state.clockHandHr" class="hand hand-hr" :style="{ transform: `rotate(${hrDeg}deg)` }"></div><img v-else :src="state.clockHandHr" class="hand-img hand-hr-img" :style="{ transform: `rotate(${hrDeg}deg)` }"><div v-if="!state.clockHandMin" class="hand hand-min" :style="{ transform: `rotate(${minDeg}deg)` }"></div><img v-else :src="state.clockHandMin" class="hand-img hand-min-img" :style="{ transform: `rotate(${minDeg}deg)` }"><div v-if="!state.clockHandSec" class="hand hand-sec" :style="{ transform: `rotate(${secDeg}deg)` }"></div><img v-else :src="state.clockHandSec" class="hand-img hand-sec-img" :style="{ transform: `rotate(${secDeg}deg)` }"><div v-if="!state.clockCenterDot" class="clock-center"></div><img v-else :src="state.clockCenterDot" class="clock-center-img"></div></div></template>
+                            <template v-else-if="state.widgetSlot1 === 'image'"><div class="custom-image-widget glass-widget" @click="triggerUpload('customImg1')" @contextmenu.prevent="triggerUpload('customImg1')" style="width:100%;height:100%;"><img :src="state.customImg1" class="full-cover-img"></div></template>
                             <template v-else-if="state.widgetSlot1 === 'avatars'"><div class="avatar-card-widget glass-widget" style="width:100%;height:100%;"><input class="avatar-title-input" v-model="state.avatarCard1.titleTop"><div class="avatars-container"><div class="avatar-item pos-left"><img :src="state.avatarCard1.imgLeft" @click.stop="triggerUpload('avatarCard1_imgLeft')" class="ac-img-large"><input class="avatar-name-input" v-model="state.avatarCard1.textLeft"></div><div class="avatar-item pos-right"><img :src="state.avatarCard1.imgRight" @click.stop="triggerUpload('avatarCard1_imgRight')" class="ac-img-large"><input class="avatar-name-input" v-model="state.avatarCard1.textRight"></div></div><input class="avatar-title-input" v-model="state.avatarCard1.titleBottom"></div></template>
                             <template v-else-if="state.widgetSlot1 === 'custom'"><div class="classic-custom-widget-host"><component v-if="getCustomWidgetComponentById(state.customWidgetRef1)" :is="getCustomWidgetComponentById(state.customWidgetRef1)"></component></div></template>
                         </div>
@@ -234,10 +235,10 @@
                             </div>
                         </div>
                         <div style="flex:1;">
-                            <template v-if="state.widgetSlot1 === 'badge'"><div class="badge-widget" style="width:100%;height:100%;"><img v-if="state.badgeImage" :src="state.badgeImage" class="badge-img"></div></template>
-                            <template v-else-if="state.widgetSlot1 === 'clock'"><div class="clock-widget" style="width:100%;height:100%;" :style="{ backgroundImage: state.clockBg ? `url(${state.clockBg})` : 'none' }"><div class="clock-face"><img v-for="(icon, idx) in state.clockIcons" :key="idx" :src="icon" class="clock-number-icon" :style="getClockNumberStyle(idx)"><div v-if="!state.clockHandHr" class="hand hand-hr" :style="{ transform: `rotate(${hrDeg}deg)` }"></div><img v-else :src="state.clockHandHr" class="hand-img hand-hr-img" :style="{ transform: `rotate(${hrDeg}deg)` }"><div v-if="!state.clockHandMin" class="hand hand-min" :style="{ transform: `rotate(${minDeg}deg)` }"></div><img v-else :src="state.clockHandMin" class="hand-img hand-min-img" :style="{ transform: `rotate(${minDeg}deg)` }"><div v-if="!state.clockHandSec" class="hand hand-sec" :style="{ transform: `rotate(${secDeg}deg)` }"></div><img v-else :src="state.clockHandSec" class="hand-img hand-sec-img" :style="{ transform: `rotate(${secDeg}deg)` }"><div v-if="!state.clockCenterDot" class="clock-center"></div><img v-else :src="state.clockCenterDot" class="clock-center-img"></div></div></template>
-                            <template v-else-if="state.widgetSlot1 === 'image'"><div class="custom-image-widget glass-widget" style="width:100%;height:100%;"><img :src="state.customImg1" class="full-cover-img"></div></template>
-                            <template v-else-if="state.widgetSlot1 === 'avatars'"><div class="avatar-card-widget glass-widget" style="width:100%;height:100%;"><input class="avatar-title-input" v-model="state.avatarCard1.titleTop"><div class="avatars-container"><div class="avatar-item pos-left"><img :src="state.avatarCard1.imgLeft" class="ac-img-large"><input class="avatar-name-input" v-model="state.avatarCard1.textLeft"></div><div class="avatar-item pos-right"><img :src="state.avatarCard1.imgRight" class="ac-img-large"><input class="avatar-name-input" v-model="state.avatarCard1.textRight"></div></div><input class="avatar-title-input" v-model="state.avatarCard1.titleBottom"></div></template>
+                            <template v-if="state.widgetSlot1 === 'badge'"><div class="badge-widget" @click="triggerUpload('badgeImage')" @contextmenu.prevent="triggerUpload('badgeImage')" style="width:100%;height:100%;"><img v-if="state.badgeImage" :src="state.badgeImage" class="badge-img"></div></template>
+                            <template v-else-if="state.widgetSlot1 === 'clock'"><div class="clock-widget" @click="isClockModalOpen = true" @contextmenu.prevent="isClockModalOpen = true" style="width:100%;height:100%;" :style="{ backgroundImage: state.clockBg ? `url(${state.clockBg})` : 'none' }"><div class="clock-face"><img v-for="(icon, idx) in state.clockIcons" :key="idx" :src="icon" class="clock-number-icon" :style="getClockNumberStyle(idx)"><div v-if="!state.clockHandHr" class="hand hand-hr" :style="{ transform: `rotate(${hrDeg}deg)` }"></div><img v-else :src="state.clockHandHr" class="hand-img hand-hr-img" :style="{ transform: `rotate(${hrDeg}deg)` }"><div v-if="!state.clockHandMin" class="hand hand-min" :style="{ transform: `rotate(${minDeg}deg)` }"></div><img v-else :src="state.clockHandMin" class="hand-img hand-min-img" :style="{ transform: `rotate(${minDeg}deg)` }"><div v-if="!state.clockHandSec" class="hand hand-sec" :style="{ transform: `rotate(${secDeg}deg)` }"></div><img v-else :src="state.clockHandSec" class="hand-img hand-sec-img" :style="{ transform: `rotate(${secDeg}deg)` }"><div v-if="!state.clockCenterDot" class="clock-center"></div><img v-else :src="state.clockCenterDot" class="clock-center-img"></div></div></template>
+                            <template v-else-if="state.widgetSlot1 === 'image'"><div class="custom-image-widget glass-widget" @click="triggerUpload('customImg1')" @contextmenu.prevent="triggerUpload('customImg1')" style="width:100%;height:100%;"><img :src="state.customImg1" class="full-cover-img"></div></template>
+                            <template v-else-if="state.widgetSlot1 === 'avatars'"><div class="avatar-card-widget glass-widget" style="width:100%;height:100%;"><input class="avatar-title-input" v-model="state.avatarCard1.titleTop"><div class="avatars-container"><div class="avatar-item pos-left"><img :src="state.avatarCard1.imgLeft" @click.stop="triggerUpload('avatarCard1_imgLeft')" class="ac-img-large"><input class="avatar-name-input" v-model="state.avatarCard1.textLeft"></div><div class="avatar-item pos-right"><img :src="state.avatarCard1.imgRight" @click.stop="triggerUpload('avatarCard1_imgRight')" class="ac-img-large"><input class="avatar-name-input" v-model="state.avatarCard1.textRight"></div></div><input class="avatar-title-input" v-model="state.avatarCard1.titleBottom"></div></template>
                             <template v-else-if="state.widgetSlot1 === 'custom'"><div class="classic-custom-widget-host"><component v-if="getCustomWidgetComponentById(state.customWidgetRef1)" :is="getCustomWidgetComponentById(state.customWidgetRef1)"></component></div></template>
                         </div>
                     </template>
@@ -246,10 +247,10 @@
                 <div v-else-if="section === 'row2'" class="middle-row">
                     <template v-if="state.row2Layout[0] === 'widget2'">
                         <div style="flex:1;">
-                            <template v-if="state.widgetSlot2 === 'badge'"><div class="badge-widget" style="width:100%;height:100%;"><img v-if="state.badgeImage" :src="state.badgeImage" class="badge-img"></div></template>
-                            <template v-else-if="state.widgetSlot2 === 'clock'"><div class="clock-widget" style="width:100%;height:100%;" :style="{ backgroundImage: state.clockBg ? `url(${state.clockBg})` : 'none' }"><div class="clock-face"><img v-for="(icon, idx) in state.clockIcons" :key="idx" :src="icon" class="clock-number-icon" :style="getClockNumberStyle(idx)"><div v-if="!state.clockHandHr" class="hand hand-hr" :style="{ transform: `rotate(${hrDeg}deg)` }"></div><img v-else :src="state.clockHandHr" class="hand-img hand-hr-img" :style="{ transform: `rotate(${hrDeg}deg)` }"><div v-if="!state.clockHandMin" class="hand hand-min" :style="{ transform: `rotate(${minDeg}deg)` }"></div><img v-else :src="state.clockHandMin" class="hand-img hand-min-img" :style="{ transform: `rotate(${minDeg}deg)` }"><div v-if="!state.clockHandSec" class="hand hand-sec" :style="{ transform: `rotate(${secDeg}deg)` }"></div><img v-else :src="state.clockHandSec" class="hand-img hand-sec-img" :style="{ transform: `rotate(${secDeg}deg)` }"><div v-if="!state.clockCenterDot" class="clock-center"></div><img v-else :src="state.clockCenterDot" class="clock-center-img"></div></div></template>
-                            <template v-else-if="state.widgetSlot1 === 'image'"><div class="custom-image-widget glass-widget" @click="triggerUpload('customImg1')" style="width:100%;height:100%;"><img :src="state.customImg1" class="full-cover-img"></div></template>
-                            <template v-else-if="state.widgetSlot1 === 'avatars'"><div class="avatar-card-widget glass-widget" style="width:100%;height:100%;"><input class="avatar-title-input" v-model="state.avatarCard1.titleTop"><div class="avatars-container"><div class="avatar-item pos-left"><img :src="state.avatarCard1.imgLeft" @click.stop="triggerUpload('avatarCard1_imgLeft')" class="ac-img-large"><input class="avatar-name-input" v-model="state.avatarCard1.textLeft"></div><div class="avatar-item pos-right"><img :src="state.avatarCard1.imgRight" @click.stop="triggerUpload('avatarCard1_imgRight')" class="ac-img-large"><input class="avatar-name-input" v-model="state.avatarCard1.textRight"></div></div><input class="avatar-title-input" v-model="state.avatarCard1.titleBottom"></div></template>
+                            <template v-if="state.widgetSlot2 === 'badge'"><div class="badge-widget" @click="triggerUpload('badgeImage')" @contextmenu.prevent="triggerUpload('badgeImage')" style="width:100%;height:100%;"><img v-if="state.badgeImage" :src="state.badgeImage" class="badge-img"></div></template>
+                            <template v-else-if="state.widgetSlot2 === 'clock'"><div class="clock-widget" @click="isClockModalOpen = true" @contextmenu.prevent="isClockModalOpen = true" style="width:100%;height:100%;" :style="{ backgroundImage: state.clockBg ? `url(${state.clockBg})` : 'none' }"><div class="clock-face"><img v-for="(icon, idx) in state.clockIcons" :key="idx" :src="icon" class="clock-number-icon" :style="getClockNumberStyle(idx)"><div v-if="!state.clockHandHr" class="hand hand-hr" :style="{ transform: `rotate(${hrDeg}deg)` }"></div><img v-else :src="state.clockHandHr" class="hand-img hand-hr-img" :style="{ transform: `rotate(${hrDeg}deg)` }"><div v-if="!state.clockHandMin" class="hand hand-min" :style="{ transform: `rotate(${minDeg}deg)` }"></div><img v-else :src="state.clockHandMin" class="hand-img hand-min-img" :style="{ transform: `rotate(${minDeg}deg)` }"><div v-if="!state.clockHandSec" class="hand hand-sec" :style="{ transform: `rotate(${secDeg}deg)` }"></div><img v-else :src="state.clockHandSec" class="hand-img hand-sec-img" :style="{ transform: `rotate(${secDeg}deg)` }"><div v-if="!state.clockCenterDot" class="clock-center"></div><img v-else :src="state.clockCenterDot" class="clock-center-img"></div></div></template>
+                            <template v-else-if="state.widgetSlot2 === 'image'"><div class="custom-image-widget glass-widget" @click="triggerUpload('customImg2')" @contextmenu.prevent="triggerUpload('customImg2')" style="width:100%;height:100%;"><img :src="state.customImg2" class="full-cover-img"></div></template>
+                            <template v-else-if="state.widgetSlot2 === 'avatars'"><div class="avatar-card-widget glass-widget" style="width:100%;height:100%;"><input class="avatar-title-input" v-model="state.avatarCard2.titleTop"><div class="avatars-container"><div class="avatar-item pos-left"><img :src="state.avatarCard2.imgLeft" @click.stop="triggerUpload('avatarCard2_imgLeft')" class="ac-img-large"><input class="avatar-name-input" v-model="state.avatarCard2.textLeft"></div><div class="avatar-item pos-right"><img :src="state.avatarCard2.imgRight" @click.stop="triggerUpload('avatarCard2_imgRight')" class="ac-img-large"><input class="avatar-name-input" v-model="state.avatarCard2.textRight"></div></div><input class="avatar-title-input" v-model="state.avatarCard2.titleBottom"></div></template>
                             <template v-else-if="state.widgetSlot2 === 'custom'"><div class="classic-custom-widget-host"><component v-if="getCustomWidgetComponentById(state.customWidgetRef2)" :is="getCustomWidgetComponentById(state.customWidgetRef2)"></component></div></template>
                         </div>
                         <div class="app-grid">
@@ -267,9 +268,9 @@
                             </div>
                         </div>
                         <div style="flex:1;">
-                            <template v-if="state.widgetSlot2 === 'badge'"><div class="badge-widget" style="width:100%;height:100%;"><img v-if="state.badgeImage" :src="state.badgeImage" class="badge-img"></div></template>
-                            <template v-else-if="state.widgetSlot2 === 'clock'"><div class="clock-widget" style="width:100%;height:100%;" :style="{ backgroundImage: state.clockBg ? `url(${state.clockBg})` : 'none' }"><div class="clock-face"><img v-for="(icon, idx) in state.clockIcons" :key="idx" :src="icon" class="clock-number-icon" :style="getClockNumberStyle(idx)"><div v-if="!state.clockHandHr" class="hand hand-hr" :style="{ transform: `rotate(${hrDeg}deg)` }"></div><img v-else :src="state.clockHandHr" class="hand-img hand-hr-img" :style="{ transform: `rotate(${hrDeg}deg)` }"><div v-if="!state.clockHandMin" class="hand hand-min" :style="{ transform: `rotate(${minDeg}deg)` }"></div><img v-else :src="state.clockHandMin" class="hand-img hand-min-img" :style="{ transform: `rotate(${minDeg}deg)` }"><div v-if="!state.clockHandSec" class="hand hand-sec" :style="{ transform: `rotate(${secDeg}deg)` }"></div><img v-else :src="state.clockHandSec" class="hand-img hand-sec-img" :style="{ transform: `rotate(${secDeg}deg)` }"><div v-if="!state.clockCenterDot" class="clock-center"></div><img v-else :src="state.clockCenterDot" class="clock-center-img"></div></div></template>
-                            <template v-else-if="state.widgetSlot2 === 'image'"><div class="custom-image-widget glass-widget" @click="triggerUpload('customImg2')" style="width:100%;height:100%;"><img :src="state.customImg2" class="full-cover-img"></div></template>
+                            <template v-if="state.widgetSlot2 === 'badge'"><div class="badge-widget" @click="triggerUpload('badgeImage')" @contextmenu.prevent="triggerUpload('badgeImage')" style="width:100%;height:100%;"><img v-if="state.badgeImage" :src="state.badgeImage" class="badge-img"></div></template>
+                            <template v-else-if="state.widgetSlot2 === 'clock'"><div class="clock-widget" @click="isClockModalOpen = true" @contextmenu.prevent="isClockModalOpen = true" style="width:100%;height:100%;" :style="{ backgroundImage: state.clockBg ? `url(${state.clockBg})` : 'none' }"><div class="clock-face"><img v-for="(icon, idx) in state.clockIcons" :key="idx" :src="icon" class="clock-number-icon" :style="getClockNumberStyle(idx)"><div v-if="!state.clockHandHr" class="hand hand-hr" :style="{ transform: `rotate(${hrDeg}deg)` }"></div><img v-else :src="state.clockHandHr" class="hand-img hand-hr-img" :style="{ transform: `rotate(${hrDeg}deg)` }"><div v-if="!state.clockHandMin" class="hand hand-min" :style="{ transform: `rotate(${minDeg}deg)` }"></div><img v-else :src="state.clockHandMin" class="hand-img hand-min-img" :style="{ transform: `rotate(${minDeg}deg)` }"><div v-if="!state.clockHandSec" class="hand hand-sec" :style="{ transform: `rotate(${secDeg}deg)` }"></div><img v-else :src="state.clockHandSec" class="hand-img hand-sec-img" :style="{ transform: `rotate(${secDeg}deg)` }"><div v-if="!state.clockCenterDot" class="clock-center"></div><img v-else :src="state.clockCenterDot" class="clock-center-img"></div></div></template>
+                            <template v-else-if="state.widgetSlot2 === 'image'"><div class="custom-image-widget glass-widget" @click="triggerUpload('customImg2')" @contextmenu.prevent="triggerUpload('customImg2')" style="width:100%;height:100%;"><img :src="state.customImg2" class="full-cover-img"></div></template>
                             <template v-else-if="state.widgetSlot2 === 'avatars'"><div class="avatar-card-widget glass-widget" style="width:100%;height:100%;"><input class="avatar-title-input" v-model="state.avatarCard2.titleTop"><div class="avatars-container"><div class="avatar-item pos-left"><img :src="state.avatarCard2.imgLeft" @click.stop="triggerUpload('avatarCard2_imgLeft')" class="ac-img-large"><input class="avatar-name-input" v-model="state.avatarCard2.textLeft"></div><div class="avatar-item pos-right"><img :src="state.avatarCard2.imgRight" @click.stop="triggerUpload('avatarCard2_imgRight')" class="ac-img-large"><input class="avatar-name-input" v-model="state.avatarCard2.textRight"></div></div><input class="avatar-title-input" v-model="state.avatarCard2.titleBottom"></div></template>
                             <template v-else-if="state.widgetSlot2 === 'custom'"><div class="classic-custom-widget-host"><component v-if="getCustomWidgetComponentById(state.customWidgetRef2)" :is="getCustomWidgetComponentById(state.customWidgetRef2)"></component></div></template>
                         </div>
@@ -279,6 +280,7 @@
         </div>
 
         <!-- 自由网格模式主页 -->
+
         <div v-else ref="desktopScrollRef" @scroll="onDesktopScroll" style="display:flex; position:absolute; top:0; left:0; right:0; bottom:132px; overflow-x:auto; overflow-y:hidden; scroll-snap-type:x mandatory; scrollbar-width:none; scroll-behavior:smooth;">
             <div v-for="(pageItems, pageIndex) in state.desktopPages" :key="pageIndex"
                  class="true-grid-desktop"
@@ -2023,6 +2025,231 @@
             </div>
         </div>
 
+    </div>
+
+    <!-- Phone APP 视图 -->
+    <div v-show="state.activeApp === 'phone'" class="phone-app" :class="{'dark-mode': state.theme === 'dark'}">
+        <!-- 隐形返回区域 (左上角宽120px 高100px)，点击直接返回桌面 -->
+        <div v-if="!phoneState.isCalling && !phoneState.activeContact" @click="closeApp" style="position: absolute; top: 0; left: 0; width: 120px; height: 100px; z-index: 100; cursor: pointer; -webkit-tap-highlight-color: transparent;"></div>
+        <!-- 极致压缩顶部占位至 8px -->
+        <div v-if="!phoneState.isCalling && !phoneState.activeContact" style="height: 8px; flex-shrink: 0;"></div>
+
+        <div class="ph-content" v-show="phoneState.activeTab === 'calls' && !phoneState.activeContact && !phoneState.isCalling">
+            <div class="ph-page-title">最近通话</div>
+            <div v-if="!state.phoneData.calls || state.phoneData.calls.length === 0" class="ph-empty">暂无通话记录</div>
+            <div class="ph-call-item" v-for="call in state.phoneData.calls" :key="call.id" @click="openPhoneContact(call.targetId)">
+                <div class="ph-call-avatar-wrap">
+                    <img :src="getPhonePersona(call.targetId).avatar || defaultImg" class="ph-call-avatar">
+                </div>
+                <div class="ph-call-info">
+                    <div class="ph-call-name" :class="{'ph-spam': call.type === 'spam', 'ph-missed': call.type === 'missed'}">
+                        {{ call.type === 'spam' ? '骚扰电话' : (getPhonePersona(call.targetId).name || '未知') }}
+                    </div>
+                    <div class="ph-call-desc">
+                        <i v-if="call.type === 'out'" data-lucide="arrow-up-right" style="width:12px; color:var(--text-sub);"></i>
+                        <i v-if="call.type === 'in'" data-lucide="arrow-down-left" style="width:12px; color:var(--text-sub);"></i>
+                        <i v-if="call.type === 'missed'" data-lucide="phone-missed" style="width:12px; color:#ff4d4f;"></i>
+                        <i v-if="call.type === 'spam'" data-lucide="shield-alert" style="width:12px; color:#ff4d4f;"></i>
+                        {{ call.type === 'spam' ? '广告推销/骚扰电话' : call.location }}
+                    </div>
+                </div>
+                <div class="ph-call-time">{{ formatTime(new Date(call.timestamp)) }}</div>
+            </div>
+        </div>
+
+        <div class="ph-content" v-show="phoneState.activeTab === 'contacts' && !phoneState.activeContact && !phoneState.isCalling">
+            <div class="ph-page-title">联系人</div>
+            <div v-if="phoneContacts.length === 0" class="ph-empty">暂无联系人</div>
+            <div v-for="group in phoneContactsGrouped" :key="group.letter">
+                <div class="ph-letter-divider">{{ group.letter }}</div>
+                <div class="ph-contact-item" v-for="c in group.list" :key="c.id" @click="openPhoneContact(c.id)">
+                    <img :src="c.avatar || defaultImg" class="ph-contact-avatar">
+                    <div class="ph-contact-name">{{ c.name }}</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="ph-content" v-show="phoneState.activeTab === 'sms' && !phoneState.activeContact && !phoneState.isCalling && !phoneState.isSmsOpen">
+            <div class="ph-page-title">所有短信</div>
+            <div v-if="!smsThreads || smsThreads.length === 0" class="ph-empty">暂无短信记录</div>
+            <div class="ph-call-item" v-for="thread in smsThreads" :key="thread.contactId" @click="openSms(thread.contact)">
+                <div class="ph-call-avatar-wrap">
+                    <img :src="thread.contact.avatar || defaultImg" class="ph-call-avatar">
+                </div>
+                <div class="ph-call-info">
+                    <div class="ph-call-name" :class="{'ph-spam': thread.contact.id.startsWith('sms_spam_')}">{{ thread.contact.name }}</div>
+                    <div class="ph-call-desc" style="display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:1; overflow:hidden; white-space:normal; line-height:1.4;">
+                        {{ thread.lastText }}
+                    </div>
+                </div>
+                <div class="ph-call-time">{{ formatTime(new Date(thread.timestamp)) }}</div>
+            </div>
+        </div>
+
+        <div class="ph-bottom-bar" v-show="!phoneState.activeContact && !phoneState.isCalling">
+            <div class="ph-tab-btn" :class="{active: phoneState.activeTab === 'calls'}" @click="phoneState.activeTab = 'calls'">
+                <i data-lucide="clock"></i><span>通话</span>
+            </div>
+            <div class="ph-tab-btn" :class="{active: phoneState.activeTab === 'contacts'}" @click="phoneState.activeTab = 'contacts'">
+                <i data-lucide="users"></i><span>联系人</span>
+            </div>
+            <div class="ph-tab-btn" :class="{active: phoneState.activeTab === 'sms'}" @click="phoneState.activeTab = 'sms'">
+                <i data-lucide="message-square"></i><span>短信</span>
+            </div>
+        </div>
+
+        <!-- 联系人详情 -->
+        <div class="ph-contact-detail" v-if="phoneState.activeContact && !phoneState.isCalling">
+            <div class="ph-cd-header">
+                <div class="ph-cd-back" @click="phoneState.activeContact = null"><i data-lucide="chevron-left"></i></div>
+                <div style="flex:1;"></div>
+            </div>
+            <div class="ph-cd-body">
+                <img :src="phoneState.activeContact.avatar || defaultImg" class="ph-cd-avatar">
+                <div class="ph-cd-name">{{ phoneState.activeContact.name }}</div>
+                
+                <div class="ph-cd-actions">
+                    <div class="ph-cd-action-btn" @click="startCall(phoneState.activeContact)">
+                        <div class="ph-cd-action-icon"><i data-lucide="phone"></i></div>
+                        <span>拨号</span>
+                    </div>
+                <div class="ph-cd-action-btn" @click="openSms(phoneState.activeContact)">
+                    <div class="ph-cd-action-icon"><i data-lucide="message-square"></i></div>
+                    <span>短信</span>
+                </div>
+                </div>
+                
+                <div class="ph-cd-card">
+                    <div class="ph-cd-row">
+                        <div class="ph-cd-label">电话</div>
+                        <div class="ph-cd-value">{{ phoneState.activeContact.phone || '未设置号码' }}</div>
+                    </div>
+                    <div class="ph-cd-row" @click="selectRingtone(phoneState.activeContact.id)" style="cursor:pointer;">
+                        <div class="ph-cd-label">来电铃声</div>
+                        <div class="ph-cd-value">{{ getRingtone(phoneState.activeContact.id) }} <i data-lucide="chevron-right" style="width:14px; vertical-align:middle;"></i></div>
+                    </div>
+                </div>
+
+<!-- 【新代码覆盖】 -->
+                <div class="ph-cd-card">
+                    <div class="ph-cd-card-title">最近通话记录 (点击查看详情)</div>
+                    <div v-if="getContactCalls(phoneState.activeContact.id).length === 0" class="ph-empty" style="padding:10px;">暂无通话记录</div>
+                    <!-- 增加了 @click 绑定 -->
+                    <div class="ph-cd-call-history" v-for="c in getContactCalls(phoneState.activeContact.id)" :key="c.id" @click="openCallRecordDetails(c)" style="cursor: pointer;">
+                        <div>
+                            <span :style="{color: c.type==='missed' ? '#ff4d4f' : 'var(--text-main)'}">{{ c.type==='in'?'呼入':(c.type==='out'?'呼出':'未接') }}</span>
+                            <span style="font-size:11px; color:var(--text-sub); margin-left:8px;">{{ formatTime(new Date(c.timestamp)) }}</span>
+                        </div>
+                        <div style="color:var(--text-sub);">{{ c.duration }} <i data-lucide="chevron-right" style="width:12px; vertical-align:middle; margin-left:4px;"></i></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 全新：通话记录详情弹窗 (查看具体聊天与记忆总结) -->
+            <div class="ph-call-record-detail" v-if="phoneState.viewingCallRecord">
+                <div class="ph-cd-header" style="background: rgba(20,20,20,0.95); color: #fff;">
+                    <div class="ph-cd-back" style="color: #fff;" @click="closeCallRecordDetails"><i data-lucide="chevron-left"></i></div>
+                    <div style="flex:1; text-align:center; font-weight:bold; font-size:16px;">通话记录详情</div>
+                    <div style="width:24px;"></div>
+                </div>
+                
+                <!-- 对话内容回顾 -->
+                <div class="ph-call-messages" style="background: rgba(20,20,20,0.95);">
+                    <div v-if="!phoneState.viewingCallRecord.messages || phoneState.viewingCallRecord.messages.length === 0" style="text-align:center; color:rgba(255,255,255,0.5); margin-top: 40px; font-size: 14px;">无具体对话内容</div>
+                    <div class="ph-call-msg-wrap" v-for="msg in phoneState.viewingCallRecord.messages" :key="msg.id" :class="msg.role">
+                        <div class="ph-call-bubble">{{ msg.text }}</div>
+                    </div>
+                    
+                    <!-- 底部：自动生成的AI记忆总结框 -->
+                    <div v-if="phoneState.viewingCallRecord.summary" style="margin-top: 30px; padding: 16px; background: rgba(255,255,255,0.08); border-radius: 16px; border: 1px solid rgba(255,255,255,0.15);">
+                        <div style="font-size: 12px; color: #52c41a; font-weight: 600; margin-bottom: 8px; display:flex; align-items:center; gap:6px;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z"/></svg>
+                            已提取为角色核心记忆
+                        </div>
+                        <div style="font-size: 14px; line-height: 1.6; color: rgba(255,255,255,0.85);">{{ phoneState.viewingCallRecord.summary }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 短信界面 -->
+        <div class="ph-sms-screen" v-if="phoneState.isSmsOpen">
+            <div class="ph-sms-header">
+                <div class="ph-sms-back" @click="closeSms"><i data-lucide="chevron-left"></i></div>
+                <div class="ph-sms-title">
+                    <div class="ph-sms-name">{{ phoneState.activeContact?.name }}</div>
+                    <div class="ph-sms-phone">{{ phoneState.activeContact?.phone || '未知号码' }}</div>
+                </div>
+                <div class="ph-sms-call" @click="startCall(phoneState.activeContact)"><i data-lucide="phone"></i></div>
+            </div>
+            
+            <div class="ph-sms-messages" id="ph-sms-messages-box">
+                <div class="ph-call-msg-wrap" v-for="msg in (state.phoneData.sms[phoneState.activeContact?.id] || [])" :key="msg.id" :class="msg.role">
+                    <div class="ph-call-bubble">{{ msg.text }}</div>
+                </div>
+                <div v-if="phoneState.isSmsAiTyping" class="ph-call-msg-wrap ai">
+                    <div class="ph-call-bubble" style="font-size: 12px; color: var(--text-sub);">对方正在输入...</div>
+                </div>
+            </div>
+
+            <div class="ph-sms-bottom">
+                <div class="ph-sms-api-btn" @click="triggerSmsApi"><i data-lucide="plus"></i></div>
+                <div class="ph-sms-input-wrapper">
+                    <textarea class="ph-call-input" v-model="phoneState.smsInput" placeholder="短信" @keyup.enter.prevent="sendSmsMsg"></textarea>
+                </div>
+                <div class="ph-sms-send" @click="sendSmsMsg">发送</div>
+            </div>
+        </div>
+
+        <!-- 通话界面 -->
+        <div class="ph-call-screen" v-if="phoneState.isCalling">
+            <div class="ph-call-header">
+                <i data-lucide="chevron-down" style="cursor:pointer;" @click="endCall"></i>
+            </div>
+            <div class="ph-call-info-top">
+                <img :src="phoneState.activeContact?.avatar || defaultImg" class="ph-call-avatar-large">
+                <div class="ph-call-name-large" @click="triggerCallApi" style="cursor:pointer; display:flex; flex-direction:column; align-items:center;">
+                    {{ phoneState.activeContact?.name }}
+                    <span style="font-size:10px; opacity:0.4; font-weight:normal; margin-top:4px;">(点击此处让对方回复)</span>
+                </div>
+                <div class="ph-call-status" :style="{ color: phoneState.isAiTyping ? '#52c41a' : '#fff' }">
+                    {{ phoneState.isAiTyping ? '正在倾听...' : '通话中 ' + phoneState.callDurationStr }}
+                </div>
+            </div>
+            
+            <div class="ph-call-messages" id="ph-call-messages-box">
+                <div class="ph-call-msg-wrap" v-for="msg in phoneState.callMessages" :key="msg.id" :class="msg.role">
+                    <div class="ph-call-bubble">{{ msg.text }}</div>
+                </div>
+            </div>
+
+            <div class="ph-call-bottom">
+                <div class="ph-call-input-area">
+                    <div class="ph-call-input-wrapper">
+                        <input class="ph-call-action-input" v-model="phoneState.callActionInput" placeholder="输入动作或旁白 (自动加括号)" @keyup.enter.prevent="sendCallMsg">
+                        <textarea class="ph-call-input" v-model="phoneState.callInput" placeholder="输入你想说的话..." @keyup.enter.prevent="sendCallMsg"></textarea>
+                    </div>
+                    <div class="ph-call-send" @click="sendCallMsg"><i data-lucide="arrow-up"></i></div>
+                </div>
+                <div class="ph-call-controls">
+                    <div class="ph-cc-btn"><i data-lucide="mic-off"></i></div>
+                    <div class="ph-cc-btn ph-cc-end" @click="endCall"><i data-lucide="phone-off"></i></div>
+                    <div class="ph-cc-btn"><i data-lucide="volume-2"></i></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 后台骚扰电话全局拦截弹窗 -->
+    <div v-if="phoneState && phoneState.spamAlert && phoneState.spamAlert.show" style="position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(30,30,30,0.85); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); color: #fff; padding: 16px 20px; border-radius: 24px; display: flex; align-items: center; gap: 14px; z-index: 999999; box-shadow: 0 15px 35px rgba(0,0,0,0.2); animation: fadeIn 0.3s ease; pointer-events: none;">
+        <div style="width: 40px; height: 40px; border-radius: 50%; background: rgba(255,77,79,0.2); display: flex; justify-content: center; align-items: center; flex-shrink: 0;">
+            <!-- 挂断电话的 SVG 图标 -->
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ff4d4f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-3.33-2.67m-2.67-3.34a19.79 19.79 0 0 1-3.07-8.63A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91"/><line x1="22" y1="2" x2="2" y2="22"/></svg>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+            <div style="font-size: 15px; font-weight: 700; letter-spacing: 0.5px;">{{ phoneState.spamAlert.caller }}</div>
+            <div style="font-size: 12px; color: rgba(255,255,255,0.7); font-weight: 500;">检测为骚扰电话，已拦截挂断</div>
+        </div>
     </div>
 
     <input type="file" ref="fileInput" class="hidden-file-input" accept="image/*, font/*, .ttf, .otf, .woff, .woff2" @change="handleFileChange">

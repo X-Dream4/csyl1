@@ -41,7 +41,7 @@ createApp({
             avatarCard2: { imgLeft: defaultAvatar1, textLeft: 'User C', imgRight: defaultAvatar2, textRight: 'User D', titleTop: 'Our Story', titleBottom: 'Together' },
             clockIcons: [...defaultClockIcons], clockBg: '', clockHandHr: '', clockHandMin: '', clockHandSec: '', clockCenterDot: '',
             topShowName: true, topHasShadow: false, appsTop: [{ id: 't1', name: 'Chat', icon: defaultImg }, { id: 't2', name: 'Blog', icon: defaultImg }, { id: 't3', name: 'Notes', icon: defaultImg }, { id: 't4', name: 'Music', icon: defaultImg }],
-            bottomShowName: true, bottomHasShadow: false, appsBottom: [{ id: 'b1', name: 'Weather', icon: defaultImg }, { id: 'b2', name: 'App Store', icon: defaultImg }, { id: 'b3', name: 'Maps', icon: defaultImg }, { id: 'b4', name: 'Wallet', icon: defaultImg }],
+            bottomShowName: true, bottomHasShadow: false, appsBottom: [{ id: 'b1', name: 'Call', icon: defaultImg }, { id: 'b2', name: 'App Store', icon: defaultImg }, { id: 'b3', name: 'Maps', icon: defaultImg }, { id: 'b4', name: 'Wallet', icon: defaultImg }],
             dockShowName: false, dockHasShadow: false, dockHidden: false, dockColor: '', dockOpacity: 0.5, dockBlur: 15,
             desktopLayout: ['capsule', 'row1', 'row2'], row1Layout: ['widget1', 'appsTop'], row2Layout: ['appsBottom', 'widget2'],
             appsDock: [{ id: 'd1', name: '设置', icon: defaultImg }, { id: 'd2', name: '人脉', icon: defaultImg }, { id: 'd3', name: '美化', icon: defaultImg }],
@@ -109,6 +109,16 @@ createApp({
                     }
                     
                     if(!savedState.row1Layout) savedState.row1Layout = ['widget1', 'appsTop'];
+                    
+                    // 强制覆盖旧缓存中的 Weather 为 Call
+                    if (savedState.appsBottom) {
+                        savedState.appsBottom.forEach(app => {
+                            if (app.id === 'b1' && app.name === 'Weather') {
+                                app.name = 'Call';
+                            }
+                        });
+                    }
+
                     if(!savedState.row2Layout) savedState.row2Layout = ['appsBottom', 'widget2'];
                     if(!savedState.widgetPackages) savedState.widgetPackages = [];
                     if(!savedState.widgetImportTarget) savedState.widgetImportTarget = 'widget1';
@@ -246,7 +256,10 @@ createApp({
         const swapRow1 = () => { state.row1Layout = [...state.row1Layout].reverse(); };
         const swapRow2 = () => { state.row2Layout = [...state.row2Layout].reverse(); };
         
-        const enterEditMode = () => { state.isEditingDesktop = true; };
+        const enterEditMode = () => { 
+            if (state.desktopMode === 'classic') return; // 经典模式禁止进入抖动编辑
+            state.isEditingDesktop = true; 
+        };
         const exitEditMode = () => { state.isEditingDesktop = false; forceSave(); setTimeout(() => { if(window.lucide) window.lucide.createIcons(); }, 50); };
         const dragInfo = reactive({ group: null, index: null });
         const onDragStart = (e, group, index) => {
@@ -799,6 +812,7 @@ const onDockDropArea = (e) => {
             else if (app.id === 'd3') { state.activeApp = 'beautify'; nextTick(() => { if(window.lucide) lucide.createIcons(); }); } 
             else if (app.id === 'd1') { state.activeApp = 'settings'; nextTick(() => { if(window.lucide) lucide.createIcons(); settingsMethods.updateStorageInfo(); }); }
             else if (app.id === 'd2') { state.activeApp = 'contacts'; contactsMethods.contactsTab.value = 'chars'; contactsMethods.activeChar.value = null; nextTick(() => { if(window.lucide) lucide.createIcons(); }); }
+            else if (app.id === 'b1' || app.id === 'app_weather' || app.id === 'app_call') { state.activeApp = 'phone'; nextTick(() => { if(window.lucide) lucide.createIcons(); }); }
             else alert(`打开 [ ${app.name || '应用'} ] ...`); 
         };
         const closeApp = () => { state.activeApp = null; nextTick(() => { if(window.lucide) lucide.createIcons(); }); };
@@ -1515,9 +1529,11 @@ const onDockDropArea = (e) => {
         const beautifyMethods = window.useBeautifyLogic(state, { currentWpIndex, triggerUpload });
         const settingsMethods = window.useSettingsLogic(state);
         const blogMethods = window.useBlogLogic(state, contactsMethods, chatMethods);
+        // 兼容你改名为 call.js 后的函数名
+        const phoneMethods = window.useCallLogic ? window.useCallLogic(state) : (window.usePhoneLogic ? window.usePhoneLogic(state) : {});
 
         onMounted(() => { loadData(); requestAnimationFrame(updateClock); });
 
-        return { state, defaultImg, isThemeModalOpen, isClockModalOpen, isWidgetBadgeModalOpen, hrDeg, minDeg, secDeg, fileInput, widgetFileInput, currentWpIndex, currentDate, calendarGrid, getClockNumberStyle, setTheme, triggerUpload, handleFileChange, openApp, closeApp, editApp, restoreSystemAppsToDock, deleteGridItem, deleteDockApp, deleteGridPage, editClockUrl, resetClock, editCapsuleBgUrl, openWidgetBadge1Editor, chooseWidgetBadge1Image, onWidgetBadge1ColorChange, resetWidgetBadge1, addEmoji, clearEmojis, formatTime, formatDate, unlockState, onLockTouchStart, onLockTouchMove, onLockTouchEnd, verifyLockPwd, patternState, patternPathPoints, startPattern, movePattern, endPattern, forceSave, enterEditMode, exitEditMode, onDragStart, onDrop, onGridDragStart, onGridDragOver, onGridDragEnd, onGridDrop, onEmptyGridDrop, onDockDropArea, openGridAddPanel, confirmAddGridItem, getItemWidgetKind, getItemDataKey, getItemCustomPackageId, getGridItemWrapStyle, getCustomWidgetPackageById, getCustomWidgetComponentById, dragOverInfo, hoverPreview, moveLayoutUp, moveLayoutDown, swapRow1, swapRow2, desktopScrollRef, changePage, onDesktopScroll, saveCurrentWidgetAsPackage, applyWidgetPackage, deleteWidgetPackage, exportWidgetPackage, exportAllWidgetPackages, triggerWidgetImport, importWidgetPackages, exportWidgetAiGuideFile, ...beautifyMethods, ...settingsMethods, ...contactsMethods, ...chatMethods, ...chatMomentMethods, ...chatDetailMethods, ...chatGroupMethods, ...blogMethods };
+        return { state, defaultImg, isThemeModalOpen, isClockModalOpen, isWidgetBadgeModalOpen, hrDeg, minDeg, secDeg, fileInput, widgetFileInput, currentWpIndex, currentDate, calendarGrid, getClockNumberStyle, setTheme, triggerUpload, handleFileChange, openApp, closeApp, editApp, restoreSystemAppsToDock, deleteGridItem, deleteDockApp, deleteGridPage, editClockUrl, resetClock, editCapsuleBgUrl, openWidgetBadge1Editor, chooseWidgetBadge1Image, onWidgetBadge1ColorChange, resetWidgetBadge1, addEmoji, clearEmojis, formatTime, formatDate, unlockState, onLockTouchStart, onLockTouchMove, onLockTouchEnd, verifyLockPwd, patternState, patternPathPoints, startPattern, movePattern, endPattern, forceSave, enterEditMode, exitEditMode, onDragStart, onDrop, onGridDragStart, onGridDragOver, onGridDragEnd, onGridDrop, onEmptyGridDrop, onDockDropArea, openGridAddPanel, confirmAddGridItem, getItemWidgetKind, getItemDataKey, getItemCustomPackageId, getGridItemWrapStyle, getCustomWidgetPackageById, getCustomWidgetComponentById, dragOverInfo, hoverPreview, moveLayoutUp, moveLayoutDown, swapRow1, swapRow2, desktopScrollRef, changePage, onDesktopScroll, saveCurrentWidgetAsPackage, applyWidgetPackage, deleteWidgetPackage, exportWidgetPackage, exportAllWidgetPackages, triggerWidgetImport, importWidgetPackages, exportWidgetAiGuideFile, ...beautifyMethods, ...settingsMethods, ...contactsMethods, ...chatMethods, ...chatMomentMethods, ...chatDetailMethods, ...chatGroupMethods, ...blogMethods, ...phoneMethods };
     }
 }).mount('#app');
