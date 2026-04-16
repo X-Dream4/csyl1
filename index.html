@@ -1826,7 +1826,12 @@
     </div>
 </div>
 
-<div v-show="chatState.detailSettingsTab === 'other'" class="ca-ds-page"><div class="c-card"><div class="c-card-title">其他设置</div><div class="c-empty">后续继续扩展</div></div></div></div></div>
+<div v-show="chatState.detailSettingsTab === 'other'" class="ca-ds-page"><div class="c-card"><div class="c-card-title">其他设置</div><div class="c-empty">后续继续扩展</div></div></div>
+<!-- 新增：全屏设置下方的保存操作栏 -->
+<div style="padding: 10px 20px 30px; background: var(--bg-color); border-top: 1px solid rgba(150,150,150,0.1);">
+    <button class="ca-save-btn" @click="saveDetailedSettings">保存当前所有设置</button>
+</div>
+</div></div>
         
         <div class="ca-settings-page" v-if="chatState.showSettings">
 <div class="ca-settings-header"><div class="ca-settings-back" @click="chatState.settingsPage === 'home' ? closeMySettings() : openSettingsPage('home')"><i data-lucide="chevron-left" style="width:20px;"></i><span>{{ chatState.settingsPage === 'home' ? '返回' : '我的设置' }}</span></div>

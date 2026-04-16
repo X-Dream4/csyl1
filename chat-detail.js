@@ -308,41 +308,15 @@ window.useChatDetailLogic = function(state, chatMethods) {
     const activeConvSettings = computed(() => {
         const conv = activeRawConv.value;
         if (!conv) return { beautify: {} };
-        const s = conv.settings || {};
-        const b = s.beautify || {};
-        
-        return {
-            remarkName: s.remarkName || '',
-            coupleAvatar: s.coupleAvatar || false,
-            coupleAvatarDesc: s.coupleAvatarDesc || '',
-            worldbooks: Array.isArray(s.worldbooks) ? s.worldbooks : [],
-            timeMode: s.timeMode || 'auto',
-            virtualTime: s.virtualTime || '',
-            realTimeZone: s.realTimeZone || 'Asia/Shanghai',
-            foreignMode: s.foreignMode || false,
-            foreignLang: s.foreignLang || 'English',
-            allowRoleAutoEdit: s.allowRoleAutoEdit !== undefined ? s.allowRoleAutoEdit : true,
-            injectHistoryCount: s.injectHistoryCount !== undefined ? s.injectHistoryCount : 20,
-            injectMemoryCount: s.injectMemoryCount !== undefined ? s.injectMemoryCount : 30,
-            statusBar: s.statusBar || { enable: false, presetId: '' },
-            beautify: {
-                bg: b.bg || '',
-                showAvatar: b.showAvatar !== undefined ? b.showAvatar : true,
-                showName: b.showName !== undefined ? b.showName : false,
-                showTime: b.showTime !== undefined ? b.showTime : false,
-                timePos: b.timePos || 'bottom',
-                meBg: b.meBg || '#333333',
-                meText: b.meText || '#ffffff',
-                meRadius: b.meRadius !== undefined ? b.meRadius : 18,
-                meOpacity: b.meOpacity !== undefined ? b.meOpacity : 1,
-                opBg: b.opBg || '#ffffff',
-                opText: b.opText || '#333333',
-                opRadius: b.opRadius !== undefined ? b.opRadius : 18,
-                opOpacity: b.opOpacity !== undefined ? b.opOpacity : 1,
-                customCss: b.customCss || ''
-            }
-        };
+        // 核心修复：直接返回原始引用，确保 v-model 修改的是数据库里的本体，而不是临时副本
+        return ensureConvSettings(conv);
     });
+
+    // 新增：手动保存设置并同步到存档的方法
+    const saveDetailedSettings = () => {
+        chatDb.value.triggerSync = Date.now();
+        alert('设置已成功保存到本地存档，导出数据将包含此更改。');
+    };
 
     const activeTargetPersona = computed(() => {
         const conv = activeRawConv.value;
@@ -3135,6 +3109,7 @@ ${hackWarning}`.split('\n').filter(line => line.trim() !== '').join('\n');
         deleteCurrentContact,
         activeConv, activeMessages, triggerTargetAvatarUpload, triggerMyAvatarUploadInDetail, 
         activeTargetPersona, activeConvSettings, timeZoneOptions, quoteSourceMessage,
+        saveDetailedSettings, // 暴露保存方法
         shouldShowTimeGap, formatTimeGap, hasMoreMessages, loadMoreMessages,
         groupedWorldbooksForChat, toggleWbCategory, isWbCategoryFullySelected,
         openConversation, closeConversation, sendMessage, triggerApiReply, toggleBottomMenu, handleBgUpload, triggerBgUpload,
