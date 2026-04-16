@@ -1,0 +1,58 @@
+/* ==== Roam (漫游) APP 纯前端 第一人称 3D 引擎 ==== */
+.roam-app { width: 100vw; height: 100vh; background-color: #000; display: flex; flex-direction: column; overflow: hidden; position: fixed; top: 0; left: 0; z-index: 50; animation: fadeIn 0.3s ease; }
+
+/* 顶栏 */
+.r-header { position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: space-between; padding: 24px 20px 15px; background: linear-gradient(rgba(0,0,0,0.8), transparent); z-index: 100; pointer-events: none; }
+.r-nav { display: flex; align-items: center; font-size: 15px; color: #fff; cursor: pointer; pointer-events: auto; text-shadow: 0 2px 4px rgba(0,0,0,0.5); font-weight: 600;}
+.r-title { flex: 1; text-align: center; font-size: 16px; font-weight: 800; color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,0.5); letter-spacing: 1px;}
+
+/* 3D 视口容器：700px 的透视深度，视野更广阔 */
+.r-viewport { flex: 1; perspective: 700px; overflow: hidden; position: relative; background: #000; }
+
+/* 将坐标系原点拉近到眼睛所在位置 */
+.r-eye { position: absolute; top: 50%; left: 50%; width: 0; height: 0; transform-style: preserve-3d; transform: translateZ(700px); }
+
+/* 摄像机旋转层：瞬间转视角 */
+.r-camera-rotate { position: absolute; transform-style: preserve-3d; transition: none; }
+
+/* 摄像机平移层：保留前进后退的平滑行走感 */
+.r-camera-translate { position: absolute; transform-style: preserve-3d; transition: transform 0.35s ease-out; }
+
+/* 3D 面片：尺寸拉大到 800x800，避免贴脸 */
+.r-plane { position: absolute; width: 800px; height: 800px; margin-left: -400px; margin-top: -400px; backface-visibility: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 32px; font-weight: 900; color: #fff; text-shadow: 0 4px 10px rgba(0,0,0,0.5); box-shadow: inset 0 0 80px rgba(0,0,0,0.9); }
+
+/* ---- 沉浸式场景贴图效果 ---- */
+.plane-wall { background: repeating-linear-gradient(45deg, #2c3e50 0, #2c3e50 20px, #34495e 20px, #34495e 40px); border: 2px solid #1a252f; color: transparent; }
+.plane-floor { background: repeating-linear-gradient(0deg, #111 0, #111 60px, #222 60px, #222 64px), repeating-linear-gradient(90deg, #111 0, #111 60px, #222 60px, #222 64px); color: transparent; }
+.plane-ceil { background: radial-gradient(circle at center, #333 0%, #000 80%); color: transparent; border: 1px solid #111; }
+
+.plane-door { background: linear-gradient(to bottom, #8e44ad, #2c3e50); border: 10px solid #1a1a1a; box-shadow: inset 0 0 100px rgba(0,0,0,0.8); }
+.plane-sofa { background: linear-gradient(to bottom, #e67e22, #d35400); border: 4px solid #fff; }
+.plane-bed { background: linear-gradient(to bottom, #16a085, #1abc9c); border: 4px solid #fff; }
+
+.plane-shop_coffee { background: linear-gradient(to bottom, #6F4E37, #3e2723); border: 4px solid #d7ccc8; }
+.plane-shop_flower { background: linear-gradient(to bottom, #ff9a9e, #fecfef); border: 4px solid #fff; color: #d81b60; text-shadow: 0 2px 4px rgba(255,255,255,0.8); }
+.plane-shop_cloth { background: linear-gradient(to bottom, #E6E6FA, #D8BFD8); border: 4px solid #fff; color: #4a235a; text-shadow: none; }
+.plane-shop_food { background: linear-gradient(to bottom, #800000, #4A0404); border: 4px solid #FFD700; color: #FFD700; text-shadow: 0 0 10px rgba(255,215,0,0.5); }
+
+/* 操作控制盘 */
+.r-controls { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); z-index: 100; display: flex; flex-direction: column; align-items: center; gap: 15px; }
+.r-dpad { display: grid; grid-template-columns: repeat(3, 60px); grid-template-rows: repeat(2, 60px); gap: 10px; }
+.r-btn { width: 60px; height: 60px; border-radius: 50%; background: rgba(255,255,255,0.15); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); display: flex; align-items: center; justify-content: center; color: #fff; cursor: pointer; border: 1px solid rgba(255,255,255,0.2); transition: background 0.1s; }
+.r-btn:active { background: rgba(255,255,255,0.4); }
+.r-btn.up { grid-column: 2; grid-row: 1; }
+.r-btn.left { grid-column: 1; grid-row: 2; }
+.r-btn.down { grid-column: 2; grid-row: 2; }
+.r-btn.right { grid-column: 3; grid-row: 2; }
+
+/* 互动按键 */
+.r-action-btn { padding: 12px 40px; border-radius: 30px; background: #fff; color: #000; font-size: 16px; font-weight: 800; box-shadow: 0 4px 20px rgba(255,255,255,0.4); cursor: pointer; transition: transform 0.1s; animation: pulse 2s infinite; }
+.r-action-btn:active { transform: scale(0.95); }
+
+/* 进店后的 2D 对话/互动界面 */
+.r-interaction-modal { position: absolute; inset: 0; background: var(--bg-color); z-index: 200; display: flex; flex-direction: column; animation: slideUp 0.3s ease; }
+.r-im-hero { height: 40vh; background: #ddd; background-size: cover; background-position: center; position: relative; }
+.r-im-back { position: absolute; top: 20px; left: 20px; width: 40px; height: 40px; border-radius: 50%; background: rgba(0,0,0,0.5); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.r-im-body { flex: 1; padding: 25px; overflow-y: auto; }
+.r-im-title { font-size: 24px; font-weight: 800; color: var(--text-main); margin-bottom: 10px; }
+.r-im-desc { font-size: 14px; color: var(--text-sub); line-height: 1.6; margin-bottom: 20px; }

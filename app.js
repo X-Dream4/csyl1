@@ -1,3 +1,4 @@
+// file: app.js
 const { createApp, reactive, ref, onMounted, watch, computed, nextTick, defineComponent } = Vue;
 const defaultImg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect width='100' height='100' fill='%23dcdcdc'/%3E%3C/svg%3E";
 const defaultAvatar1 = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect width='100' height='100' fill='%23cccccc'/%3E%3C/svg%3E";
@@ -41,7 +42,7 @@ createApp({
             avatarCard2: { imgLeft: defaultAvatar1, textLeft: 'User C', imgRight: defaultAvatar2, textRight: 'User D', titleTop: 'Our Story', titleBottom: 'Together' },
             clockIcons: [...defaultClockIcons], clockBg: '', clockHandHr: '', clockHandMin: '', clockHandSec: '', clockCenterDot: '',
             topShowName: true, topHasShadow: false, appsTop: [{ id: 't1', name: 'Chat', icon: defaultImg }, { id: 't2', name: 'Blog', icon: defaultImg }, { id: 't3', name: 'Notes', icon: defaultImg }, { id: 't4', name: 'Music', icon: defaultImg }],
-            bottomShowName: true, bottomHasShadow: false, appsBottom: [{ id: 'b1', name: 'Call', icon: defaultImg }, { id: 'b2', name: 'App Store', icon: defaultImg }, { id: 'b3', name: 'Maps', icon: defaultImg }, { id: 'b4', name: 'Wallet', icon: defaultImg }],
+            bottomShowName: true, bottomHasShadow: false, appsBottom: [{ id: 'b1', name: 'Call', icon: defaultImg }, { id: 'b2', name: 'App Store', icon: defaultImg }, { id: 'b3', name: 'Maps', icon: defaultImg }, { id: 'b4', name: 'Roam', icon: defaultImg }], // Wallet -> Roam
             dockShowName: false, dockHasShadow: false, dockHidden: false, dockColor: '', dockOpacity: 0.5, dockBlur: 15,
             desktopLayout: ['capsule', 'row1', 'row2'], row1Layout: ['widget1', 'appsTop'], row2Layout: ['appsBottom', 'widget2'],
             appsDock: [{ id: 'd1', name: '设置', icon: defaultImg }, { id: 'd2', name: '人脉', icon: defaultImg }, { id: 'd3', name: '美化', icon: defaultImg }],
@@ -110,11 +111,14 @@ createApp({
                     
                     if(!savedState.row1Layout) savedState.row1Layout = ['widget1', 'appsTop'];
                     
-                    // 强制覆盖旧缓存中的 Weather 为 Call
+                    // 强制覆盖旧缓存中的 Weather 为 Call，Wallet 为 Roam
                     if (savedState.appsBottom) {
                         savedState.appsBottom.forEach(app => {
                             if (app.id === 'b1' && app.name === 'Weather') {
                                 app.name = 'Call';
+                            }
+                            if (app.id === 'b4' && app.name === 'Wallet') {
+                                app.name = 'Roam';
                             }
                         });
                     }
@@ -365,17 +369,17 @@ createApp({
             });
         };
 
-const gridDragInfo = reactive({ index: null, pageIndex: null, group: null });
-const dragOverInfo = reactive({ index: null, pageIndex: null, group: null });
-const hoverPreview = reactive({
-    show: false,
-    pageIndex: null,
-    left: 0,
-    top: 0,
-    width: 0,
-    height: 0
-});
-let edgeTimer = null;
+        const gridDragInfo = reactive({ index: null, pageIndex: null, group: null });
+        const dragOverInfo = reactive({ index: null, pageIndex: null, group: null });
+        const hoverPreview = reactive({
+            show: false,
+            pageIndex: null,
+            left: 0,
+            top: 0,
+            width: 0,
+            height: 0
+        });
+        let edgeTimer = null;
 
         const onGridDragStart = (e, index, pageIndex, group) => {
             if (!state.isEditingDesktop) return;
@@ -387,40 +391,40 @@ let edgeTimer = null;
         const onGridDragOver = (e, index, pageIndex, group) => {
             e.preventDefault();
             if (!state.isEditingDesktop || gridDragInfo.index === null) return;
- if (dragOverInfo.index !== index || dragOverInfo.group !== group || dragOverInfo.pageIndex !== pageIndex) {
-    dragOverInfo.index = index;
-    dragOverInfo.group = group;
-    dragOverInfo.pageIndex = pageIndex;
-}
+            if (dragOverInfo.index !== index || dragOverInfo.group !== group || dragOverInfo.pageIndex !== pageIndex) {
+                dragOverInfo.index = index;
+                dragOverInfo.group = group;
+                dragOverInfo.pageIndex = pageIndex;
+            }
 
-// 生成拖拽落点预览框
-if (group === 'desktop') {
-    const srcArr = gridDragInfo.group === 'desktop'
-        ? state.desktopPages[gridDragInfo.pageIndex]
-        : state.appsDock;
-    const draggedItem = srcArr && srcArr[gridDragInfo.index];
+            // 生成拖拽落点预览框
+            if (group === 'desktop') {
+                const srcArr = gridDragInfo.group === 'desktop'
+                    ? state.desktopPages[gridDragInfo.pageIndex]
+                    : state.appsDock;
+                const draggedItem = srcArr && srcArr[gridDragInfo.index];
 
-    const targetEl = e.currentTarget;
-    const pageEl = targetEl.closest('.true-grid-desktop');
+                const targetEl = e.currentTarget;
+                const pageEl = targetEl.closest('.true-grid-desktop');
 
-    if (draggedItem && targetEl && pageEl) {
-        const pageStyle = window.getComputedStyle(pageEl);
-        const cols = Number(state.gridCols || 4);
-        const gap = parseFloat(pageStyle.gap || 15);
-        const padLeft = parseFloat(pageStyle.paddingLeft || 16);
-        const padRight = parseFloat(pageStyle.paddingRight || 16);
-        const padTop = parseFloat(pageStyle.paddingTop || 20);
-        const rowH = parseFloat(pageStyle.gridAutoRows || (state.gridCols == 5 ? 64 : 80));
-        const cellW = (pageEl.clientWidth - padLeft - padRight - gap * (cols - 1)) / cols;
+                if (draggedItem && targetEl && pageEl) {
+                    const pageStyle = window.getComputedStyle(pageEl);
+                    const cols = Number(state.gridCols || 4);
+                    const gap = parseFloat(pageStyle.gap || 15);
+                    const padLeft = parseFloat(pageStyle.paddingLeft || 16);
+                    const padRight = parseFloat(pageStyle.paddingRight || 16);
+                    const padTop = parseFloat(pageStyle.paddingTop || 20);
+                    const rowH = parseFloat(pageStyle.gridAutoRows || (state.gridCols == 5 ? 64 : 80));
+                    const cellW = (pageEl.clientWidth - padLeft - padRight - gap * (cols - 1)) / cols;
 
-        hoverPreview.show = true;
-        hoverPreview.pageIndex = pageIndex;
-        hoverPreview.left = targetEl.offsetLeft;
-        hoverPreview.top = targetEl.offsetTop;
-        hoverPreview.width = draggedItem.w * cellW + (draggedItem.w - 1) * gap;
-        hoverPreview.height = draggedItem.h * rowH + (draggedItem.h - 1) * gap;
-    }
-}
+                    hoverPreview.show = true;
+                    hoverPreview.pageIndex = pageIndex;
+                    hoverPreview.left = targetEl.offsetLeft;
+                    hoverPreview.top = targetEl.offsetTop;
+                    hoverPreview.width = draggedItem.w * cellW + (draggedItem.w - 1) * gap;
+                    hoverPreview.height = draggedItem.h * rowH + (draggedItem.h - 1) * gap;
+                }
+            }
 
 
             // 边缘悬停翻页逻辑 (兼容触摸屏与鼠标)
@@ -445,17 +449,17 @@ if (group === 'desktop') {
 
         const onGridDragEnd = () => {
             gridDragInfo.index = null; gridDragInfo.pageIndex = null; gridDragInfo.group = null;
-dragOverInfo.index = null; dragOverInfo.pageIndex = null; dragOverInfo.group = null;
-hoverPreview.show = false;
-hoverPreview.pageIndex = null;
-if (edgeTimer) { clearTimeout(edgeTimer); edgeTimer = null; }
+            dragOverInfo.index = null; dragOverInfo.pageIndex = null; dragOverInfo.group = null;
+            hoverPreview.show = false;
+            hoverPreview.pageIndex = null;
+            if (edgeTimer) { clearTimeout(edgeTimer); edgeTimer = null; }
         };
 
         const onGridDrop = (e, targetIndex, targetPageIndex, targetGroup) => {
-dragOverInfo.index = null; dragOverInfo.pageIndex = null; dragOverInfo.group = null;
-hoverPreview.show = false;
-hoverPreview.pageIndex = null;
-if (edgeTimer) { clearTimeout(edgeTimer); edgeTimer = null; }
+            dragOverInfo.index = null; dragOverInfo.pageIndex = null; dragOverInfo.group = null;
+            hoverPreview.show = false;
+            hoverPreview.pageIndex = null;
+            if (edgeTimer) { clearTimeout(edgeTimer); edgeTimer = null; }
             if (!state.isEditingDesktop || gridDragInfo.index === null) return;
 
             const srcIdx = gridDragInfo.index;
@@ -516,125 +520,125 @@ if (edgeTimer) { clearTimeout(edgeTimer); edgeTimer = null; }
             }
         };
 
-const onEmptyGridDrop = (e, pageIndex) => {
-    if (edgeTimer) { clearTimeout(edgeTimer); edgeTimer = null; }
-    if (!state.isEditingDesktop || gridDragInfo.index === null) return;
+        const onEmptyGridDrop = (e, pageIndex) => {
+            if (edgeTimer) { clearTimeout(edgeTimer); edgeTimer = null; }
+            if (!state.isEditingDesktop || gridDragInfo.index === null) return;
 
-    const srcGroup = gridDragInfo.group;
-    const srcIdx = gridDragInfo.index;
-    const srcPageIdx = gridDragInfo.pageIndex;
-    const srcArr = srcGroup === 'desktop' ? state.desktopPages[srcPageIdx] : state.appsDock;
-    const targetPage = state.desktopPages[pageIndex];
+            const srcGroup = gridDragInfo.group;
+            const srcIdx = gridDragInfo.index;
+            const srcPageIdx = gridDragInfo.pageIndex;
+            const srcArr = srcGroup === 'desktop' ? state.desktopPages[srcPageIdx] : state.appsDock;
+            const targetPage = state.desktopPages[pageIndex];
 
-    if (!targetPage) return;
+            if (!targetPage) return;
 
-    // 优先：如果直接落在某个 empty 格上，就跟这个 empty 格对调
-    let dropIndex = -1;
-    const emptyCellEl = e.target.closest('.empty-grid-cell');
-    if (emptyCellEl) {
-        const cellWrap = emptyCellEl.closest('.grid-size-1x1');
-        const nodes = Array.from(e.currentTarget.children);
-        dropIndex = nodes.indexOf(cellWrap);
-    }
+            // 优先：如果直接落在某个 empty 格上，就跟这个 empty 格对调
+            let dropIndex = -1;
+            const emptyCellEl = e.target.closest('.empty-grid-cell');
+            if (emptyCellEl) {
+                const cellWrap = emptyCellEl.closest('.grid-size-1x1');
+                const nodes = Array.from(e.currentTarget.children);
+                dropIndex = nodes.indexOf(cellWrap);
+            }
 
-    if (dropIndex !== -1 && targetPage[dropIndex] && targetPage[dropIndex].type === 'empty') {
-        if (srcGroup === 'dock') {
-            const dockApp = srcArr[srcIdx];
-            targetPage[dropIndex] = createGridAppFromDockApp(dockApp);
-            srcArr.splice(srcIdx, 1);
-        } else {
-            const temp = srcArr[srcIdx];
-            srcArr[srcIdx] = targetPage[dropIndex];
-            targetPage[dropIndex] = temp;
-        }
-    } else {
-        // 如果是丢到页面空白区域，不再 push 到数组最后面
-        // 改为：自动找第一页里的第一个 empty 格来放
-        let firstEmptyIdx = targetPage.findIndex(i => i.type === 'empty');
-        if (firstEmptyIdx === -1) {
-            padPageWithEmptyCells(targetPage);
-            firstEmptyIdx = targetPage.findIndex(i => i.type === 'empty');
-        }
-        if (firstEmptyIdx === -1) {
-            alert('这个页面已经没有空位了');
+            if (dropIndex !== -1 && targetPage[dropIndex] && targetPage[dropIndex].type === 'empty') {
+                if (srcGroup === 'dock') {
+                    const dockApp = srcArr[srcIdx];
+                    targetPage[dropIndex] = createGridAppFromDockApp(dockApp);
+                    srcArr.splice(srcIdx, 1);
+                } else {
+                    const temp = srcArr[srcIdx];
+                    srcArr[srcIdx] = targetPage[dropIndex];
+                    targetPage[dropIndex] = temp;
+                }
+            } else {
+                // 如果是丢到页面空白区域，不再 push 到数组最后面
+                // 改为：自动找第一页里的第一个 empty 格来放
+                let firstEmptyIdx = targetPage.findIndex(i => i.type === 'empty');
+                if (firstEmptyIdx === -1) {
+                    padPageWithEmptyCells(targetPage);
+                    firstEmptyIdx = targetPage.findIndex(i => i.type === 'empty');
+                }
+                if (firstEmptyIdx === -1) {
+                    alert('这个页面已经没有空位了');
+                    gridDragInfo.index = null;
+                    gridDragInfo.pageIndex = null;
+                    gridDragInfo.group = null;
+                    hoverPreview.show = false;
+                    hoverPreview.pageIndex = null;
+                    return;
+                }
+
+                const movingItem = srcArr[srcIdx];
+                if (srcGroup === 'dock') {
+                    targetPage[firstEmptyIdx] = createGridAppFromDockApp(movingItem);
+                    srcArr.splice(srcIdx, 1);
+                } else {
+                    srcArr[srcIdx] = targetPage[firstEmptyIdx];
+                    targetPage[firstEmptyIdx] = movingItem;
+                }
+            }
+
             gridDragInfo.index = null;
             gridDragInfo.pageIndex = null;
             gridDragInfo.group = null;
             hoverPreview.show = false;
             hoverPreview.pageIndex = null;
-            return;
-        }
+            forceSave();
+        };
 
-        const movingItem = srcArr[srcIdx];
-        if (srcGroup === 'dock') {
-            targetPage[firstEmptyIdx] = createGridAppFromDockApp(movingItem);
-            srcArr.splice(srcIdx, 1);
-        } else {
-            srcArr[srcIdx] = targetPage[firstEmptyIdx];
-            targetPage[firstEmptyIdx] = movingItem;
-        }
-    }
+        const onDockDropArea = (e) => {
+            e.preventDefault();
+            if (!state.isEditingDesktop || gridDragInfo.index === null) return;
 
-    gridDragInfo.index = null;
-    gridDragInfo.pageIndex = null;
-    gridDragInfo.group = null;
-    hoverPreview.show = false;
-    hoverPreview.pageIndex = null;
-    forceSave();
-};
+            const srcGroup = gridDragInfo.group;
+            const srcIdx = gridDragInfo.index;
+            const srcPageIdx = gridDragInfo.pageIndex;
 
-const onDockDropArea = (e) => {
-    e.preventDefault();
-    if (!state.isEditingDesktop || gridDragInfo.index === null) return;
+            const srcArr = srcGroup === 'desktop' ? state.desktopPages[srcPageIdx] : state.appsDock;
+            if (!srcArr || !srcArr[srcIdx]) return;
 
-    const srcGroup = gridDragInfo.group;
-    const srcIdx = gridDragInfo.index;
-    const srcPageIdx = gridDragInfo.pageIndex;
+            const draggedItem = srcArr[srcIdx];
+            if (draggedItem.type !== 'app') {
+                alert('Dock 里只能放应用');
+                gridDragInfo.index = null;
+                gridDragInfo.pageIndex = null;
+                gridDragInfo.group = null;
+                hoverPreview.show = false;
+                hoverPreview.pageIndex = null;
+                return;
+            }
 
-    const srcArr = srcGroup === 'desktop' ? state.desktopPages[srcPageIdx] : state.appsDock;
-    if (!srcArr || !srcArr[srcIdx]) return;
+            const dockEl = e.currentTarget;
+            const rect = dockEl.getBoundingClientRect();
+            const relativeX = e.clientX - rect.left;
+            const slotWidth = rect.width / Math.max(state.appsDock.length, 1);
 
-    const draggedItem = srcArr[srcIdx];
-    if (draggedItem.type !== 'app') {
-        alert('Dock 里只能放应用');
-        gridDragInfo.index = null;
-        gridDragInfo.pageIndex = null;
-        gridDragInfo.group = null;
-        hoverPreview.show = false;
-        hoverPreview.pageIndex = null;
-        return;
-    }
+            let targetIdx = Math.floor(relativeX / slotWidth);
+            if (targetIdx < 0) targetIdx = 0;
+            if (targetIdx >= state.appsDock.length) targetIdx = state.appsDock.length - 1;
 
-    const dockEl = e.currentTarget;
-    const rect = dockEl.getBoundingClientRect();
-    const relativeX = e.clientX - rect.left;
-    const slotWidth = rect.width / Math.max(state.appsDock.length, 1);
+            const targetItem = state.appsDock[targetIdx];
+            if (!targetItem || targetItem.type === 'widget' || targetItem.type === 'capsule') {
+                alert('Dock 里只能放应用');
+                gridDragInfo.index = null;
+                gridDragInfo.pageIndex = null;
+                gridDragInfo.group = null;
+                hoverPreview.show = false;
+                hoverPreview.pageIndex = null;
+                return;
+            }
 
-    let targetIdx = Math.floor(relativeX / slotWidth);
-    if (targetIdx < 0) targetIdx = 0;
-    if (targetIdx >= state.appsDock.length) targetIdx = state.appsDock.length - 1;
+            srcArr[srcIdx] = targetItem;
+            state.appsDock[targetIdx] = draggedItem;
 
-    const targetItem = state.appsDock[targetIdx];
-    if (!targetItem || targetItem.type === 'widget' || targetItem.type === 'capsule') {
-        alert('Dock 里只能放应用');
-        gridDragInfo.index = null;
-        gridDragInfo.pageIndex = null;
-        gridDragInfo.group = null;
-        hoverPreview.show = false;
-        hoverPreview.pageIndex = null;
-        return;
-    }
-
-    srcArr[srcIdx] = targetItem;
-    state.appsDock[targetIdx] = draggedItem;
-
-    gridDragInfo.index = null;
-    gridDragInfo.pageIndex = null;
-    gridDragInfo.group = null;
-    hoverPreview.show = false;
-    hoverPreview.pageIndex = null;
-    forceSave();
-};
+            gridDragInfo.index = null;
+            gridDragInfo.pageIndex = null;
+            gridDragInfo.group = null;
+            hoverPreview.show = false;
+            hoverPreview.pageIndex = null;
+            forceSave();
+        };
 
         const openGridAddPanel = (type = 'widget') => {
             state.gridAddPanel.show = true;
@@ -805,6 +809,7 @@ const onDockDropArea = (e) => {
         const chatMomentMethods = window.useChatMomentLogic(state, chatMethods);
         const chatDetailMethods = window.useChatDetailLogic(state, chatMethods);
         const chatGroupMethods = window.useChatGroupLogic(state, chatMethods);
+        const roamMethods = window.useRoamLogic ? window.useRoamLogic(state) : {};
         
         const openApp = (app) => { 
             if (app.id === 't1') { state.activeApp = 'chat'; nextTick(() => { if(window.lucide) lucide.createIcons(); }); } 
@@ -813,6 +818,7 @@ const onDockDropArea = (e) => {
             else if (app.id === 'd1') { state.activeApp = 'settings'; nextTick(() => { if(window.lucide) lucide.createIcons(); settingsMethods.updateStorageInfo(); }); }
             else if (app.id === 'd2') { state.activeApp = 'contacts'; contactsMethods.contactsTab.value = 'chars'; contactsMethods.activeChar.value = null; nextTick(() => { if(window.lucide) lucide.createIcons(); }); }
             else if (app.id === 'b1' || app.id === 'app_weather' || app.id === 'app_call') { state.activeApp = 'phone'; nextTick(() => { if(window.lucide) lucide.createIcons(); }); }
+            else if (app.id === 'b4' || app.name === 'Roam') { state.activeApp = 'roam'; nextTick(() => { if(window.lucide) lucide.createIcons(); }); }
             else alert(`打开 [ ${app.name || '应用'} ] ...`); 
         };
         const closeApp = () => { state.activeApp = null; nextTick(() => { if(window.lucide) lucide.createIcons(); }); };
@@ -1534,6 +1540,6 @@ const onDockDropArea = (e) => {
 
         onMounted(() => { loadData(); requestAnimationFrame(updateClock); });
 
-        return { state, defaultImg, isThemeModalOpen, isClockModalOpen, isWidgetBadgeModalOpen, hrDeg, minDeg, secDeg, fileInput, widgetFileInput, currentWpIndex, currentDate, calendarGrid, getClockNumberStyle, setTheme, triggerUpload, handleFileChange, openApp, closeApp, editApp, restoreSystemAppsToDock, deleteGridItem, deleteDockApp, deleteGridPage, editClockUrl, resetClock, editCapsuleBgUrl, openWidgetBadge1Editor, chooseWidgetBadge1Image, onWidgetBadge1ColorChange, resetWidgetBadge1, addEmoji, clearEmojis, formatTime, formatDate, unlockState, onLockTouchStart, onLockTouchMove, onLockTouchEnd, verifyLockPwd, patternState, patternPathPoints, startPattern, movePattern, endPattern, forceSave, enterEditMode, exitEditMode, onDragStart, onDrop, onGridDragStart, onGridDragOver, onGridDragEnd, onGridDrop, onEmptyGridDrop, onDockDropArea, openGridAddPanel, confirmAddGridItem, getItemWidgetKind, getItemDataKey, getItemCustomPackageId, getGridItemWrapStyle, getCustomWidgetPackageById, getCustomWidgetComponentById, dragOverInfo, hoverPreview, moveLayoutUp, moveLayoutDown, swapRow1, swapRow2, desktopScrollRef, changePage, onDesktopScroll, saveCurrentWidgetAsPackage, applyWidgetPackage, deleteWidgetPackage, exportWidgetPackage, exportAllWidgetPackages, triggerWidgetImport, importWidgetPackages, exportWidgetAiGuideFile, ...beautifyMethods, ...settingsMethods, ...contactsMethods, ...chatMethods, ...chatMomentMethods, ...chatDetailMethods, ...chatGroupMethods, ...blogMethods, ...phoneMethods };
+        return { state, defaultImg, isThemeModalOpen, isClockModalOpen, isWidgetBadgeModalOpen, hrDeg, minDeg, secDeg, fileInput, widgetFileInput, currentWpIndex, currentDate, calendarGrid, getClockNumberStyle, setTheme, triggerUpload, handleFileChange, openApp, closeApp, editApp, restoreSystemAppsToDock, deleteGridItem, deleteDockApp, deleteGridPage, editClockUrl, resetClock, editCapsuleBgUrl, openWidgetBadge1Editor, chooseWidgetBadge1Image, onWidgetBadge1ColorChange, resetWidgetBadge1, addEmoji, clearEmojis, formatTime, formatDate, unlockState, onLockTouchStart, onLockTouchMove, onLockTouchEnd, verifyLockPwd, patternState, patternPathPoints, startPattern, movePattern, endPattern, forceSave, enterEditMode, exitEditMode, onDragStart, onDrop, onGridDragStart, onGridDragOver, onGridDragEnd, onGridDrop, onEmptyGridDrop, onDockDropArea, openGridAddPanel, confirmAddGridItem, getItemWidgetKind, getItemDataKey, getItemCustomPackageId, getGridItemWrapStyle, getCustomWidgetPackageById, getCustomWidgetComponentById, dragOverInfo, hoverPreview, moveLayoutUp, moveLayoutDown, swapRow1, swapRow2, desktopScrollRef, changePage, onDesktopScroll, saveCurrentWidgetAsPackage, applyWidgetPackage, deleteWidgetPackage, exportWidgetPackage, exportAllWidgetPackages, triggerWidgetImport, importWidgetPackages, exportWidgetAiGuideFile, ...beautifyMethods, ...settingsMethods, ...contactsMethods, ...chatMethods, ...chatMomentMethods, ...chatDetailMethods, ...chatGroupMethods, ...blogMethods, ...phoneMethods, ...roamMethods };
     }
 }).mount('#app');

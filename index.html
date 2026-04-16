@@ -3,11 +3,33 @@
 <head>
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"><title>Yl</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script><script src="https://unpkg.com/localforage@1.10.0/dist/localforage.min.js"></script><script src="https://unpkg.com/lucide@latest"></script>
-    <link rel="stylesheet" href="desktop.css"><link rel="stylesheet" href="beautify.css"><link rel="stylesheet" href="settings.css"><link rel="stylesheet" href="contacts.css"><link rel="stylesheet" href="chat.css"><link rel="stylesheet" href="chat-detail.css"><link rel="stylesheet" href="blog.css">
+    
+    <!-- 引入所有 CSS (新增了 roam.css) -->
+    <link rel="stylesheet" href="desktop.css">
+    <link rel="stylesheet" href="beautify.css">
+    <link rel="stylesheet" href="settings.css">
+    <link rel="stylesheet" href="contacts.css">
+    <link rel="stylesheet" href="chat.css">
+    <link rel="stylesheet" href="chat-detail.css">
+    <link rel="stylesheet" href="blog.css">
     <link rel="stylesheet" href="chat-moment.css">
     <link rel="stylesheet" href="chat-group.css">
     <link rel="stylesheet" href="call.css">
-    <script src="beautify.js" defer></script><script src="settings.js" defer></script><script src="contacts.js" defer></script><script src="chat.js" defer></script><script src="chat-moment.js" defer></script><script src="chat-detail.js" defer></script><script src="chat-group.js" defer></script><script src="blog.js" defer></script><script src="call.js" defer></script><script src="app.js" defer></script>
+    <link rel="stylesheet" href="roam.css"> 
+
+    <!-- 引入所有 JS (新增了 roam.js，并且放在 app.js 前面) -->
+    <script src="beautify.js" defer></script>
+    <script src="settings.js" defer></script>
+    <script src="contacts.js" defer></script>
+    <script src="chat.js" defer></script>
+    <script src="chat-moment.js" defer></script>
+    <script src="chat-detail.js" defer></script>
+    <script src="chat-group.js" defer></script>
+    <script src="blog.js" defer></script>
+    <script src="call.js" defer></script>
+    <script src="roam.js" defer></script> 
+    <script src="app.js" defer></script>
+    
     <style>
         @keyframes jiggle { 0% { transform: rotate(-2deg); } 50% { transform: rotate(2deg); } 100% { transform: rotate(-2deg); } }
         /* 让所有组件和应用都在抖动模式下生效 */
@@ -65,22 +87,22 @@
         }
 
         /* --- 全新桌面 Grid 引擎 --- */
-.true-grid-desktop {
-    display: grid;
-    grid-template-columns: repeat(var(--grid-cols, 4), 1fr);
-    grid-auto-rows: var(--grid-row-h, 80px);
-    grid-auto-flow: dense;
-    gap: 15px;
-    padding: 20px 16px 56px;
-    width: 100%;
-    height: 100%;
-    box-sizing: border-box;
-    overflow-y: hidden;
-    flex: 1;
-    align-content: start;
-    transition: background 0.3s;
-    position: relative;
-}
+        .true-grid-desktop {
+            display: grid;
+            grid-template-columns: repeat(var(--grid-cols, 4), 1fr);
+            grid-auto-rows: var(--grid-row-h, 80px);
+            grid-auto-flow: dense;
+            gap: 15px;
+            padding: 20px 16px 56px;
+            width: 100%;
+            height: 100%;
+            box-sizing: border-box;
+            overflow-y: hidden;
+            flex: 1;
+            align-content: start;
+            transition: background 0.3s;
+            position: relative;
+        }
 
         /* 抖动模式下显示底纹辅助网格 */
         .is-editing.true-grid-desktop {
@@ -108,20 +130,20 @@
             transition: all 0.2s ease;
         }
         
-.grid-drop-preview {
-    position: absolute;
-    border-radius: 22px;
-    background: rgba(120, 120, 120, 0.16);
-    box-shadow: inset 0 0 0 2px rgba(120, 120, 120, 0.55), 0 0 14px rgba(120, 120, 120, 0.18);
-    pointer-events: none;
-    z-index: 2;
-    transition: all 0.08s ease;
-}
+        .grid-drop-preview {
+            position: absolute;
+            border-radius: 22px;
+            background: rgba(120, 120, 120, 0.16);
+            box-shadow: inset 0 0 0 2px rgba(120, 120, 120, 0.55), 0 0 14px rgba(120, 120, 120, 0.18);
+            pointer-events: none;
+            z-index: 2;
+            transition: all 0.08s ease;
+        }
 
-.dark-mode .grid-drop-preview {
-    background: rgba(255,255,255,0.12);
-    box-shadow: inset 0 0 0 2px rgba(255,255,255,0.42), 0 0 18px rgba(255,255,255,0.18);
-}
+        .dark-mode .grid-drop-preview {
+            background: rgba(255,255,255,0.12);
+            box-shadow: inset 0 0 0 2px rgba(255,255,255,0.42), 0 0 18px rgba(255,255,255,0.18);
+        }
 
         .dark-mode .drag-target { background-color: rgba(255, 255, 255, 0.15) !important; box-shadow: 0 0 20px rgba(255, 255, 255, 0.2); }
 
@@ -152,7 +174,7 @@
 </head>
 
 <body>
-<div id="app">
+<div id="app" :class="{'dark-mode': state.theme === 'dark'}" style="width: 100vw; height: 100vh; background-color: var(--bg-color); position: fixed; inset: 0;">
     <!-- 新增：抖动模式下的完成按钮 -->
     <div v-if="state.isEditingDesktop && state.activeApp === null" class="desktop-done-btn" @click="exitEditMode">完成</div>
     <div v-if="state.isEditingDesktop && state.activeApp === null" class="desktop-done-btn" style="right:96px; padding:6px 12px; font-size:12px; opacity:0.92;" @click="restoreSystemAppsToDock">恢复APP</div>
@@ -1858,6 +1880,57 @@
         <div class="c-modal-centered" v-if="chatState.modals.newFriends" @click.self="chatState.modals.newFriends = false"><div class="c-modal-centered-content" style="padding:0; overflow:hidden;"><div style="padding:15px; text-align:center; font-weight:700; border-bottom:1px solid rgba(150,150,150,0.1);">新的朋友</div><div style="max-height:400px; overflow-y:auto; padding:15px;"><div v-if="myFriendRequests.length === 0" class="c-empty">暂无好友申请</div><div class="ca-req-item" v-for="req in myFriendRequests" :key="req.id"><div class="ca-req-header"><div class="ca-req-user"><img :src="state.contactsData.characters?.find(c => c.id === req.fromId)?.avatar || state.contactsData.myPersonas?.find(c => c.id === req.fromId)?.avatar || state.contactsData.npcs?.find(c => c.id === req.fromId)?.avatar || defaultImg" class="ca-req-avatar">
 <span class="ca-req-name">{{ chatDb.accounts[req.fromId]?.profile?.nickname || state.contactsData.characters?.find(c => c.id === req.fromId)?.name || '未知用户' }}</span></div><div class="ca-req-status" v-if="req.status !== 'pending'">{{ req.status === 'accepted' ? '已添加' : '已拒绝' }}</div></div><div class="ca-req-text">“{{ req.text }}”</div><div class="ca-req-actions" v-if="req.status === 'pending'"><button class="ca-req-btn reject" @click="req.status = 'rejected'">拒绝</button><button class="ca-req-btn accept" @click="acceptFriendRequest(req)">同意</button></div></div></div></div></div>
     </div>
+
+<!-- Roam 漫游大世界 APP 视图 -->
+<div v-show="state.activeApp === 'roam'" class="roam-app">
+    <!-- 顶栏 -->
+    <div class="r-header">
+        <div class="r-nav" @click="closeApp"><i data-lucide="chevron-left" style="width:24px;"></i> 离开</div>
+        <div class="r-title">{{ currentMapName }}</div>
+        <div style="width: 60px;"></div>
+    </div>
+
+    <!-- 伪 3D 渲染视口 (加入了第一人称双层相机嵌套) -->
+    <div class="r-viewport">
+        <div class="r-eye">
+            <div class="r-camera-rotate" :style="cameraRotateStyle">
+                <div class="r-camera-translate" :style="cameraTranslateStyle">
+                    <!-- 渲染周围的墙壁贴图 -->
+                    <div v-for="plane in renderPlanes" :key="plane.id" class="r-plane" :class="'plane-' + plane.type" :style="plane.style">
+                        {{ plane.title }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 操作盘 -->
+    <div class="r-controls">
+        <div v-if="currentAction" class="r-action-btn" @click="doAction">{{ currentAction.label }}</div>
+        
+        <div class="r-dpad">
+            <div class="r-btn up" @click="moveForward"><i data-lucide="arrow-up"></i></div>
+            <div class="r-btn left" @click="turnLeft"><i data-lucide="rotate-ccw"></i></div>
+            <div class="r-btn right" @click="turnRight"><i data-lucide="rotate-cw"></i></div>
+            <div class="r-btn down" @click="moveBackward"><i data-lucide="arrow-down"></i></div>
+        </div>
+    </div>
+
+    <!-- 进店后的 2D 互动界面 (与 AI 联动) -->
+    <div class="r-interaction-modal" v-if="roamState.activeInteraction">
+        <div class="r-im-hero" :class="'plane-' + roamState.activeInteraction.action.replace('enter_', 'shop_')">
+            <div class="r-im-back" @click="roamState.activeInteraction = null"><i data-lucide="x"></i></div>
+        </div>
+        <div class="r-im-body">
+            <div class="r-im-title">{{ roamState.activeInteraction.label }}</div>
+            <div class="r-im-desc">
+                你进入了这里。接下来可以在此接入商品列表购买，或者触发基于当前场景的 AI 约会对话逻辑。
+                (此处将联动你的 Wallet 扣费，以及与 AI 进行沉浸式约会文字冒险。)
+            </div>
+            <button class="c-add-rel-btn" style="background:var(--text-main); color:var(--bg-color); margin-top: 20px;" @click="roamState.activeInteraction = null">离开店铺</button>
+        </div>
+    </div>
+</div>
 
     <!-- Blog APP 视图 -->
     <div v-show="state.activeApp === 'blog'" class="blog-app" :class="{'dark-mode': state.theme === 'dark'}">
