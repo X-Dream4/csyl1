@@ -16,15 +16,18 @@
 .ca-msg-row.me { flex-direction: row-reverse; }
 .ca-msg-avatar { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; border: none; background: var(--widget-bg-solid); box-shadow: 0 2px 8px rgba(0,0,0,.05); flex-shrink: 0; }
 .ca-msg-bubble { min-height: 1px; display: flex; flex-direction: column; justify-content: center; padding: 9px 14px; box-sizing: border-box; font-size: 14px; background: var(--widget-bg-solid); color: var(--text-main); border-radius: 15px; word-break: break-word; white-space: pre-wrap; box-shadow: 0 2px 12px rgba(0,0,0,.02); line-height: 1.55; cursor: pointer; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
-.ca-msg-trans { margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(150,150,150,.3); font-size: 12px; opacity: .82; }
 
-/* ======== 新增状态栏气泡输出样式 ======== */
-.ca-msg-status-bar {
-    width: 100%;
-    margin-top: 6px;
-    padding-top: 6px;
-    border-top: 1px dashed rgba(150,150,150,0.3);
+.ca-msg-trans { 
+    margin-top: 6px; 
+    padding-top: 6px; 
+    border-top: 1px dashed rgba(150,150,150,.3); 
+    font-size: 12px; 
+    opacity: .82; 
+    /* 已按要求移除动画效果，实现瞬时弹出 */
 }
+
+/* 状态栏气泡输出样式 */
+.ca-msg-status-bar { width: 100%; margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(150,150,150,0.3); }
 
 .ca-detail-header { position: absolute; top: 0; left: 0; right: 0; height: 84px; background: rgba(255,255,255,0.45); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); display: flex; align-items: center; justify-content: space-between; padding: 0 16px; z-index: 20; pointer-events: none; border-bottom: 1px solid rgba(150,150,150,0.1); }
 .dark-mode .ca-detail-header { background: rgba(30,30,30,0.45); border-bottom: 1px solid rgba(255,255,255,0.05); }
@@ -62,6 +65,7 @@
 .ca-menu-text { font-size: 11px; color: var(--text-sub); font-weight: 500; }
 
 .ca-ds-wrap { position: fixed; inset: 0; background: var(--bg-color); z-index: 220; display: flex; flex-direction: column; animation: slideUpMini .25s ease; }
+
 .ca-ds-topbar { height: 56px; display: flex; align-items: center; justify-content: space-between; padding: 10px 14px 0; }
 .ca-ds-back { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--text-sub); cursor: pointer; }
 .ca-ds-top-title { flex: 1; text-align: center; font-size: 15px; font-weight: 700; color: var(--text-main); }

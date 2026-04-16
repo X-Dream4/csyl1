@@ -478,6 +478,9 @@ window.useChatDetailLogic = function(state, chatMethods) {
     const activeMessages = computed(() => {
         const conv = activeRawConv.value;
         if (!conv) return [];
+        // 【核心修复】引入 triggerSync 依赖，确保点击气泡后 UI 立即重绘
+        const _dummy = chatDb.value.triggerSync; 
+        
         const msgs = safeArr(conv.messages).map(m => {
             let processedMsg = { ...m };
             if (conv.type === 'group' && m.senderId !== chatState.currentUser?.id && m.type !== 'sys') {
@@ -486,7 +489,6 @@ window.useChatDetailLogic = function(state, chatMethods) {
                 processedMsg.senderDisplayName = p?.chatName || p?.name || '未知';
             }
             if (processedMsg.statusBarText) {
-                // 优先读取已固化在底层的 HTML，没有则用最新的模板生成
                 processedMsg.statusBarRenderedHtml = processedMsg.statusBarRenderedHtml || renderStatusBarHTML(processedMsg);
             }
             return processedMsg;
@@ -611,7 +613,21 @@ window.useChatDetailLogic = function(state, chatMethods) {
     };
 
     const toggleSelectMsg = (msg, event) => {
-        if (!chatState.isMultiSelectMode) { msg.showTrans = !msg.showTrans; return; }
+        // 【核心修复】如果不是多选模式，点击气泡应该展开翻译
+        if (!chatState.isMultiSelectMode) {
+            const conv = activeRawConv.value;
+            if (conv && conv.messages) {
+                // 修改原始数据库数组中的对象，而不是修改 computed 返回的副本
+                const realMsg = conv.messages.find(m => m.id === msg.id);
+                if (realMsg) {
+                    realMsg.showTrans = !realMsg.showTrans;
+                    // 【核心修复】修改完原始数据后，手动触发同步标识，通知所有关联 UI 刷新
+                    chatDb.value.triggerSync = Date.now();
+                }
+            }
+            return; 
+        }
+        
         if (event) event.stopPropagation();
         const idx = chatState.selectedMsgIds.indexOf(msg.id);
         if (idx > -1) chatState.selectedMsgIds.splice(idx, 1);
